@@ -14,6 +14,33 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for BackupInfoOrigin.
+const (
+	BackupInfoOriginAutomatic    BackupInfoOrigin = "automatic"
+	BackupInfoOriginCli          BackupInfoOrigin = "cli"
+	BackupInfoOriginManual       BackupInfoOrigin = "manual"
+	BackupInfoOriginPreMigration BackupInfoOrigin = "pre-migration"
+	BackupInfoOriginPreRestore   BackupInfoOrigin = "pre-restore"
+)
+
+// Valid indicates whether the value is a known member of the BackupInfoOrigin enum.
+func (e BackupInfoOrigin) Valid() bool {
+	switch e {
+	case BackupInfoOriginAutomatic:
+		return true
+	case BackupInfoOriginCli:
+		return true
+	case BackupInfoOriginManual:
+		return true
+	case BackupInfoOriginPreMigration:
+		return true
+	case BackupInfoOriginPreRestore:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EngineHealthId.
 const (
 	Clamav EngineHealthId = "clamav"
@@ -390,6 +417,31 @@ type AuthChallenge struct {
 	// Parameters Parâmetros do desafio ALTCHA v2 (algoritmo, nonce, salt, custo, expiração)
 	Parameters map[string]interface{} `json:"parameters"`
 	Signature  string                 `json:"signature"`
+}
+
+// BackupInfo defines model for BackupInfo.
+type BackupInfo struct {
+	CreatedAt time.Time        `json:"created_at"`
+	Name      string           `json:"name"`
+	Origin    BackupInfoOrigin `json:"origin"`
+
+	// Product Versão do VigiaHost que fez a cópia
+	Product       string `json:"product"`
+	SchemaVersion int64  `json:"schema_version"`
+	Sha256        string `json:"sha256"`
+	Size          int64  `json:"size"`
+}
+
+// BackupInfoOrigin defines model for BackupInfo.Origin.
+type BackupInfoOrigin string
+
+// BackupList defines model for BackupList.
+type BackupList struct {
+	Backups   []BackupInfo `json:"backups"`
+	Directory string       `json:"directory"`
+
+	// KeepAutomatic Quantas cópias automáticas diárias ficam guardadas
+	KeepAutomatic int `json:"keep_automatic"`
 }
 
 // CodeRequest defines model for CodeRequest.
@@ -1234,6 +1286,12 @@ type ServerInterface interface {
 	// SetupFirstAdmin Primeiro acesso — cria o administrador com o token exibido no terminal
 	// (POST /api/v1/auth/setup)
 	SetupFirstAdmin(w http.ResponseWriter, r *http.Request)
+	// ListBackups Cópias do banco do core (administrador)
+	// (GET /api/v1/backups)
+	ListBackups(w http.ResponseWriter, r *http.Request)
+	// CreateBackup Faz uma cópia manual do banco agora (exige reautenticação)
+	// (POST /api/v1/backups)
+	CreateBackup(w http.ResponseWriter, r *http.Request)
 	// GetEngines Saúde dos motores (versões, assinaturas, autoteste da última execução)
 	// (GET /api/v1/engines)
 	GetEngines(w http.ResponseWriter, r *http.Request)
@@ -1541,6 +1599,34 @@ func (siw *ServerInterfaceWrapper) SetupFirstAdmin(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SetupFirstAdmin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListBackups operation middleware
+func (siw *ServerInterfaceWrapper) ListBackups(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListBackups(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateBackup operation middleware
+func (siw *ServerInterfaceWrapper) CreateBackup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateBackup(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2650,6 +2736,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/tokens", wrapper.ListApiTokens)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/tokens", wrapper.CreateApiToken)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/tokens/{id}", wrapper.RevokeApiToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/backups", wrapper.ListBackups)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/backups", wrapper.CreateBackup)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/audit", wrapper.ListAudit)
 
 	return m

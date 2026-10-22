@@ -1,4 +1,4 @@
-// Comando vigiahost: serviço web (serve), instalação (setup), diagnóstico (doctor), acesso (first-access, user reset) e versão.
+// Comando vigiahost: serviço web (serve), instalação (setup), diagnóstico (doctor), acesso (first-access, user reset), cópias do banco (backup) e versão.
 package main
 
 import (
@@ -16,6 +16,7 @@ Comandos:
   doctor        verifica o sistema, os motores e a conexão com o executor
   first-access  mostra o token de primeiro acesso ao painel (root)
   user reset    gera token de recuperação de acesso de um usuário (root)
+  backup        create/list/restore: cópias do banco do serviço (root)
   version       mostra a versão
 
 Use "vigiahost <comando> -h" para ver as opções de cada comando.
@@ -37,6 +38,8 @@ func main() {
 		os.Exit(runFirstAccess(os.Args[2:]))
 	case "user":
 		os.Exit(runUser(os.Args[2:]))
+	case "backup":
+		os.Exit(runBackup(os.Args[2:]))
 	case "version", "--version", "-v":
 		fmt.Printf("vigiahost %s (commit %s, %s), protocolo %d.%d\n",
 			version.Version, version.Commit, version.Date, version.ProtocolMajor, version.ProtocolMinor)

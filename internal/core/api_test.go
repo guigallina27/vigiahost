@@ -84,9 +84,10 @@ func newTestAPI(t *testing.T) *testAPI {
 	captcha := auth.NewCaptcha()
 	captcha.Cost, captcha.CounterMin, captcha.CounterMax = 10, 5, 20
 	s := &Server{Captcha: captcha, Logger: logger, Version: "0.0.1", DB: db, Hub: hub, Exec: fx,
-		Probe: func(context.Context) ExecutorStatus { return ExecutorStatus{Connected: true} },
-		Auth:  &auth.Service{DB: db, Logger: logger, FailLog: io.Discard, Config: auth.Config{Sleep: func(time.Duration) {}}},
-		Orch:  &orchestrator.Service{DB: db, Exec: fx, Hub: hub, Logger: logger}}
+		BackupDir: filepath.Join(t.TempDir(), "backups"),
+		Probe:     func(context.Context) ExecutorStatus { return ExecutorStatus{Connected: true} },
+		Auth:      &auth.Service{DB: db, Logger: logger, FailLog: io.Discard, Config: auth.Config{Sleep: func(time.Duration) {}}},
+		Orch:      &orchestrator.Service{DB: db, Exec: fx, Hub: hub, Logger: logger}}
 	return &testAPI{srv: s, h: s.Handler(), db: db, now: &now, exec: fx}
 }
 
@@ -422,6 +423,28 @@ func TestFluxoCompletoPeloHTTP(t *testing.T) {
 }
 
 func itoa(v int64) string { return strconv.FormatInt(v, 10) }
+
+func TestCopiaManualDoBancoPelaAPI(t *testing.T) {
+	a := newTestAPI(t)
+	cookie := a.sessionFor(t, store.RoleAdmin, true)
+	rec := a.do(t, "POST", "/api/v1/backups", "", cookie, "")
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("criar cópia: %d %s", rec.Code, rec.Body)
+	}
+	info := decodeBody[api.BackupInfo](t, rec)
+	if info.Origin != api.BackupInfoOriginManual || len(info.Sha256) != 64 || info.SchemaVersion < 1 {
+		t.Fatalf("cópia: %+v", info)
+	}
+	rec = a.do(t, "GET", "/api/v1/backups", "", cookie, "")
+	list := decodeBody[api.BackupList](t, rec)
+	if rec.Code != http.StatusOK || len(list.Backups) != 1 || list.Backups[0].Name != info.Name {
+		t.Fatalf("lista: %d %+v", rec.Code, list)
+	}
+	page, err := a.db.ListAudit(context.Background(), 0, 10)
+	if err != nil || len(page) == 0 || page[0].Action != "backup.create" {
+		t.Fatalf("auditoria da cópia: %+v (%v)", page, err)
+	}
+}
 
 func TestSSEEntregaEventos(t *testing.T) {
 	a := newTestAPI(t)

@@ -16,6 +16,7 @@ import (
 	_ "time/tzdata" // fusos IANA embarcados: os agendamentos não dependem do tzdata do sistema
 
 	"github.com/guigallina27/vigiahost/internal/auth"
+	"github.com/guigallina27/vigiahost/internal/backup"
 	"github.com/guigallina27/vigiahost/internal/core"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
@@ -79,6 +80,16 @@ func runServe(args []string) int {
 		return 1
 	}
 	defer func() { _ = raw.Close() }()
+	backupDir := filepath.Join(filepath.Dir(*dbPath), "backups")
+	// Cópia antes de migrar (escopo, seção 15): permite voltar ao estado anterior se a migração der errado.
+	if cur, err := store.SchemaVersion(ctx, raw); err == nil && cur > 0 && cur < store.LatestSchema() {
+		info, err := backup.Create(ctx, raw, backupDir, "pre-migration", time.Now())
+		if err != nil {
+			logger.Error("cópia antes da migração falhou; a migração não foi feita", "erro", err)
+			return 1
+		}
+		logger.Info("cópia do banco antes da migração", "arquivo", info.Name)
+	}
 	mig, err := store.Migrate(ctx, raw)
 	if err != nil {
 		logger.Error("falha ao migrar o banco", "erro", err)
@@ -127,7 +138,7 @@ func runServe(args []string) int {
 
 	srv := &core.Server{Logger: logger, Version: version.Version, Probe: core.ProbeExecutor(*socket, localHello()),
 		UI: webui.Handler(), DB: db, Auth: authSvc, Captcha: auth.NewCaptcha(), Orch: orch, Hub: hub, Exec: exec, TrustProxy: *trustProxy,
-		HSTS: validCert, FirstAccessFile: firstAccess}
+		HSTS: validCert, FirstAccessFile: firstAccess, BackupDir: backupDir}
 	httpSrv := core.NewHTTPServer(*listen, srv.Handler(), logger)
 	httpSrv.TLSConfig = tlsConf
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
@@ -137,7 +148,7 @@ func runServe(args []string) int {
 	}
 
 	go orch.Run(ctx)
-	go housekeeping(ctx, db, logger)
+	go housekeeping(ctx, db, backupDir, logger)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -195,18 +206,42 @@ func ensureFirstAccess(ctx context.Context, a *auth.Service, path string, logger
 	return nil
 }
 
-// housekeeping remove sessões vencidas periodicamente.
-func housekeeping(ctx context.Context, db *store.DB, logger *slog.Logger) {
+// housekeeping remove sessões vencidas e faz a cópia automática diária do banco.
+func housekeeping(ctx context.Context, db *store.DB, backupDir string, logger *slog.Logger) {
 	t := time.NewTicker(10 * time.Minute)
 	defer t.Stop()
 	for {
 		if err := db.PurgeExpiredSessions(ctx, 30*time.Minute); err != nil && ctx.Err() == nil {
 			logger.Warn("limpeza de sessões falhou", "erro", err)
 		}
+		dailyBackup(ctx, db, backupDir, logger)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
 	}
+}
+
+// dailyBackup faz uma cópia automática por dia (VACUUM INTO, sem parar o serviço) e aplica a retenção.
+func dailyBackup(ctx context.Context, db *store.DB, dir string, logger *slog.Logger) {
+	list, err := backup.List(dir)
+	if err != nil {
+		logger.Warn("lista de cópias do banco ilegível", "erro", err)
+		return
+	}
+	for _, i := range list {
+		if i.Origin == "automatic" && time.Since(i.CreatedAt) < 24*time.Hour {
+			return
+		}
+	}
+	info, err := backup.Create(ctx, db.DB, dir, "automatic", time.Now())
+	if err != nil {
+		if ctx.Err() == nil {
+			logger.Error("cópia automática do banco falhou", "erro", err)
+		}
+		return
+	}
+	n, _ := backup.Prune(dir, backup.KeepAutomatic)
+	logger.Info("cópia automática do banco", "arquivo", info.Name, "bytes", info.Size, "antigas_removidas", n)
 }

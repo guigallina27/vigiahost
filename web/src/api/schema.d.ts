@@ -690,6 +690,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cópias do banco do core (administrador) */
+        get: operations["listBackups"];
+        put?: never;
+        /**
+         * Faz uma cópia manual do banco agora (exige reautenticação)
+         * @description Cópia consistente com VACUUM INTO, sem parar o serviço. A restauração não é feita pela interface: exige parar o serviço e rodar "vigiahost backup restore" como root.
+         */
+        post: operations["createBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit": {
         parameters: {
             query?: never;
@@ -1351,6 +1372,26 @@ export interface components {
             /** @description Exibido uma vez; guardado só por hash */
             token: string;
             info: components["schemas"]["ApiToken"];
+        };
+        BackupInfo: {
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: int64 */
+            size: number;
+            sha256: string;
+            /** Format: int64 */
+            schema_version: number;
+            /** @description Versão do VigiaHost que fez a cópia */
+            product: string;
+            /** @enum {string} */
+            origin: "automatic" | "manual" | "cli" | "pre-migration" | "pre-restore";
+        };
+        BackupList: {
+            directory: string;
+            /** @description Quantas cópias automáticas diárias ficam guardadas */
+            keep_automatic: number;
+            backups: components["schemas"]["BackupInfo"][];
         };
         AuditEntry: {
             /** Format: int64 */
@@ -2610,6 +2651,51 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listBackups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cópias, da mais nova para a mais antiga */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cópia criada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupInfo"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
         };
     };
     listAudit: {

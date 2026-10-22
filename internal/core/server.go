@@ -75,6 +75,8 @@ type Server struct {
 	// FirstAccessFile guarda o token de primeiro acesso (lido pelo root com "vigiahost first-access"); é apagado
 	// quando o primeiro administrador é criado.
 	FirstAccessFile string
+	// BackupDir guarda as cópias do banco (automáticas, manuais e de antes de migrar ou restaurar).
+	BackupDir string
 
 	engMu    sync.Mutex
 	engCache *engineCache

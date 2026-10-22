@@ -74,3 +74,30 @@ func Migrate(ctx context.Context, db *sql.DB) (MigrationResult, error) {
 	}
 	return MigrationResult{From: current, To: after}, nil
 }
+
+// LatestSchema é a versão mais nova do esquema embarcada neste binário.
+func LatestSchema() int64 {
+	ents, err := fs.ReadDir(migrations, "migrations")
+	if err != nil {
+		return 0
+	}
+	var latest int64
+	for _, e := range ents {
+		var v int64
+		if _, err := fmt.Sscanf(e.Name(), "%d_", &v); err == nil && v > latest {
+			latest = v
+		}
+	}
+	return latest
+}
+
+// SchemaVersion lê a versão aplicada ao banco (0 em banco novo).
+func SchemaVersion(ctx context.Context, db *sql.DB) (int64, error) {
+	var exists int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'goose_db_version'`).Scan(&exists); err != nil || exists == 0 {
+		return 0, err
+	}
+	var v sql.NullInt64
+	err := db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM goose_db_version WHERE is_applied`).Scan(&v)
+	return v.Int64, err
+}

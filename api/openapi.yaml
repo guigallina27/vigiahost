@@ -783,6 +783,35 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/backups:
+    get:
+      operationId: listBackups
+      summary: Cópias do banco do core (administrador)
+      tags: [administracao]
+      responses:
+        "200":
+          description: Cópias, da mais nova para a mais antiga
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createBackup
+      summary: Faz uma cópia manual do banco agora (exige reautenticação)
+      description: >
+        Cópia consistente com VACUUM INTO, sem parar o serviço. A restauração não é feita pela interface: exige parar o
+        serviço e rodar "vigiahost backup restore" como root.
+      tags: [administracao]
+      responses:
+        "201":
+          description: Cópia criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupInfo" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
   /api/v1/audit:
     get:
       operationId: listAudit
@@ -1620,6 +1649,30 @@ components:
       properties:
         token: { type: string, description: Exibido uma vez; guardado só por hash }
         info: { $ref: "#/components/schemas/ApiToken" }
+    BackupInfo:
+      type: object
+      additionalProperties: false
+      required: [name, created_at, size, sha256, schema_version, product, origin]
+      properties:
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        schema_version: { type: integer, format: int64 }
+        product: { type: string, description: Versão do VigiaHost que fez a cópia }
+        origin:
+          type: string
+          enum: [automatic, manual, cli, pre-migration, pre-restore]
+    BackupList:
+      type: object
+      additionalProperties: false
+      required: [directory, keep_automatic, backups]
+      properties:
+        directory: { type: string }
+        keep_automatic: { type: integer, description: Quantas cópias automáticas diárias ficam guardadas }
+        backups:
+          type: array
+          items: { $ref: "#/components/schemas/BackupInfo" }
     AuditEntry:
       type: object
       additionalProperties: false
