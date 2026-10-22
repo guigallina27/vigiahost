@@ -1,0 +1,40 @@
+{
+  "_comentario": "Corpus benigno para medir falsos positivos (escopo, seção 20). Baixado na hora do teste e conferido pelo SHA-256; nada disto é redistribuído pelo projeto. SHA-256 calculados em 22/10/2026 e conferidos com as somas publicadas quando o projeto as publica (WordPress: SHA-1; phpMyAdmin: SHA-256).",
+  "packages": [
+    {
+      "name": "wordpress",
+      "version": "7.1.3",
+      "url": "https://wordpress.org/wordpress-7.1.3.tar.gz",
+      "sha256": "d2a09acb6a15e3b9c471d72557753c266d6f41a79ed19bfe04cbfe49e283b2a5",
+      "size": 35368461
+    },
+    {
+      "name": "woocommerce",
+      "version": "11.2.1",
+      "url": "https://downloads.wordpress.org/plugin/woocommerce.11.2.1.zip",
+      "sha256": "5317434cb381b5fdc7c1dd6ee258324f08c390976aaf8d1199f2a0e9a3ab8586",
+      "size": 18060641
+    },
+    {
+      "name": "joomla",
+      "version": "6.2.0",
+      "url": "https://github.com/joomla/joomla-cms/releases/download/6.2.0/Joomla_6.2.0-Stable-Full_Package.tar.gz",
+      "sha256": "f7a4c3962c4a8682f5847ea9d47d2848f6eb475109805935c9e19a5c6511829d",
+      "size": 28645199
+    },
+    {
+      "name": "drupal",
+      "version": "11.4.11",
+      "url": "https://ftp.drupal.org/files/projects/drupal-11.4.11.tar.gz",
+      "sha256": "f6935da6ddfb2b3bf5c79c5118018be91021f7d5e12901eed1a71de140708e13",
+      "size": 23215761
+    },
+    {
+      "name": "phpmyadmin",
+      "version": "5.2.3",
+      "url": "https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.tar.gz",
+      "sha256": "12ba1c425fa4071abbd4e7668c9ebdeac0b0755a467a6d6d5026122bb47c102b",
+      "size": 14446385
+    }
+  ]
+}

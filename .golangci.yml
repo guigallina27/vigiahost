@@ -28,6 +28,14 @@ linters:
       # Testes usam caminhos e permissões de arquivos temporários de propósito.
       - path: _test\.go
         linters: [gosec, errcheck, noctx]
+      # Ferramentas de laboratório (gerador de corpus, cenários): rodam como root numa máquina descartável, com
+      # caminhos e comandos dados por quem as executa, e sorteio determinístico de propósito. O G116 (Trojan Source)
+      # continua valendo: nomes bidi do corpus ficam escritos como escape (\u202e).
+      - path: ^test/
+        linters: [gosec]
+        text: "G(115|204|301|302|304|306|404|702)"
+      - path: ^test/
+        linters: [noctx]
 
 formatters:
   enable:
