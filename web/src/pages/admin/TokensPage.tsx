@@ -14,6 +14,7 @@ import { PageHeader } from "../../layout/PageHeader";
 import { issuableRoles, parseTokenDays, tokenStatus, type ApiToken, type Role } from "./adminLogic";
 import { SafeText, SecretOnce } from "./SecretOnce";
 import { useSensitiveAction } from "./SensitiveDialog";
+import { TableScroll } from "../../components/TableScroll";
 
 export const tokensQueryKey = ["tokens"] as const;
 
@@ -224,7 +225,7 @@ function CreateTokenForm({
 function TokensTable({ tokens, now, onRevoke }: { tokens: readonly ApiToken[]; now: number; onRevoke: (t: ApiToken) => void }) {
   const { t } = useTranslation();
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={t("admin.tokens.listCaption")}>
       <table className="vh-table">
         <caption className="visually-hidden">{t("admin.tokens.listCaption")}</caption>
         <thead>
@@ -285,7 +286,7 @@ function TokensTable({ tokens, now, onRevoke }: { tokens: readonly ApiToken[]; n
           })}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
 

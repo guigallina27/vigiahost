@@ -60,6 +60,8 @@ Severidade usa selo **preenchido** (o que é); estado usa selo **contornado** (e
   branco e o farol âmbar com dois fachos. "Vigia" na cor do texto, "Host" em âmbar.
 - Sempre acompanhada do nome em texto; o SVG é decorativo (`aria-hidden`).
 - Não recolorir, não girar, não aplicar sombra ou contorno. Área livre mínima: metade da altura da marca.
+- A marca com o nome (`Brand`) vai sempre sobre fundo noturno (navegação, telas de acesso, `.vh-night`): o "Host" em
+  âmbar não tem contraste sobre superfície clara. Em fundo claro, use só o símbolo (`BrandMark`).
 
 ## 4. Tipografia
 
@@ -83,8 +85,8 @@ Severidade usa selo **preenchido** (o que é); estado usa selo **contornado** (e
 Use os existentes antes de criar outro (todos em `web/src/components/`): `Button` (primary, secondary, danger,
 ghost), `Field`/`SelectField`/`TextAreaField`/`FormError`, `Panel`, `PageHeader`, `EmptyState`, `Badge`,
 `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog`,
-`CaptchaField`, `BrandMark`. Tabelas: `<div class="vh-table-wrap"><table class="vh-table">` com `caption` e
-`th scope`.
+`CaptchaField`, `BrandMark`, `TableScroll`. Tabelas: `<TableScroll label="…"><table class="vh-table">` com `caption`
+e `th scope`; o `TableScroll` rola no próprio contêiner e é uma região nomeada que recebe foco (WCAG 2.1.1 e 1.4.10).
 
 Componente novo reutilizável: entra no catálogo `/catalogo` com variantes e estados antes de ser usado em páginas.
 

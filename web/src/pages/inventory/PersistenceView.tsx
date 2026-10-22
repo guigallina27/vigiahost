@@ -14,6 +14,7 @@ import {
   type PersistenceInventory,
 } from "./processes";
 import { SafeText } from "./SafeText";
+import { TableScroll } from "../../components/TableScroll";
 
 /** Nome do tipo de persistência em linguagem do operador (tipo desconhecido aparece como veio). */
 export function KindLabel({ kind }: { kind: string }) {
@@ -147,7 +148,7 @@ function PersistenceGroupTable({ kind, items, showChanges }: { kind: string; ite
         <KindLabel kind={kind} />
         <span className="text-sm font-normal text-ink-muted">{t("inventory.persistence.itemCount", { count: items.length })}</span>
       </h2>
-      <div className="vh-table-wrap">
+      <TableScroll label={isKnownKind(kind) ? t(`inventory.kinds.${kind}`) : kind}>
         <table className="vh-table">
           <caption className="visually-hidden">
             <KindLabel kind={kind} />
@@ -199,7 +200,7 @@ function PersistenceGroupTable({ kind, items, showChanges }: { kind: string; ite
             })}
           </tbody>
         </table>
-      </div>
+      </TableScroll>
     </section>
   );
 }

@@ -8,6 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { EngineHealth } from "../components/EngineHealth";
 import { HashText } from "../components/HashText";
 import { PathText } from "../components/PathText";
+import { TableScroll } from "../components/TableScroll";
 import { SeverityBadge, severities } from "../components/SeverityBadge";
 import { StatusBadge, findingStates, runStates } from "../components/StatusBadge";
 import { Timestamp } from "../components/Timestamp";
@@ -62,9 +63,10 @@ export default function CatalogPage() {
           <span className="rounded-panel bg-nav p-4 text-nav-ink">
             <Brand size="lg" />
           </span>
-          <span className="rounded-panel border border-line bg-surface p-4">
+          <span className="vh-night rounded-panel p-4 text-nav-ink">
             <Brand />
           </span>
+          {/* Sobre superfície clara vai só o símbolo: o "Host" em âmbar não tem contraste fora do fundo noturno. */}
           <BrandMark className="size-16" />
         </div>
       </Section>
@@ -171,6 +173,36 @@ export default function CatalogPage() {
 
       <Section id="cat-hash" title="HashText" notes="Abreviado na tela; o valor completo fica para leitores de tela e no botão de copiar, que anuncia o resultado.">
         <HashText value={SHA} />
+      </Section>
+
+      <Section
+        id="cat-table"
+        title="TableScroll"
+        notes="Toda tabela de dados vai dentro dele: rola no próprio contêiner (a página nunca rola na horizontal) e a região recebe foco e nome para ser rolada pelo teclado."
+      >
+        <TableScroll label="Exemplo de tabela larga">
+          <table className="vh-table">
+            <caption className="visually-hidden">Exemplo de tabela larga</caption>
+            <thead>
+              <tr>
+                <th scope="col">Caminho</th>
+                <th scope="col">Assinatura</th>
+                <th scope="col">SHA-256</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="text-left font-normal">
+                  <PathText path="/home/loja/public_html/wp-content/uploads/2026/10/cache.php" />
+                </th>
+                <td>vh_webshell_eval_post</td>
+                <td>
+                  <HashText value={SHA} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </TableScroll>
       </Section>
 
       <Section id="cat-time" title="Timestamp" notes="Relativo + absoluto + fuso, sempre juntos. O fuso é o do servidor quando a API informar.">

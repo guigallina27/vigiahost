@@ -26,6 +26,7 @@ import {
   type FindingFilters,
 } from "./filters";
 import { FindingObject } from "./parts";
+import { TableScroll } from "../../components/TableScroll";
 
 /** Lista de achados (rota sugerida: /achados). Filtros na URL; paginação por cursor com "Carregar mais". */
 export function FindingsPage() {
@@ -99,7 +100,7 @@ export function FindingsPage() {
             <p className="m-0 text-sm text-ink-muted" role="status">
               {t("findings.loaded", { count: rows.length, formatted: formatNumber(rows.length, i18n.language) })}
             </p>
-            <div className="vh-table-wrap">
+            <TableScroll label={t("findings.table.caption")}>
               <table className="vh-table">
                 <caption className="visually-hidden">{t("findings.table.caption")}</caption>
                 <thead>
@@ -148,7 +149,7 @@ export function FindingsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
             <div className="flex flex-col items-start gap-2">
               {query.hasNextPage ? (
                 <Button onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>

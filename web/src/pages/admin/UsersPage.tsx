@@ -26,6 +26,7 @@ import {
 } from "./adminLogic";
 import { SafeText, SecretOnce } from "./SecretOnce";
 import { useSensitiveAction } from "./SensitiveDialog";
+import { TableScroll } from "../../components/TableScroll";
 
 export const usersQueryKey = ["users"] as const;
 
@@ -480,7 +481,7 @@ function UsersTable({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={t("admin.users.listCaption")}>
       <table className="vh-table">
         <caption className="visually-hidden">{t("admin.users.listCaption")}</caption>
         <thead>
@@ -563,6 +564,6 @@ function UsersTable({
           })}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

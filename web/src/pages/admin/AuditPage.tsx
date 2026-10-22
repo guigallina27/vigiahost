@@ -15,6 +15,7 @@ import { formatNumber } from "../../lib/format";
 import { escapeHidden } from "../../lib/text";
 import { filterAudit, isKnownAuditAction, knownAuditActions, type AuditEntry } from "./adminLogic";
 import { SafeText } from "./SecretOnce";
+import { TableScroll } from "../../components/TableScroll";
 
 const PAGE_SIZES = [50, 100, 200, 500] as const;
 
@@ -200,7 +201,7 @@ export function AuditPage() {
 function AuditTable({ entries, brokenAt }: { entries: readonly AuditEntry[]; brokenAt: number | undefined }) {
   const { t, i18n } = useTranslation();
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={t("admin.audit.listCaption")}>
       <table className="vh-table">
         <caption className="visually-hidden">{t("admin.audit.listCaption")}</caption>
         <thead>
@@ -254,6 +255,6 @@ function AuditTable({ entries, brokenAt }: { entries: readonly AuditEntry[]; bro
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

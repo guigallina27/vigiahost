@@ -20,6 +20,7 @@ import { ExceptionForm } from "./ExceptionForm";
 import { findingStateList, type FindingState } from "./filters";
 import { DetailItem, formatMode, StatusMessage } from "./parts";
 import { TransitionForm } from "./TransitionForm";
+import { TableScroll } from "../../components/TableScroll";
 
 type FindingDetail = Schemas["FindingDetail"];
 type Finding = Schemas["Finding"];
@@ -307,7 +308,7 @@ function LocationsPanel({ locations }: { locations: Schemas["Location"][] }) {
       {locations.length === 0 ? (
         <p className="m-0 text-ink-muted">{t("findings.detail.locationsEmpty")}</p>
       ) : (
-        <div className="vh-table-wrap">
+        <TableScroll label={t("findings.detail.locationsCaption")}>
           <table className="vh-table">
             <caption className="visually-hidden">{t("findings.detail.locationsCaption")}</caption>
             <thead>
@@ -345,7 +346,7 @@ function LocationsPanel({ locations }: { locations: Schemas["Location"][] }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
     </Panel>
   );

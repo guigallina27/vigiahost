@@ -21,6 +21,7 @@ import {
   type SortDirection,
 } from "./processes";
 import { SafeText } from "./SafeText";
+import { TableScroll } from "../../components/TableScroll";
 
 /** Tabela filtrável e ordenável dos processos de um instantâneo. */
 export function ProcessTable({ processes }: { processes: ProcessInfo[] }) {
@@ -92,7 +93,7 @@ export function ProcessTable({ processes }: { processes: ProcessInfo[] }) {
           {t("inventory.processes.noMatch")}
         </p>
       ) : (
-        <div className="vh-table-wrap">
+        <TableScroll label={t("inventory.processes.caption")}>
           <table className="vh-table">
             <caption className="visually-hidden">{t("inventory.processes.caption")}</caption>
             <thead>
@@ -114,7 +115,7 @@ export function ProcessTable({ processes }: { processes: ProcessInfo[] }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
       <p className="m-0 text-sm text-ink-muted">{t("inventory.processes.legend")}</p>
     </div>

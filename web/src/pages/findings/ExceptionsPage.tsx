@@ -16,6 +16,7 @@ import { formatNumber } from "../../lib/format";
 import { emptyDraft, exceptionStatus, type ExceptionStatus } from "./exceptionRules";
 import { ExceptionCoverage, ExceptionForm } from "./ExceptionForm";
 import { StatusMessage } from "./parts";
+import { TableScroll } from "../../components/TableScroll";
 
 type Exception = Schemas["Exception"];
 
@@ -149,7 +150,7 @@ export function ExceptionsPage() {
             description={t("findings.exceptions.emptyDescription")}
           />
         ) : (
-          <div className="vh-table-wrap">
+          <TableScroll label={t("findings.exceptions.caption")}>
             <table className="vh-table">
               <caption className="visually-hidden">{t("findings.exceptions.caption")}</caption>
               <thead>
@@ -225,7 +226,7 @@ export function ExceptionsPage() {
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
       </div>
 

@@ -5,6 +5,7 @@ import { Badge } from "../../components/Badge";
 import { CoverageBar } from "../../components/CoverageBar";
 import { formatNumber } from "../../lib/format";
 import { formatBytes, formatDuration, isKnownSkipReason, SKIP_REASONS, skipEntries, skippedTotal } from "./runFormat";
+import { TableScroll } from "../../components/TableScroll";
 
 type EngineCoverage = Schemas["EngineCoverage"];
 
@@ -30,7 +31,7 @@ export function SkipReasonTable({ skipped, caption }: { skipped: Record<string, 
   const entries = skipEntries(skipped);
   if (entries.length === 0) return null;
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={caption ?? t("runs.engine.skipCaption")}>
       <table className="vh-table">
         <caption className="visually-hidden">{caption ?? t("runs.engine.skipCaption")}</caption>
         <thead>
@@ -55,7 +56,7 @@ export function SkipReasonTable({ skipped, caption }: { skipped: Record<string, 
           })}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
 
@@ -145,7 +146,7 @@ export function EngineCoverageCard({ engine }: { engine: EngineCoverage }) {
       {errors.length > 0 && (
         <div className="flex min-w-0 flex-col gap-2">
           <h4 className="m-0 text-sm font-semibold">{t("runs.engine.errorsTitle")}</h4>
-          <div className="vh-table-wrap">
+          <TableScroll label={t("runs.engine.errorsCaption")}>
             <table className="vh-table">
               <caption className="visually-hidden">{t("runs.engine.errorsCaption")}</caption>
               <thead>
@@ -165,7 +166,7 @@ export function EngineCoverageCard({ engine }: { engine: EngineCoverage }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </div>
       )}
     </article>

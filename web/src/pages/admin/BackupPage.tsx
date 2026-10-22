@@ -23,6 +23,7 @@ import { PageHeader } from "../../layout/PageHeader";
 import { formatBytes } from "../config/units";
 import { SafeText } from "./SecretOnce";
 import { useSensitiveAction } from "./SensitiveDialog";
+import { TableScroll } from "../../components/TableScroll";
 
 export const backupsQueryKey = ["backups"] as const;
 
@@ -145,7 +146,7 @@ export function BackupPage() {
 function BackupTable({ backups, locale }: { backups: readonly BackupInfo[]; locale: string }) {
   const { t } = useTranslation();
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={t("admin.backup.listTitle")}>
       <table className="vh-table">
         <caption className="visually-hidden">{t("admin.backup.listTitle")}</caption>
         <thead>
@@ -186,7 +187,7 @@ function BackupTable({ backups, locale }: { backups: readonly BackupInfo[]; loca
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
 

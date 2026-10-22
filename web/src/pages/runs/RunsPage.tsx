@@ -24,6 +24,7 @@ import {
   type Run,
   type RunFilters,
 } from "./runFormat";
+import { TableScroll } from "../../components/TableScroll";
 
 const PAGE_SIZE = 50;
 
@@ -170,7 +171,7 @@ function RunsTable({ runs }: { runs: Run[] }) {
   const { t, i18n } = useTranslation();
   const lng = i18n.language;
   return (
-    <div className="vh-table-wrap">
+    <TableScroll label={t("runs.table.caption")}>
       <table className="vh-table">
         <caption className="visually-hidden">{t("runs.table.caption")}</caption>
         <thead>
@@ -259,6 +260,6 @@ function RunsTable({ runs }: { runs: Run[] }) {
           })}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }
