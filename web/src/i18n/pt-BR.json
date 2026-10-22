@@ -1,0 +1,178 @@
+{
+  "app": {
+    "name": "VigiaHost",
+    "skipToContent": "Pular para o conteúdo",
+    "openMenu": "Abrir menu",
+    "closeMenu": "Fechar menu",
+    "mainNav": "Principal",
+    "titleSuffix": "VigiaHost",
+    "planned": "Planejada",
+    "devOnly": "Desenvolvimento"
+  },
+  "nav": {
+    "groups": {
+      "monitor": "Monitorar",
+      "investigate": "Investigar",
+      "respond": "Responder",
+      "configure": "Configurar",
+      "administer": "Administrar",
+      "development": "Desenvolvimento"
+    },
+    "overview": "Visão geral",
+    "findings": "Achados",
+    "accounts": "Contas",
+    "runs": "Execuções",
+    "coverage": "Cobertura",
+    "processes": "Processos e persistência",
+    "integrity": "Integridade",
+    "evidence": "Evidências",
+    "quarantine": "Quarentena",
+    "exceptions": "Exceções",
+    "schedules": "Agendamentos",
+    "resources": "Recursos",
+    "engines": "Motores e atualizações",
+    "rules": "Regras e fontes",
+    "notifications": "Notificações",
+    "users": "Usuários e acessos",
+    "audit": "Auditoria",
+    "backup": "Backup",
+    "settings": "Configurações",
+    "catalog": "Catálogo de componentes"
+  },
+  "severity": {
+    "label": "Severidade",
+    "critical": "Crítico",
+    "high": "Alto",
+    "medium": "Médio",
+    "low": "Baixo",
+    "info": "Informativo"
+  },
+  "findingState": {
+    "label": "Estado do achado",
+    "new": "Novo",
+    "in_review": "Em análise",
+    "confirmed": "Confirmado",
+    "resolved": "Resolvido",
+    "false_positive": "Falso positivo",
+    "excepted": "Coberto por exceção"
+  },
+  "runState": {
+    "label": "Estado da execução",
+    "queued": "Na fila",
+    "running": "Em execução",
+    "completed": "Concluída",
+    "partial": "Parcial",
+    "failed": "Falha",
+    "engine_failed": "Falha de motor",
+    "cancelled": "Cancelada",
+    "recovered": "Interrompida e recuperada"
+  },
+  "engineHealth": {
+    "label": "Saúde do motor",
+    "operational": "Operacional",
+    "degraded": "Degradado",
+    "unavailable": "Indisponível"
+  },
+  "engineUpdate": {
+    "label": "Atualização",
+    "current": "Em dia",
+    "late": "Atrasada",
+    "lastUpdate": "Última atualização {{when}}"
+  },
+  "coverage": {
+    "value": "{{percent}} de cobertura",
+    "detail": "{{analyzed}} de {{eligible}} {{unit}} analisados",
+    "skipped": "{{formatted}} fora da análise",
+    "unitFiles": "arquivos",
+    "empty": "Nada elegível para analisar"
+  },
+  "path": {
+    "escaped": "Contém caracteres de controle ou de direção de texto, exibidos como códigos",
+    "escapedShort": "caracteres ocultos"
+  },
+  "hash": {
+    "copy": "Copiar {{algorithm}}",
+    "copied": "{{algorithm}} copiado",
+    "copyFailed": "Não foi possível copiar; selecione o valor manualmente",
+    "full": "{{algorithm}} completo: {{value}}"
+  },
+  "time": {
+    "zone": "fuso {{zone}}",
+    "unknown": "Data desconhecida"
+  },
+  "dialog": {
+    "cancel": "Cancelar",
+    "object": "Objeto",
+    "impact": "Impacto",
+    "reversible": "Reversível",
+    "reversibleYes": "Sim, pode ser desfeito",
+    "reversibleNo": "Não, não pode ser desfeito",
+    "reauth": "Confirme sua senha",
+    "reauthHint": "Ações sensíveis pedem a senha de novo, mesmo com a sessão ativa.",
+    "countPrompt": "Digite {{count}} para confirmar a ação em {{count}} itens",
+    "countMismatch": "Digite exatamente {{count}}."
+  },
+  "states": {
+    "loading": "Carregando…",
+    "retry": "Tentar de novo",
+    "errorTitle": "Algo deu errado",
+    "forbidden": "Seu perfil não tem acesso a esta área.",
+    "unsupported": "Função indisponível neste servidor"
+  },
+  "theme": {
+    "legend": "Tema",
+    "hint": "Por padrão o painel segue o tema do sistema.",
+    "system": "Sistema",
+    "systemCurrent": "Sistema (atualmente {{scheme}})",
+    "light": "Claro",
+    "dark": "Escuro",
+    "lightLower": "claro",
+    "darkLower": "escuro"
+  },
+  "overview": {
+    "title": "Visão geral",
+    "subtitle": "Saúde do serviço e capacidades deste servidor",
+    "service": "Serviço",
+    "coreVersion": "Versão do painel",
+    "executor": "Executor",
+    "executorVersion": "Versão do executor",
+    "protocol": "Protocolo",
+    "executorDown": "O painel está no ar, mas não consegue falar com o executor, que roda como root e faz as verificações.",
+    "executorDownAction": "No servidor, confira o serviço com {{command}}.",
+    "system": "Sistema",
+    "distro": "Distribuição",
+    "kernel": "Kernel",
+    "arch": "Arquitetura",
+    "capabilities": "Capacidades do sistema",
+    "capSystemd": "systemd como init",
+    "capSystemdOff": "Sem systemd, as verificações não podem rodar em unidades isoladas.",
+    "capCgroup": "cgroup v2",
+    "capCgroupOff": "Sem cgroup v2, os perfis de recursos não limitam CPU e memória.",
+    "capPsi": "PSI (pressão de recursos)",
+    "capPsiOff": "Sem PSI, a pausa automática por sobrecarga fica desativada.",
+    "available": "Disponível",
+    "missing": "Ausente",
+    "noSystem": "O executor não informou os dados do sistema.",
+    "runsTitle": "Nenhuma execução ainda",
+    "runsDescription": "As verificações chegam na próxima versão. Por enquanto, o painel mostra a saúde do serviço e o que este servidor oferece.",
+    "unreachableTitle": "Sem resposta do serviço do VigiaHost",
+    "unreachableDescription": "O navegador não recebeu resposta do painel ({{cause}}).",
+    "unreachableAction": "No servidor, confira o serviço com {{command}} e tente de novo.",
+    "updatedAt": "Atualizado",
+    "staleWarning": "A última atualização falhou; os dados abaixo podem estar desatualizados."
+  },
+  "settings": {
+    "title": "Configurações",
+    "subtitle": "Preferências deste navegador",
+    "appearance": "Aparência"
+  },
+  "planned": {
+    "title": "Página planejada",
+    "description": "Esta área faz parte do plano e ainda não foi implementada."
+  },
+  "notFound": {
+    "title": "Página não encontrada",
+    "description": "O endereço não corresponde a nenhuma página do painel.",
+    "back": "Ir para a visão geral"
+  }
+}

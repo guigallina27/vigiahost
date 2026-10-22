@@ -1,0 +1,178 @@
+{
+  "app": {
+    "name": "VigiaHost",
+    "skipToContent": "Skip to content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "mainNav": "Main",
+    "titleSuffix": "VigiaHost",
+    "planned": "Planned",
+    "devOnly": "Development"
+  },
+  "nav": {
+    "groups": {
+      "monitor": "Monitor",
+      "investigate": "Investigate",
+      "respond": "Respond",
+      "configure": "Configure",
+      "administer": "Administer",
+      "development": "Development"
+    },
+    "overview": "Overview",
+    "findings": "Findings",
+    "accounts": "Accounts",
+    "runs": "Runs",
+    "coverage": "Coverage",
+    "processes": "Processes and persistence",
+    "integrity": "Integrity",
+    "evidence": "Evidence",
+    "quarantine": "Quarantine",
+    "exceptions": "Exceptions",
+    "schedules": "Schedules",
+    "resources": "Resources",
+    "engines": "Engines and updates",
+    "rules": "Rules and sources",
+    "notifications": "Notifications",
+    "users": "Users and access",
+    "audit": "Audit",
+    "backup": "Backup",
+    "settings": "Settings",
+    "catalog": "Component catalog"
+  },
+  "severity": {
+    "label": "Severity",
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "info": "Informational"
+  },
+  "findingState": {
+    "label": "Finding state",
+    "new": "New",
+    "in_review": "In review",
+    "confirmed": "Confirmed",
+    "resolved": "Resolved",
+    "false_positive": "False positive",
+    "excepted": "Covered by exception"
+  },
+  "runState": {
+    "label": "Run state",
+    "queued": "Queued",
+    "running": "Running",
+    "completed": "Completed",
+    "partial": "Partial",
+    "failed": "Failed",
+    "engine_failed": "Engine failure",
+    "cancelled": "Cancelled",
+    "recovered": "Interrupted and recovered"
+  },
+  "engineHealth": {
+    "label": "Engine health",
+    "operational": "Operational",
+    "degraded": "Degraded",
+    "unavailable": "Unavailable"
+  },
+  "engineUpdate": {
+    "label": "Update",
+    "current": "Up to date",
+    "late": "Late",
+    "lastUpdate": "Last updated {{when}}"
+  },
+  "coverage": {
+    "value": "{{percent}} coverage",
+    "detail": "{{analyzed}} of {{eligible}} {{unit}} analyzed",
+    "skipped": "{{formatted}} left out",
+    "unitFiles": "files",
+    "empty": "Nothing eligible to analyze"
+  },
+  "path": {
+    "escaped": "Contains control or text-direction characters, shown as codes",
+    "escapedShort": "hidden characters"
+  },
+  "hash": {
+    "copy": "Copy {{algorithm}}",
+    "copied": "{{algorithm}} copied",
+    "copyFailed": "Could not copy; select the value manually",
+    "full": "Full {{algorithm}}: {{value}}"
+  },
+  "time": {
+    "zone": "{{zone}} time",
+    "unknown": "Unknown date"
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "object": "Object",
+    "impact": "Impact",
+    "reversible": "Reversible",
+    "reversibleYes": "Yes, it can be undone",
+    "reversibleNo": "No, it cannot be undone",
+    "reauth": "Confirm your password",
+    "reauthHint": "Sensitive actions ask for your password again, even with an active session.",
+    "countPrompt": "Type {{count}} to confirm the action on {{count}} items",
+    "countMismatch": "Type exactly {{count}}."
+  },
+  "states": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "errorTitle": "Something went wrong",
+    "forbidden": "Your role has no access to this area.",
+    "unsupported": "Feature unavailable on this server"
+  },
+  "theme": {
+    "legend": "Theme",
+    "hint": "By default the panel follows the system theme.",
+    "system": "System",
+    "systemCurrent": "System (currently {{scheme}})",
+    "light": "Light",
+    "dark": "Dark",
+    "lightLower": "light",
+    "darkLower": "dark"
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Service health and what this server supports",
+    "service": "Service",
+    "coreVersion": "Panel version",
+    "executor": "Executor",
+    "executorVersion": "Executor version",
+    "protocol": "Protocol",
+    "executorDown": "The panel is up but cannot reach the executor, which runs as root and performs the checks.",
+    "executorDownAction": "On the server, check the service with {{command}}.",
+    "system": "System",
+    "distro": "Distribution",
+    "kernel": "Kernel",
+    "arch": "Architecture",
+    "capabilities": "System capabilities",
+    "capSystemd": "systemd as init",
+    "capSystemdOff": "Without systemd, checks cannot run in isolated units.",
+    "capCgroup": "cgroup v2",
+    "capCgroupOff": "Without cgroup v2, resource profiles do not limit CPU and memory.",
+    "capPsi": "PSI (resource pressure)",
+    "capPsiOff": "Without PSI, automatic pause under load is disabled.",
+    "available": "Available",
+    "missing": "Missing",
+    "noSystem": "The executor did not report system data.",
+    "runsTitle": "No runs yet",
+    "runsDescription": "Checks arrive in the next release. For now, the panel shows service health and what this server supports.",
+    "unreachableTitle": "No response from the VigiaHost service",
+    "unreachableDescription": "The browser got no response from the panel ({{cause}}).",
+    "unreachableAction": "On the server, check the service with {{command}} and try again.",
+    "updatedAt": "Updated",
+    "staleWarning": "The last refresh failed; the data below may be out of date."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Preferences for this browser",
+    "appearance": "Appearance"
+  },
+  "planned": {
+    "title": "Planned page",
+    "description": "This area is part of the plan and has not been built yet."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The address does not match any page of the panel.",
+    "back": "Go to overview"
+  }
+}
