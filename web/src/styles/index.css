@@ -173,3 +173,25 @@
     forced-color-adjust: none;
   }
 }
+
+/* Caixa "Não sou um robô" (ALTCHA) com as cores e o foco do painel nos dois temas. */
+@layer components {
+  altcha-widget {
+    display: block;
+    --altcha-max-width: 100%;
+    --altcha-border-radius: var(--radius-control);
+    --altcha-color-base: var(--vh-surface);
+    --altcha-color-base-content: var(--vh-ink);
+    --altcha-color-neutral: var(--vh-line-strong);
+    --altcha-color-neutral-content: var(--vh-ink-muted);
+    --altcha-color-primary: var(--vh-accent);
+    --altcha-color-primary-content: var(--vh-accent-ink);
+    --altcha-color-error: var(--vh-critical-fg);
+    --altcha-color-error-content: var(--vh-critical-bg);
+    --altcha-color-success: var(--vh-ok-fg);
+    --altcha-color-success-content: var(--vh-ok-bg);
+    --altcha-checkbox-border-color: var(--vh-line-strong);
+    --altcha-checkbox-outline: 3px solid var(--vh-focus);
+    --altcha-checkbox-size: 24px;
+  }
+}

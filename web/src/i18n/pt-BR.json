@@ -174,5 +174,15 @@
     "title": "Página não encontrada",
     "description": "O endereço não corresponde a nenhuma página do painel.",
     "back": "Ir para a visão geral"
+  },
+  "captcha": {
+    "label": "Não sou um robô",
+    "verifying": "Verificando…",
+    "verified": "Verificado",
+    "error": "A verificação falhou. Marque a caixa de novo.",
+    "expired": "A verificação expirou. Marque a caixa de novo.",
+    "required": "Marque a caixa \"Não sou um robô\".",
+    "loading": "Carregando verificação…",
+    "loadError": "Não foi possível carregar a verificação \"Não sou um robô\". Recarregue a página."
   }
 }

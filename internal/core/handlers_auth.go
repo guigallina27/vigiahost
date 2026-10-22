@@ -77,6 +77,39 @@ func (s *Server) requireSecure(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
+// GetAuthChallenge emite o desafio do widget "não sou um robô".
+func (s *Server) GetAuthChallenge(w http.ResponseWriter, _ *http.Request) {
+	if s.Captcha == nil {
+		writeError(w, http.StatusServiceUnavailable, "verificação \"não sou um robô\" indisponível", "unavailable")
+		return
+	}
+	ch, err := s.Captcha.Challenge()
+	if err != nil {
+		s.Logger.Error("desafio ALTCHA não emitido", "erro", err)
+		writeError(w, http.StatusInternalServerError, "falha ao gerar a verificação", "internal")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, ch)
+}
+
+// checkCaptcha confere o payload do widget antes de qualquer verificação de senha ou token.
+func (s *Server) checkCaptcha(w http.ResponseWriter, payload string) bool {
+	if s.Captcha == nil {
+		writeError(w, http.StatusServiceUnavailable, "verificação \"não sou um robô\" indisponível", "unavailable")
+		return false
+	}
+	if err := s.Captcha.Verify(payload); err != nil {
+		code := "captcha_failed"
+		if errors.Is(err, auth.ErrCaptchaExpired) {
+			code = "captcha_expired"
+		}
+		writeError(w, http.StatusBadRequest, err.Error(), code)
+		return false
+	}
+	return true
+}
+
 // GetSession informa o estado da sessão (também usado para saber se falta o primeiro acesso).
 func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.sessionView(r, principalFrom(r.Context())))
@@ -85,7 +118,7 @@ func (s *Server) GetSession(w http.ResponseWriter, r *http.Request) {
 // Login confere usuário e senha.
 func (s *Server) Login(w http.ResponseWriter, r *http.Request) {
 	var in api.LoginRequest
-	if !decode(w, r, &in) || !s.requireSecure(w, r) {
+	if !decode(w, r, &in) || !s.requireSecure(w, r) || !s.checkCaptcha(w, in.Altcha) {
 		return
 	}
 	tok, p, err := s.Auth.Login(r.Context(), in.Username, in.Password, s.clientIP(r), r.UserAgent())
@@ -197,7 +230,7 @@ func (s *Server) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // SetupFirstAdmin cria o primeiro administrador com o token do terminal.
 func (s *Server) SetupFirstAdmin(w http.ResponseWriter, r *http.Request) {
 	var in api.SetupRequest
-	if !decode(w, r, &in) || !s.requireSecure(w, r) {
+	if !decode(w, r, &in) || !s.requireSecure(w, r) || !s.checkCaptcha(w, in.Altcha) {
 		return
 	}
 	display := ""
@@ -217,7 +250,7 @@ func (s *Server) SetupFirstAdmin(w http.ResponseWriter, r *http.Request) {
 // ResetWithToken redefine a senha com o token de recuperação.
 func (s *Server) ResetWithToken(w http.ResponseWriter, r *http.Request) {
 	var in api.ResetRequest
-	if !decode(w, r, &in) || !s.requireSecure(w, r) {
+	if !decode(w, r, &in) || !s.requireSecure(w, r) || !s.checkCaptcha(w, in.Altcha) {
 		return
 	}
 	if err := s.Auth.ResetWithToken(r.Context(), in.Token, in.Password, s.clientIP(r)); err != nil {

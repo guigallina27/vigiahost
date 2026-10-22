@@ -385,6 +385,13 @@ type AuditPage struct {
 	NextBefore *int64       `json:"next_before,omitempty"`
 }
 
+// AuthChallenge defines model for AuthChallenge.
+type AuthChallenge struct {
+	// Parameters Parâmetros do desafio ALTCHA v2 (algoritmo, nonce, salt, custo, expiração)
+	Parameters map[string]interface{} `json:"parameters"`
+	Signature  string                 `json:"signature"`
+}
+
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	// Code Código TOTP de 6 dígitos ou código de recuperação
@@ -647,6 +654,8 @@ type Location struct {
 
 // LoginRequest defines model for LoginRequest.
 type LoginRequest struct {
+	// Altcha Payload do widget ALTCHA (JSON em base64)
+	Altcha   string `json:"altcha"`
 	Password string `json:"password"`
 	Username string `json:"username"`
 }
@@ -739,6 +748,8 @@ type ReauthRequest struct {
 
 // ResetRequest defines model for ResetRequest.
 type ResetRequest struct {
+	// Altcha Payload do widget ALTCHA (JSON em base64)
+	Altcha   string `json:"altcha"`
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
@@ -918,6 +929,8 @@ type SessionStage string
 
 // SetupRequest defines model for SetupRequest.
 type SetupRequest struct {
+	// Altcha Payload do widget ALTCHA (JSON em base64)
+	Altcha      string  `json:"altcha"`
 	DisplayName *string `json:"display_name,omitempty"`
 	Password    string  `json:"password"`
 	Token       string  `json:"token"`
@@ -1128,6 +1141,9 @@ type ServerInterface interface {
 	// ListAudit Auditoria (administrador e auditor) com conferência da cadeia
 	// (GET /api/v1/audit)
 	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
+	// GetAuthChallenge Desafio da caixa "não sou um robô" (ALTCHA, prova de trabalho resolvida pelo navegador)
+	// (GET /api/v1/auth/challenge)
+	GetAuthChallenge(w http.ResponseWriter, r *http.Request)
 	// Login Login com usuário e senha
 	// (POST /api/v1/auth/login)
 	Login(w http.ResponseWriter, r *http.Request)
@@ -1305,6 +1321,20 @@ func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAuthChallenge operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthChallenge(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAuthChallenge(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2444,6 +2474,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/health", wrapper.GetHealth)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/session", wrapper.GetSession)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/challenge", wrapper.GetAuthChallenge)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.Login)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/mfa/verify", wrapper.VerifyMfa)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/mfa/setup", wrapper.BeginMfaSetup)

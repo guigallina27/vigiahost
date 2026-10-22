@@ -58,6 +58,18 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Session" }
+  /api/v1/auth/challenge:
+    get:
+      operationId: getAuthChallenge
+      summary: Desafio da caixa "não sou um robô" (ALTCHA, prova de trabalho resolvida pelo navegador)
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Desafio assinado, válido por 10 minutos e aceito uma única vez
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthChallenge" }
   /api/v1/auth/login:
     post:
       operationId: login
@@ -935,13 +947,23 @@ components:
         user: { $ref: "#/components/schemas/CurrentUser" }
         reauth_until: { type: string, format: date-time }
         idle_timeout_seconds: { type: integer }
+    AuthChallenge:
+      type: object
+      required: [parameters, signature]
+      properties:
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Parâmetros do desafio ALTCHA v2 (algoritmo, nonce, salt, custo, expiração)
+        signature: { type: string }
     LoginRequest:
       type: object
       additionalProperties: false
-      required: [username, password]
+      required: [username, password, altcha]
       properties:
         username: { type: string, maxLength: 64 }
         password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
     CodeRequest:
       type: object
       additionalProperties: false
@@ -985,19 +1007,21 @@ components:
     SetupRequest:
       type: object
       additionalProperties: false
-      required: [token, username, password]
+      required: [token, username, password, altcha]
       properties:
         token: { type: string, maxLength: 128 }
         username: { type: string, maxLength: 64 }
         display_name: { type: string, maxLength: 128 }
         password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
     ResetRequest:
       type: object
       additionalProperties: false
-      required: [token, password]
+      required: [token, password, altcha]
       properties:
         token: { type: string, maxLength: 128 }
         password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
 
     Severity:
       type: string

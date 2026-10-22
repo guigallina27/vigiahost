@@ -35,6 +35,7 @@ type rule struct {
 var routes = map[string]rule{
 	"GET /api/v1/health":                           {access: accessPublic},
 	"GET /api/v1/auth/session":                     {access: accessPublic},
+	"GET /api/v1/auth/challenge":                   {access: accessPublic},
 	"POST /api/v1/auth/login":                      {access: accessPublic},
 	"POST /api/v1/auth/logout":                     {access: accessPublic},
 	"POST /api/v1/auth/setup":                      {access: accessPublic},

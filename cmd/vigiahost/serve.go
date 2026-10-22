@@ -124,7 +124,7 @@ func runServe(args []string) int {
 	}
 
 	srv := &core.Server{Logger: logger, Version: version.Version, Probe: core.ProbeExecutor(*socket, localHello()),
-		UI: webui.Handler(), DB: db, Auth: authSvc, Orch: orch, Hub: hub, Exec: exec, TrustProxy: *trustProxy,
+		UI: webui.Handler(), DB: db, Auth: authSvc, Captcha: auth.NewCaptcha(), Orch: orch, Hub: hub, Exec: exec, TrustProxy: *trustProxy,
 		HSTS: validCert, FirstAccessFile: firstAccess}
 	httpSrv := core.NewHTTPServer(*listen, srv.Handler(), logger)
 	httpSrv.TLSConfig = tlsConf

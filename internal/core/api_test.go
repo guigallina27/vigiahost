@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"log/slog"
@@ -16,6 +17,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	altcha "github.com/altcha-org/altcha-lib-go/v2"
 
 	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/auth"
@@ -78,11 +81,25 @@ func newTestAPI(t *testing.T) *testAPI {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	fx := &fakeExec{}
 	hub := orchestrator.NewHub()
-	s := &Server{Logger: logger, Version: "0.0.1", DB: db, Hub: hub, Exec: fx,
+	captcha := auth.NewCaptcha()
+	captcha.Cost, captcha.CounterMin, captcha.CounterMax = 10, 5, 20
+	s := &Server{Captcha: captcha, Logger: logger, Version: "0.0.1", DB: db, Hub: hub, Exec: fx,
 		Probe: func(context.Context) ExecutorStatus { return ExecutorStatus{Connected: true} },
 		Auth:  &auth.Service{DB: db, Logger: logger, FailLog: io.Discard, Config: auth.Config{Sleep: func(time.Duration) {}}},
 		Orch:  &orchestrator.Service{DB: db, Exec: fx, Hub: hub, Logger: logger}}
 	return &testAPI{srv: s, h: s.Handler(), db: db, now: &now, exec: fx}
+}
+
+// solveCaptcha busca um desafio na API e o resolve como o widget faria.
+func (a *testAPI) solveCaptcha(t *testing.T) string {
+	t.Helper()
+	ch := decodeBody[altcha.Challenge](t, a.do(t, "GET", "/api/v1/auth/challenge", "", "", ""))
+	sol, err := altcha.SolveChallenge(altcha.SolveChallengeOptions{Challenge: ch, DeriveKey: altcha.DeriveKeyPBKDF2()})
+	if err != nil || sol == nil {
+		t.Fatalf("desafio não resolvido: %v", err)
+	}
+	b, _ := json.Marshal(altcha.Payload{Challenge: ch, Solution: *sol})
+	return base64.StdEncoding.EncodeToString(b)
 }
 
 // do faz a requisição como se viesse do túnel SSH (endereço local).
@@ -272,8 +289,21 @@ func TestFluxoCompletoPeloHTTP(t *testing.T) {
 		t.Fatalf("login sem transporte seguro: %d %s", rec.Code, rec.Body.String())
 	}
 
-	rec = a.do(t, "POST", "/api/v1/auth/setup", `{"token":"`+tok+`","username":"ana","password":"senha-muito-longa"}`, "", "")
+	// Sem a caixa "não sou um robô" (ou com solução reaproveitada) o token nem é conferido.
+	setupBody := func(captcha string) string {
+		return `{"token":"` + tok + `","username":"ana","password":"senha-muito-longa","altcha":"` + captcha + `"}`
+	}
+	if rec := a.do(t, "POST", "/api/v1/auth/setup", setupBody(""), "", ""); rec.Code != http.StatusBadRequest ||
+		!strings.Contains(rec.Body.String(), "captcha_failed") {
+		t.Fatalf("setup sem captcha: %d %s", rec.Code, rec.Body.String())
+	}
+	captcha := a.solveCaptcha(t)
+	rec = a.do(t, "POST", "/api/v1/auth/setup", setupBody(captcha), "", "")
 	cookie := cookieFrom(t, rec)
+	if rec := a.do(t, "POST", "/api/v1/auth/login", `{"username":"ana","password":"senha-muito-longa","altcha":"`+captcha+`"}`,
+		"", ""); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "captcha_failed") {
+		t.Fatalf("captcha reaproveitado: %d %s", rec.Code, rec.Body.String())
+	}
 	sess = decodeBody[api.Session](t, rec)
 	if sess.Stage == nil || *sess.Stage != api.SessionStageMfaSetup || sess.Authenticated {
 		t.Fatalf("depois do primeiro acesso falta o segundo fator: %+v", sess)

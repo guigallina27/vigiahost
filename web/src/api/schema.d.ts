@@ -41,6 +41,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Desafio da caixa "não sou um robô" (ALTCHA, prova de trabalho resolvida pelo navegador) */
+        get: operations["getAuthChallenge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -741,9 +758,18 @@ export interface components {
             reauth_until?: string;
             idle_timeout_seconds?: number;
         };
+        AuthChallenge: {
+            /** @description Parâmetros do desafio ALTCHA v2 (algoritmo, nonce, salt, custo, expiração) */
+            parameters: {
+                [key: string]: unknown;
+            };
+            signature: string;
+        };
         LoginRequest: {
             username: string;
             password: string;
+            /** @description Payload do widget ALTCHA (JSON em base64) */
+            altcha: string;
         };
         CodeRequest: {
             /** @description Código TOTP de 6 dígitos ou código de recuperação */
@@ -774,10 +800,14 @@ export interface components {
             username: string;
             display_name?: string;
             password: string;
+            /** @description Payload do widget ALTCHA (JSON em base64) */
+            altcha: string;
         };
         ResetRequest: {
             token: string;
             password: string;
+            /** @description Payload do widget ALTCHA (JSON em base64) */
+            altcha: string;
         };
         /** @enum {string} */
         Severity: "critical" | "high" | "medium" | "low" | "info";
@@ -1388,6 +1418,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Session"];
+                };
+            };
+        };
+    };
+    getAuthChallenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Desafio assinado, válido por 10 minutos e aceito uma única vez */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthChallenge"];
                 };
             };
         };

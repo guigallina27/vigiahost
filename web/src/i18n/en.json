@@ -174,5 +174,15 @@
     "title": "Page not found",
     "description": "The address does not match any page of the panel.",
     "back": "Go to overview"
+  },
+  "captcha": {
+    "label": "I'm not a robot",
+    "verifying": "Verifying…",
+    "verified": "Verified",
+    "error": "Verification failed. Tick the box again.",
+    "expired": "Verification expired. Tick the box again.",
+    "required": "Tick the \"I'm not a robot\" box.",
+    "loading": "Loading verification…",
+    "loadError": "Could not load the \"I'm not a robot\" check. Reload the page."
   }
 }

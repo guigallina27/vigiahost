@@ -62,8 +62,10 @@ type Server struct {
 
 	DB   *store.DB
 	Auth *auth.Service
-	Orch *orchestrator.Service
-	Hub  *orchestrator.Hub
+	// Captcha confere a caixa "não sou um robô" (ALTCHA) no login, no primeiro acesso e na recuperação.
+	Captcha *auth.Captcha
+	Orch    *orchestrator.Service
+	Hub     *orchestrator.Hub
 	// Exec atende consultas diretas ao executor (saúde dos motores).
 	Exec orchestrator.Executor
 	// TrustProxy aceita X-Forwarded-Proto/For de um proxy reverso no endereço local.
