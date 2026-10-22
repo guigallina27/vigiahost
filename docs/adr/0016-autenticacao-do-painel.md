@@ -1,10 +1,10 @@
 # ADR-016: Autenticação do painel web
 
-**Status:** Proposto · **Data:** 22/10/2026 (lacunas encontradas ao revisar a seção 13 do escopo antes da Fase 1A)
+**Status:** Aceito · **Data:** 22/10/2026 (proposto ao revisar a seção 13 do escopo; aceito e implementado no E1.2, com o item 9 acrescentado a pedido do responsável)
 
 **Contexto.** O escopo já fixa o essencial: usuários próprios do VigiaHost (o glossário separa *usuário* do painel de *conta* do servidor), senha com Argon2id, TOTP, passkeys, códigos de recuperação, sessões no servidor com cookie `__Host-` `Secure` `HttpOnly` `SameSite=Strict`, reautenticação para ações sensíveis, bloqueio progressivo com registro para fail2ban/LFD, perfis administrador, operador, leitura e auditor, tokens de API por hash e token de primeiro acesso exibido no terminal, sem senha padrão. Ficaram em aberto: se o MFA é obrigatório, em que fase entram as passkeys (o escopo diz 1A; o plano, E2.6), como recuperar o acesso quando o único administrador perde senha e MFA, os tempos de sessão e a relação com o login dos painéis de hospedagem.
 
-**Decisão proposta.**
+**Decisão.**
 
 1. **Usuários próprios** no SQLite. Nada de PAM nem de usuários Linux: o painel não deve virar um caminho para testar senhas do sistema, e os perfis do produto não correspondem a grupos do Linux.
 2. **MFA obrigatório para administrador e operador** desde a 1A, com TOTP (RFC 6238, janela de ±1 passo, código usado uma vez só) e 10 códigos de recuperação de uso único guardados por hash. Leitura e auditor podem ficar sem MFA se o administrador permitir.
@@ -14,6 +14,7 @@
 6. **Bloqueio progressivo** por usuário e por IP: atraso crescente a partir da 5ª falha e bloqueio temporário de 15 minutos na 10ª, sem revelar se o usuário existe. Cada falha vira uma linha estável no journal (`vigiahost: login falhou user=... ip=...`) para o fail2ban/LFD.
 7. **Painéis de hospedagem** (WHM, Webuzo, DirectAdmin): login integrado fica para a Fase 3, como opção que se soma ao login próprio e nunca o substitui. Até lá, o acesso é sempre pelo login do VigiaHost.
 8. **Tokens de API** só para automação: escopo por perfil, validade obrigatória (máximo de 1 ano), exibidos uma vez e guardados por hash; não servem para a interface.
+9. **Caixa "Não sou um robô" (ALTCHA)** no login, no primeiro acesso e na recuperação: ao marcar a caixa, o navegador resolve uma prova de trabalho (PBKDF2/SHA-256, cerca de 0,5 s num computador comum) sem desafio para o usuário. O servidor (`altcha-lib-go` v2) emite o desafio assinado em `GET /api/v1/auth/challenge`, válido por 10 minutos, em modo determinístico (confere a solução pela assinatura da chave, sem refazer o cálculo) e aceito uma única vez; os segredos HMAC ficam só na memória. A verificação acontece antes de qualquer conferência de senha ou token. O widget `altcha` roda na versão externa (worker próprio e CSS separado), compatível com a CSP sem `unsafe-inline`; sem serviço de terceiros nem rastreamento. Soma-se ao bloqueio progressivo: encarece robôs, não substitui o limite de tentativas.
 
 | Opção | Complexidade | Custo no servidor | Escala | Risco |
 |---|---|---|---|---|
@@ -26,4 +27,4 @@
 
 **Consequências.** Mais fácil: comportamento igual com ou sem painel de hospedagem; auditoria completa de quem fez cada ação. Mais difícil: o suporte precisa orientar a recuperação pelo terminal. Revisitar quando entrarem as passkeys (talvez dispensar senha) e quando a central (Fase 4) trouxer login único entre servidores.
 
-**Ações.** [ ] Aceitar ou ajustar esta proposta. [ ] Corrigir a seção 13 do escopo (passkeys na Fase 2, MFA obrigatório, recuperação pelo root, tempos de sessão). [ ] Implementar no E1.2 com testes da matriz de autorização, da troca de identificador de sessão e do bloqueio progressivo.
+**Ações.** [x] Aceitar esta proposta (com o item 9). [x] Implementar no E1.2 com testes da matriz de autorização, da troca de identificador de sessão, do bloqueio progressivo e do ALTCHA (reuso, adulteração, expiração). [x] Corrigir a seção 13 do escopo (passkeys na Fase 2, MFA obrigatório, recuperação pelo root, tempos de sessão, ALTCHA). [ ] Tempos de sessão ajustáveis pelo administrador (hoje fixos nos valores padrão).

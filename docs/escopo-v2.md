@@ -451,12 +451,12 @@ Ordem de prioridade: **evitar trabalho, depois torná-lo mais barato, depois faz
 - Separação core/executor com política no executor (seção 6.1).
 - *Hardening* systemd do core: usuário próprio, `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `CapabilityBoundingSet` vazio, `MemoryDenyWriteExecute`, `ReadWritePaths` restrito; meta conferida com `systemd-analyze security`.
 - Execuções de scanners: somente leitura (`CAP_DAC_READ_SEARCH` quando possível), **sem rede** (`PrivateNetwork`), gravação apenas no diretório de saída. Atualizações de assinaturas em unidades separadas, com rede.
-- Autenticação: Argon2id com parâmetros documentados e compatíveis com servidores pequenos; TOTP e passkeys; códigos de recuperação; **reautenticação para ações sensíveis** (quarentena, restauração, exceções, aceitar referência do AIDE, usuários).
-- Sessões no servidor; cookies `Secure`, `HttpOnly`, `SameSite=Strict`, prefixo `__Host-`; expiração por inatividade e absoluta.
+- Autenticação ([ADR-016](adr/0016-autenticacao-do-painel.md)): Argon2id com parâmetros documentados e compatíveis com servidores pequenos; **TOTP obrigatório para administrador e operador** desde a 1A, passkeys na Fase 2 (E2.6); códigos de recuperação; caixa **"Não sou um robô" (ALTCHA, prova de trabalho local, sem terceiros)** no login, no primeiro acesso e na recuperação; **reautenticação para ações sensíveis** (quarentena, restauração, exceções, aceitar referência do AIDE, usuários), válida por 5 minutos.
+- Sessões no servidor; cookies `Secure`, `HttpOnly`, `SameSite=Strict`, prefixo `__Host-`; expiração por inatividade (30 min) e absoluta (12 h); identificador trocado no login, no segundo fator e na reautenticação.
 - CSRF com `http.CrossOriginProtection` + `SameSite`; CSP sem `inline`, `frame-ancestors 'none'`, HSTS quando o certificado for válido.
 - Limitação de tentativas e bloqueio progressivo; falhas de login registradas em formato consumível por fail2ban/LFD.
 - Tokens de API com escopo, validade e armazenamento por hash; perfis administrador, operador, leitura e auditor; perfis restritos a contas específicas (revendedor/cliente) na Fase 3/4.
-- Recuperação local: `vigiahost user reset-password` apenas como root, auditado.
+- Recuperação local: `vigiahost user reset <usuário>` apenas como root, gera token de uso único de 15 minutos, auditado.
 - **Dados controlados pelo atacante**: nomes de arquivo nunca renderizados como HTML; caracteres de controle e bidi exibidos de forma visível; exportação CSV protegida contra injeção de fórmula; logs estruturados.
 - Segredos (SMTP, Telegram, webhooks, chaves de feeds como Wordfence e abuse.ch) cifrados em repouso, nunca exibidos depois de salvos nem gravados em logs; chave entregue por `LoadCredential` quando disponível.
 - **Escopo por conta** (perfis de revendedor/cliente, Fase 3/4): filtro de conta aplicado no servidor em todas as consultas, exportações e eventos SSE; a matriz de autorização cobre perfil × conta.
