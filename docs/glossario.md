@@ -23,6 +23,6 @@ Um termo por conceito, igual na interface, na API e na documentação ([escopo, 
 |---|---|
 | Severidade | Crítico, Alto, Médio, Baixo, Informativo |
 | Estado do achado | Novo, Em análise, Confirmado, Resolvido, Falso positivo, Coberto por exceção |
-| Estado da execução | Concluída, Parcial, Falha, Falha de motor, Cancelada, Interrompida e recuperada |
+| Estado da execução | Na fila, Em execução, Concluída, Parcial, Falha, Falha de motor, Cancelada, Interrompida e recuperada |
 | Saúde do motor | Operacional, Degradado, Indisponível |
 | Atualização do motor | Em dia, Atrasada |

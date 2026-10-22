@@ -516,7 +516,7 @@ O preview mostrou que uma lista plana de menus não comporta as cerca de 20 pág
 
 ### 14.4 Design system
 
-Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escuro, mapeados no Tailwind. Componentes de domínio documentados com variantes, estados e notas de acessibilidade: `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` (com reautenticação) e `EmptyState`. Catálogo de componentes (ex.: Storybook) com teste automatizado de acessibilidade. Fontes e ícones embarcados, sem CDN, compatíveis com a CSP e com servidores sem acesso à internet.
+Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escuro, mapeados no Tailwind. Componentes de domínio documentados com variantes, estados e notas de acessibilidade: `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` (com reautenticação) e `EmptyState`. Catálogo de componentes no servidor de desenvolvimento (rota `/catalogo`, fora do build de produção) com teste automatizado de acessibilidade (axe-core) nos dois temas ([ADR-017](adr/0017-base-da-interface.md)). Fontes e ícones embarcados, sem CDN, compatíveis com a CSP e com servidores sem acesso à internet.
 
 ---
 

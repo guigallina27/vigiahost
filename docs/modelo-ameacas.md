@@ -28,7 +28,8 @@
 | Ameaça | Controle | Situação |
 |---|---|---|
 | Falsificação de requisição entre sites | `http.CrossOriginProtection`; cookies `SameSite=Strict` | Implementado (proteção de origem); cookies na 1A |
-| XSS por nome de arquivo malicioso | CSP sem `inline`; interface nunca renderiza nomes como HTML | CSP implementada; interface na 0/1A |
+| XSS por nome de arquivo malicioso | CSP `default-src 'self'` sem `inline` nem `data:` (a interface não tem script nem estilo embutido no HTML); React escapa todo texto; nada usa `dangerouslySetInnerHTML` | Implementado |
+| Nome de arquivo que engana o operador (bidi, quebra de linha, invisíveis) | `PathText` mostra controles e marcas de direção como escapes destacados e avisa o leitor de tela | Implementado (E0.6) |
 | Clickjacking | `frame-ancestors 'none'` | Implementado |
 | Exposição da interface na rede | Escuta em `127.0.0.1` por padrão; aviso no log se não for local | Implementado |
 | Força bruta de login | Bloqueio progressivo, registro para fail2ban/LFD | Planejado (1A) |
@@ -68,9 +69,10 @@
 | Ameaça | Controle | Situação |
 |---|---|---|
 | *Action* do CI comprometida | Fixadas por SHA de commit; `persist-credentials: false`; permissões mínimas | Implementado |
-| Dependência maliciosa recém-publicada | Dependabot com espera mínima de 7 dias; versões fixadas | Implementado |
+| Dependência maliciosa recém-publicada | Dependabot com espera mínima de 7 dias (Go, npm e *actions*); versões exatas; na interface, pnpm com `minimumReleaseAge` de 7 dias e lockfile obrigatório (`--frozen-lockfile`) | Implementado |
+| Script de instalação malicioso em pacote npm | pnpm com `strictDepBuilds`: nenhum pacote roda script de instalação sem aprovação explícita | Implementado |
 | Dependência com vulnerabilidade conhecida | `govulncheck` no CI; revisão de dependências nos PRs | Implementado |
-| Licença incompatível | Verificação de licenças compatíveis com GPL-3.0 no CI | Implementado |
+| Licença incompatível | Verificação de licenças compatíveis com GPL-3.0 no CI (go-licenses para o Go; `web/scripts/licenses.mjs` para a interface, que também gera os avisos de terceiros embarcados) | Implementado |
 | Segredo commitado | Varredura de segredos (gitleaks) no CI | Implementado |
 | PR de *fork* executando código no laboratório | Testes em VM só em eventos confiáveis | Planejado (com os *runners* próprios) |
 | Chave de assinatura vazada | Raiz offline em dois tokens; subchave anual; aprovação manual no *environment* `release` | Planejado (E0.7, aguarda tokens) |

@@ -76,12 +76,12 @@ flowchart LR
 
 | Épico | Situação | Falta |
 |---|---|---|
-| E0.1 Repositório e CI | Workflows de CI e CodeQL, lint, `-race`, *fuzzing*, govulncheck, licenças, segredos e revisão de dependências, *actions* fixadas por SHA; Dependabot com espera de 7 dias | Primeira execução no GitHub (depende do envio da branch) |
+| E0.1 Repositório e CI | Workflows de CI e CodeQL, lint, `-race`, *fuzzing*, govulncheck, licenças, segredos e revisão de dependências, *actions* fixadas por SHA; job da interface (lint, tipos, testes, contrato gerado, axe-core); Dependabot com espera de 7 dias para Go, npm e *actions* | Primeira execução no GitHub: o Actions está bloqueado por pendência de cobrança da conta; até lá, cada job é reproduzido no laboratório |
 | E0.2 Pipeline de release | Pacotes DEB/RPM (nfpm) com unidades systemd, usuário de sistema e scripts de instalação, atualização, retorno e remoção | GoReleaser, assinatura, SBOM e proveniência (dependem do E0.7) |
 | E0.3 Laboratório e corpus | WSL AlmaLinux 9 isolado com systemd, cgroup v2 e PSI; testes de ciclo de vida com systemd e em 10 distribuições por contêiner | VMs ARM64, corpus de controles positivos, corpus benigno e sintético, cenário `memfd` |
-| E0.4 Contrato e esqueleto | Core e executor com protocolo versionado (ADR-014), `SO_PEERCRED`, política, saúde, `doctor`, SQLite com Goose | OpenAPI e cliente TypeScript gerado; sqlc entra com as primeiras consultas reais (1A) |
-| E0.5 Modelo de ameaças e ADRs | [Modelo de ameaças](modelo-ameacas.md) v0.1; ADRs 001–015 em [`adr/`](adr/) | — |
-| E0.6 Design system base | [Glossário](glossario.md) | Tokens claro/escuro, navegação agrupada, componentes base e catálogo com teste de acessibilidade |
+| E0.4 Contrato e esqueleto | Core e executor com protocolo versionado (ADR-014), `SO_PEERCRED`, política, saúde, `doctor`, SQLite com Goose; contrato [`api/openapi.yaml`](../api/openapi.yaml) gerando o servidor Go (oapi-codegen) e o cliente TypeScript (openapi-typescript), conferidos por `make check-generated` | sqlc entra com as primeiras consultas reais (1A) |
+| E0.5 Modelo de ameaças e ADRs | [Modelo de ameaças](modelo-ameacas.md) v0.1; ADRs 001–015 e 017 aceitos em [`adr/`](adr/) | ADR-016 (autenticação do painel) aguarda aceite |
+| E0.6 Design system base | [Glossário](glossario.md); tokens claro/escuro com `light-dark()`; navegação agrupada; componentes `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` e `EmptyState`; Visão geral com dados reais de saúde; catálogo no servidor de desenvolvimento com axe-core nos dois temas, teclado e 320 px ([ADR-017](adr/0017-base-da-interface.md)) | Reautenticação real no `ConfirmDialog` e indicador de conexão do SSE entram com o E1.2 |
 | E0.7 Cerimônia das chaves | — | Tokens comprados e responsáveis indicados |
 
 ### Fase 1A — Detectar e explicar
