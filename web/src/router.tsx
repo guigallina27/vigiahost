@@ -28,6 +28,8 @@ const pages: RouteObject[] = [
   { path: "execucoes/:runId", element: page(() => import("./pages/runs/RunDetailPage").then((m) => m.RunDetailPage)) },
   { path: "cobertura", element: page(() => import("./pages/CoveragePage").then((m) => m.CoveragePage)) },
   { path: "processos", element: page(() => import("./pages/inventory/ProcessesPage").then((m) => m.ProcessesPage)) },
+  { path: "integridade", element: page(() => import("./pages/system/IntegrityPage").then((m) => m.IntegrityPage)) },
+  { path: "atualizacoes", element: page(() => import("./pages/system/UpdatesPage").then((m) => m.UpdatesPage)) },
   { path: "agendamentos", element: page(() => import("./pages/config/SchedulesPage").then((m) => m.SchedulesPage)) },
   { path: "recursos", element: page(() => import("./pages/config/ResourcesPage").then((m) => m.ResourcesPage)) },
   { path: "motores", element: page(() => import("./pages/config/EnginesPage").then((m) => m.EnginesPage)) },

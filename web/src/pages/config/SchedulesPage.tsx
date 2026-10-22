@@ -166,7 +166,7 @@ function ScheduleCard({
       </div>
 
       <dl className="m-0 grid gap-3 sm:grid-cols-2">
-        <Info label={t("config.schedules.kind")}>{t(s.kind === "processes" ? "config.kinds.processes" : "config.kinds.files")}</Info>
+        <Info label={t("config.schedules.kind")}>{t(`config.kinds.${s.kind}`)}</Info>
         <Info label={t("config.schedules.profile")}>{profileLabel(s.profile, t)}</Info>
         <Info label={t("config.schedules.missedPolicy")}>{t(s.missed_policy === "skip" ? "config.missed.skip" : "config.missed.run_once")}</Info>
         <Info label={t("config.schedules.lastRun")}>

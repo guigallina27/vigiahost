@@ -1,4 +1,4 @@
-import { Cpu, FolderSearch, Pause } from "lucide-react";
+import { Cpu, FileCheck, FolderSearch, PackageCheck, Pause, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { Schemas } from "../../api/client";
 import { Badge } from "../../components/Badge";
@@ -30,9 +30,11 @@ export function useProfileSummary() {
   };
 }
 
+const kindIcons: Record<RunKind, LucideIcon> = { files: FolderSearch, processes: Cpu, integrity: FileCheck, updates: PackageCheck };
+
 export function KindLabel({ kind }: { kind: RunKind }) {
   const { t } = useTranslation();
-  const Icon = kind === "files" ? FolderSearch : Cpu;
+  const Icon = kindIcons[kind];
   return (
     <span className="inline-flex items-center gap-1.5 font-semibold">
       <Icon aria-hidden="true" className="size-4 shrink-0 text-ink-muted" />
@@ -88,6 +90,11 @@ export function PhaseText({ phase }: { phase: string }) {
     case "scanning":
     case "large_files":
     case "inspect":
+    case "hidden":
+    case "verify":
+    case "signatures":
+    case "updates":
+    case "restart":
     case "done":
       return <>{t(`runs.phase.${phase}`)}</>;
     case "":

@@ -27,7 +27,12 @@ export const STATUS_GROUPS = {
 
 export type StatusGroup = keyof typeof STATUS_GROUPS;
 export const STATUS_GROUP_KEYS = Object.keys(STATUS_GROUPS) as StatusGroup[];
-export const RUN_KINDS: RunKind[] = ["files", "processes"];
+export const RUN_KINDS: RunKind[] = ["files", "processes", "integrity", "updates"];
+
+/** Verificações do sistema inteiro: sem caminhos nem contas (o escopo é fixo no executor). */
+export function isSystemKind(kind: RunKind): boolean {
+  return kind !== "files";
+}
 
 export type RunFilters = { status?: StatusGroup; kind?: RunKind; /** Só execuções que cobriram a conta (UID). */ account?: number };
 
@@ -93,10 +98,10 @@ export type DraftError =
  * (lista vazia, caminho relativo, quantidade); a política de caminhos permitidos continua no servidor.
  */
 export function buildRunCreate(draft: RunDraft): { ok: true; body: RunCreate } | { ok: false; error: DraftError } {
-  // O executor só usa "incremental" em arquivos; em processos a verificação é sempre completa.
+  // O executor só usa "incremental" em arquivos; nos outros tipos a verificação é sempre completa.
   const body: RunCreate = { kind: draft.kind, incremental: draft.kind === "files" && draft.incremental };
   if (draft.profile) body.profile = draft.profile;
-  if (draft.kind === "processes") return { ok: true, body };
+  if (isSystemKind(draft.kind)) return { ok: true, body };
 
   const accounts = draft.accounts ? choiceToSelection(draft.accounts) : undefined;
   if (draft.accounts?.mode === "selected" && !accounts) {

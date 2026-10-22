@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ArrowUpDown, FileX, Flag, MemoryStick } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, FileWarning, FileX, Flag, MemoryStick } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
@@ -237,7 +237,17 @@ function ProcessRow({ p }: { p: ProcessInfo }) {
       </td>
       <td className="min-w-28">
         {pkg === "known" ? (
-          <SafeText text={p.package ?? ""} mono />
+          <span className="flex min-w-0 flex-col items-start gap-1">
+            <SafeText text={p.package ?? ""} mono />
+            {p.package_status === "mismatch" && (
+              <>
+                <Badge tone="critical" icon={FileWarning}>
+                  {t("inventory.packageMismatch")}
+                </Badge>
+                <span className="visually-hidden">{t("inventory.packageMismatchHint")}</span>
+              </>
+            )}
+          </span>
         ) : pkg === "none" ? (
           <>
             <span aria-hidden="true">—</span>

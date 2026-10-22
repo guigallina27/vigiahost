@@ -11,7 +11,9 @@
     },
     "kinds": {
       "files": "Varredura de arquivos",
-      "processes": "Inspeção de processos"
+      "processes": "Inspeção de processos",
+      "integrity": "Integridade dos pacotes",
+      "updates": "Atualizações e reinícios"
     },
     "missed": {
       "run_once": "Executar uma vez ao voltar",

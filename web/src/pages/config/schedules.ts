@@ -74,8 +74,8 @@ export function splitLines(text: string): string[] {
 }
 
 /**
- * Corpo de POST/PUT /api/v1/schedules. A inspeção de processos não usa caminhos (o servidor os descarta),
- * então eles nem são enviados.
+ * Corpo de POST/PUT /api/v1/schedules. A inspeção de processos e as verificações do sistema não usam caminhos
+ * (o servidor os descarta), então eles nem são enviados.
  */
 export function buildScheduleInput(v: ScheduleFormValues): ScheduleInput {
   const base: ScheduleInput = {
@@ -89,7 +89,7 @@ export function buildScheduleInput(v: ScheduleFormValues): ScheduleInput {
     // O tipo gerado exige o campo (tem padrão no contrato); na inspeção de processos ele não tem efeito.
     incremental: v.kind === "files" ? v.incremental : true,
   };
-  if (v.kind === "processes") return base;
+  if (v.kind !== "files") return base;
   const accounts = choiceToSelection(v.accounts);
   return { ...base, paths: splitLines(v.paths), exclude: splitLines(v.exclude), ...(accounts ? { accounts } : {}) };
 }

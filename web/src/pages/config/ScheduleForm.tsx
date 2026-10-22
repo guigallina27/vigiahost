@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field, FormError, SelectField, TextAreaField } from "../../components/Field";
 import { Timestamp } from "../../components/Timestamp";
 import { AccountPicker } from "../accounts/AccountPicker";
+import { RUN_KINDS } from "../runs/runFormat";
 import { cronToText } from "./cronText";
 import { profileLabel, resourcesQuery, useDebounced, zoneProp } from "./queries";
 import { fieldForServerError, type ScheduleField } from "./scheduleErrors";
@@ -138,11 +139,8 @@ export function ScheduleForm({ editing, initial, onDone, onCancel }: Props) {
           <SelectField
             label={t("config.schedules.kind")}
             value={values.kind}
-            onChange={(e) => set("kind", e.target.value === "processes" ? "processes" : "files")}
-            options={[
-              { value: "files", label: t("config.kinds.files") },
-              { value: "processes", label: t("config.kinds.processes") },
-            ]}
+            onChange={(e) => set("kind", RUN_KINDS.find((k) => k === e.target.value) ?? "files")}
+            options={RUN_KINDS.map((k) => ({ value: k, label: t(`config.kinds.${k}`) }))}
           />
         </div>
 

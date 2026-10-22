@@ -11,7 +11,36 @@ export type FindingKind = Schemas["FindingKind"];
 
 export const findingStateList: FindingState[] = ["new", "in_review", "confirmed", "resolved", "false_positive", "excepted"];
 export const severityList: Severity[] = ["critical", "high", "medium", "low", "info"];
-export const kindList: FindingKind[] = ["file", "process", "persistence"];
+export const kindList: FindingKind[] = ["file", "process", "persistence", "system"];
+
+export type SubjectLabel =
+  | { key: "securityUpdates" | "reboot" | "services" | "packageCache" | "unsigned" | "unknownKey" | "aptConf" }
+  | { key: "repo"; id: string }
+  | { key: "pid"; pid: string }
+  | { key: "port"; proto: string; port: string }
+  | { key: "raw"; text: string };
+
+const fixedSubjects: Record<string, SubjectLabel> = {
+  "security-updates": { key: "securityUpdates" },
+  reboot: { key: "reboot" },
+  services: { key: "services" },
+  "package-cache": { key: "packageCache" },
+  "pacotes-sem-assinatura": { key: "unsigned" },
+  "pacotes-chave-desconhecida": { key: "unknownKey" },
+  "apt-conf": { key: "aptConf" },
+};
+
+/** Assunto do achado do sistema ("security-updates", "repo:epel", "tcp/31337") em forma de rótulo. */
+export function subjectLabel(subject: string): SubjectLabel {
+  const fixed = fixedSubjects[subject];
+  if (fixed) return fixed;
+  if (subject.startsWith("repo:")) return { key: "repo", id: subject.slice(5) };
+  const pid = /^pid:(\d+)$/.exec(subject);
+  if (pid?.[1]) return { key: "pid", pid: pid[1] };
+  const port = /^(tcp|udp)\/(\d+)$/.exec(subject);
+  if (port?.[1] && port[2]) return { key: "port", proto: port[1].toUpperCase(), port: port[2] };
+  return { key: "raw", text: subject };
+}
 
 /** Estados abertos (mesma lista de store.OpenStates no servidor): o padrão da lista. */
 export const openStates: FindingState[] = ["new", "in_review", "confirmed"];

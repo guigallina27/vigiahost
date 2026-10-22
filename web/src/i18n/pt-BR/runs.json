@@ -12,7 +12,9 @@
     "kind": {
       "label": "Tipo",
       "files": "Arquivos",
-      "processes": "Processos"
+      "processes": "Processos",
+      "integrity": "Integridade dos pacotes",
+      "updates": "Atualizações e reinícios"
     },
     "origin": {
       "label": "Origem",
@@ -27,7 +29,12 @@
       "scanning": "Análise dos arquivos",
       "large_files": "Análise dos arquivos grandes",
       "inspect": "Inspeção de processos e persistência",
-      "done": "Finalizada"
+      "done": "Finalizada",
+      "hidden": "Processos e portas ocultos",
+      "verify": "Conferência dos arquivos dos pacotes",
+      "signatures": "Assinaturas de pacotes e repositórios",
+      "updates": "Correções pendentes",
+      "restart": "Serviços e reinício pendentes"
     },
     "profiles": {
       "leve": "Leve",
@@ -67,7 +74,8 @@
       "morePaths_other": "e mais {{count}} caminhos",
       "processedOf": "{{processed}} de {{eligible}}",
       "allProcesses": "Todos os processos",
-      "morePaths_zero": "e mais {{count}} caminhos"
+      "morePaths_zero": "e mais {{count}} caminhos",
+      "wholeSystem": "Sistema inteiro"
     },
     "empty": {
       "title": "Nenhuma verificação ainda",
@@ -103,7 +111,11 @@
         "excludeTooMany": "Informe no máximo {{max}} exclusões.",
         "accountsRequired": "Escolha ao menos uma conta da lista ou mude para \"Todas as contas\"."
       },
-      "pathsOptionalHint": "Opcional com contas escolhidas: o escopo de cada conta é montado pelo servidor. Um caminho absoluto por linha. Até 64."
+      "pathsOptionalHint": "Opcional com contas escolhidas: o escopo de cada conta é montado pelo servidor. Um caminho absoluto por linha. Até 64.",
+      "kindIntegrity": "Integridade dos pacotes",
+      "kindIntegrityHint": "Confere os arquivos instalados contra o registrado no pacote e as assinaturas de pacotes e repositórios. Vale para o sistema inteiro.",
+      "kindUpdates": "Atualizações e reinícios",
+      "kindUpdatesHint": "Lista correções de segurança pendentes pela lista de pacotes já baixada, serviços com bibliotecas substituídas e reinício pendente. Não instala nada."
     },
     "detail": {
       "title": "Execução {{id}}",
@@ -159,7 +171,8 @@
       "cancelTitle": "Cancelar esta execução?",
       "cancelImpact": "A análise para agora e os processos da execução são encerrados. O que já foi analisado e os achados encontrados continuam registrados.",
       "cancelQueuedImpact": "A execução sai da fila e não chega a rodar.",
-      "cancelConfirm": "Cancelar execução"
+      "cancelConfirm": "Cancelar execução",
+      "openReport": "Abrir o relatório desta verificação"
     },
     "engine": {
       "version": "Versão",

@@ -10,6 +10,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { FormError } from "../../components/Field";
 import { Timestamp } from "../../components/Timestamp";
 import { PageHeader } from "../../layout/PageHeader";
+import { HiddenPanel } from "./HiddenPanel";
 import { PersistenceView } from "./PersistenceView";
 import { parseRunId } from "./processes";
 import { ProcessTable } from "./ProcessTable";
@@ -169,6 +170,7 @@ function ProcessesTab({ runId, inspectAction }: { runId: string | undefined; ins
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <SnapshotInfo runId={q.data.run_id} takenAt={q.data.taken_at} />
+      <HiddenPanel report={q.data.hidden} />
       {q.data.processes.length === 0 ? (
         <EmptyState icon={Cpu} title={t("inventory.processes.emptyTitle")} description={t("inventory.processes.emptyDescription")} />
       ) : (

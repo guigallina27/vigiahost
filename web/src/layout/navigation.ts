@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Lock,
+  PackageCheck,
   Palette,
   PieChart,
   ScanSearch,
@@ -52,7 +53,8 @@ export const navigation: NavGroup[] = [
     label: "nav.groups.investigate",
     items: [
       { to: "/processos", label: "nav.processes", icon: Cpu },
-      { to: "/integridade", label: "nav.integrity", icon: FileCheck, phase: "2" },
+      { to: "/integridade", label: "nav.integrity", icon: FileCheck },
+      { to: "/atualizacoes", label: "nav.updates", icon: PackageCheck },
       { to: "/evidencias", label: "nav.evidence", icon: Archive, phase: "2" },
     ],
   },

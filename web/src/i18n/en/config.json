@@ -11,7 +11,9 @@
     },
     "kinds": {
       "files": "File scan",
-      "processes": "Process inspection"
+      "processes": "Process inspection",
+      "integrity": "Package integrity",
+      "updates": "Updates and restarts"
     },
     "missed": {
       "run_once": "Run once when back",

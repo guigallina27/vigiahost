@@ -117,6 +117,35 @@
       "shell-init": "Inicialização de shell (profile, bashrc)",
       "ld-so-conf": "Configuração do carregador dinâmico",
       "udev-rule": "Regras do udev"
+    },
+    "packageMismatch": "Difere do pacote",
+    "packageMismatchHint": "o executável em execução não confere com o resumo registrado no pacote",
+    "hidden": {
+      "title": "Processos e portas ocultos",
+      "notChecked": "A busca por processos e portas ocultos não rodou nesta inspeção.",
+      "clean": "Nada oculto: {{processes}} processos e threads conferidos com o kernel e {{ports}} portas testadas.",
+      "found_one": "{{count}} item oculto confirmado duas vezes",
+      "found_other": "{{count}} itens ocultos confirmados duas vezes",
+      "found_zero": "Nenhum item oculto",
+      "discarded": "{{count}} candidatos descartados por serem efêmeros (apareceram ou sumiram entre as conferências).",
+      "processesCaption": "Processos que respondem ao kernel e não aparecem na listagem",
+      "portsCaption": "Portas em uso que não aparecem nas tabelas de rede",
+      "colPid": "PID",
+      "colProcess": "Processo",
+      "colChecks": "Confirmado por",
+      "colAccess": "Acesso direto",
+      "directYes": "Abre por /proc/PID",
+      "directNo": "Não abre",
+      "colPort": "Porta",
+      "colReason": "Como apareceu",
+      "reason": {
+        "bind_only": "Em uso para o kernel, ausente do /proc/net e do netlink",
+        "netlink_only": "Visível no netlink, escondida do /proc/net",
+        "proc_only": "Visível no /proc/net, escondida do netlink"
+      },
+      "processesError": "Busca por processos ocultos: {{error}}",
+      "portsError": "Busca por portas ocultas: {{error}}",
+      "skipped": "{{count}} portas não puderam ser testadas (privilegiadas ou família de endereço desligada)."
     }
   }
 }

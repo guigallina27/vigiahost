@@ -615,6 +615,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verificação contra os pacotes da última execução de integridade (ou da informada)
+         * @description Arquivos que diferem do registrado no pacote (rpm -Va, dpkg --verify, debsums), classificados pelo tipo do arquivo, e a situação das assinaturas dos pacotes e dos repositórios.
+         */
+        get: operations["getIntegrity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Correções pendentes, reinício e serviços a reiniciar da última execução de atualizações (ou da informada) */
+        get: operations["getUpdates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engines": {
         parameters: {
             query?: never;
@@ -904,10 +941,13 @@ export interface components {
         Severity: "critical" | "high" | "medium" | "low" | "info";
         /** @enum {string} */
         FindingState: "new" | "in_review" | "confirmed" | "resolved" | "false_positive" | "excepted";
+        /**
+         * @description system é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta)
+         * @enum {string}
+         */
+        FindingKind: "file" | "process" | "persistence" | "system";
         /** @enum {string} */
-        FindingKind: "file" | "process" | "persistence";
-        /** @enum {string} */
-        RunKind: "files" | "processes";
+        RunKind: "files" | "processes" | "integrity" | "updates";
         /** @enum {string} */
         RunStatus: "queued" | "reserved" | "running" | "completed" | "partial" | "failed" | "engine_failure" | "canceled" | "interrupted";
         SeverityCounts: {
@@ -1143,6 +1183,11 @@ export interface components {
             exe_sha256?: string;
             /** @description Pacote dono do executável; "-" quando nenhum pacote o reconhece */
             package?: string;
+            /**
+             * @description O executável confere (match) ou não (mismatch) com o resumo registrado no pacote
+             * @enum {string}
+             */
+            package_status?: "match" | "mismatch";
             unit?: string;
             cgroup?: string;
             /** Format: int64 */
@@ -1161,6 +1206,207 @@ export interface components {
             /** Format: date-time */
             taken_at: string;
             processes: components["schemas"]["ProcessInfo"][];
+            hidden?: components["schemas"]["HiddenReport"];
+        };
+        /** @description Processos e portas que o kernel confirma mas as listagens escondem (conferidos duas vezes) */
+        HiddenReport: {
+            processes: components["schemas"]["HiddenProcesses"];
+            ports: components["schemas"]["HiddenPorts"];
+            seconds: number;
+        };
+        HiddenProcesses: {
+            checked: boolean;
+            pid_max: number;
+            /** @description Processos e threads listados no /proc */
+            visible: number;
+            found: components["schemas"]["HiddenProcess"][];
+            /** @description Candidatos descartados por serem efêmeros */
+            discarded: number;
+            error?: string;
+        };
+        HiddenProcess: {
+            pid: number;
+            /** @description Chamadas que confirmaram o processo */
+            checks: string[];
+            /** @description /proc/PID abre mesmo fora da listagem */
+            direct_access: boolean;
+            comm?: string;
+            exe?: string;
+        };
+        HiddenPorts: {
+            checked: boolean;
+            probed: number;
+            skipped: number;
+            listed: number;
+            netlink: boolean;
+            found: components["schemas"]["HiddenPort"][];
+            discarded: number;
+            error?: string;
+        };
+        HiddenPort: {
+            /** @enum {string} */
+            proto: "tcp" | "udp";
+            port: number;
+            /** @enum {string} */
+            reason: "bind_only" | "netlink_only" | "proc_only";
+        };
+        ReportRun: {
+            run_id: string;
+            /** Format: date-time */
+            taken_at: string;
+        };
+        PackageRef: {
+            name: string;
+            version: string;
+            arch?: string;
+        };
+        IntegrityFile: {
+            path: string;
+            /** @description Marcas da ferramenta (S.5....T.); "missing" para arquivo ausente */
+            flags: string;
+            changes: ("size" | "mode" | "digest" | "device" | "link" | "user" | "group" | "mtime" | "capabilities" | "missing")[];
+            config?: boolean;
+            /** @enum {string} */
+            class: "binary" | "library" | "pam_module" | "kernel_module" | "config_sensitive" | "config" | "doc" | "other";
+            severity: components["schemas"]["Severity"];
+            signature: string;
+            description: string;
+            packages?: components["schemas"]["PackageRef"][];
+            algo?: string;
+            expected?: string;
+            actual?: string;
+            sha256?: string;
+        };
+        SigningKey: {
+            id: string;
+            summary: string;
+        };
+        KeyedPackage: {
+            name: string;
+            version: string;
+            arch?: string;
+            key_id: string;
+        };
+        PackageRepo: {
+            id: string;
+            name?: string;
+            file: string;
+            enabled: boolean;
+            verified: boolean;
+            /** @enum {string} */
+            problem?: "gpgcheck_off" | "trusted" | "allow_insecure" | "unsigned_list" | "apt_conf_insecure";
+        };
+        PackageSignatures: {
+            manager: string;
+            /** @enum {string} */
+            method: "package" | "repository";
+            keys?: components["schemas"]["SigningKey"][];
+            signed: number;
+            unsigned?: components["schemas"]["PackageRef"][];
+            unknown_key?: components["schemas"]["KeyedPackage"][];
+            repos: components["schemas"]["PackageRepo"][];
+            warnings?: string[];
+        };
+        IntegrityReport: {
+            run_id: string;
+            /** Format: date-time */
+            taken_at: string;
+            /** @description Execuções guardadas, da mais recente para a mais antiga */
+            runs: components["schemas"]["ReportRun"][];
+            /** @description rpm */
+            manager: string;
+            tools: string[];
+            debsums_available: boolean;
+            packages: number;
+            /** @description Linhas apontadas pela ferramenta */
+            differences: number;
+            files: components["schemas"]["IntegrityFile"][];
+            /** @description Diferenças além do limite da lista (os achados existem todos) */
+            truncated?: number;
+            ignored: {
+                [key: string]: number;
+            };
+            by_severity: {
+                [key: string]: number;
+            };
+            signatures?: components["schemas"]["PackageSignatures"];
+            signature_error?: string;
+            error?: string;
+            warnings?: string[];
+            seconds: number;
+        };
+        PackageUpdate: {
+            name: string;
+            arch?: string;
+            installed?: string;
+            available: string;
+            repo?: string;
+            security: boolean;
+            /** @description critical */
+            severity?: string;
+            advisories?: string[];
+            cves?: string[];
+        };
+        RebootStatus: {
+            /** @description Houve como saber (kernel por pacote */
+            known: boolean;
+            required: boolean;
+            reasons?: string[];
+            running_kernel: string;
+            latest_kernel?: string;
+            packages?: string[];
+        };
+        RestartService: {
+            unit: string;
+            pids?: number[];
+            files?: string[];
+            /** @description needs-restarting */
+            source: string;
+        };
+        RestartProcess: {
+            pid: number;
+            comm: string;
+            /** Format: int64 */
+            uid: number;
+            files: string[];
+        };
+        UpdatesReport: {
+            run_id: string;
+            /** Format: date-time */
+            taken_at: string;
+            runs: components["schemas"]["ReportRun"][];
+            manager: string;
+            /**
+             * Format: date-time
+             * @description Lista de pacotes mais recente no cache
+             */
+            cache_updated_at?: string;
+            /**
+             * Format: date-time
+             * @description Lista mais antiga entre os repositórios
+             */
+            cache_oldest_at?: string;
+            /** @description O root liberou atualizar a lista de pacotes (executor.json) */
+            refresh_allowed: boolean;
+            refreshed: boolean;
+            refresh_error?: string;
+            security: components["schemas"]["PackageUpdate"][];
+            other: components["schemas"]["PackageUpdate"][];
+            by_severity: {
+                [key: string]: number;
+            };
+            reboot: components["schemas"]["RebootStatus"];
+            services: components["schemas"]["RestartService"][];
+            processes: components["schemas"]["RestartProcess"][];
+            tools: {
+                [key: string]: boolean;
+            };
+            error?: string;
+            warnings?: string[];
+            seconds: number;
+            notes?: {
+                [key: string]: string;
+            };
         };
         PersistenceInventory: {
             run_id: string;
@@ -1220,6 +1466,8 @@ export interface components {
             };
             process?: components["schemas"]["ProcessEvidence"];
             persistence?: components["schemas"]["PersistenceEntry"];
+            /** @description Assunto do achado do sistema ("security-updates", "repo:epel", "tcp/31337") */
+            subject?: string;
         };
         FindingEvent: {
             /** Format: date-time */
@@ -1566,7 +1814,7 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Execução de inspeção; sem ele, a mais recente */
+        /** @description Execução da verificação; sem ele, a mais recente */
         SnapshotRun: string;
         Limit: number;
         RunId: string;
@@ -2525,7 +2773,7 @@ export interface operations {
     getProcessInventory: {
         parameters: {
             query?: {
-                /** @description Execução de inspeção; sem ele, a mais recente */
+                /** @description Execução da verificação; sem ele, a mais recente */
                 run_id?: components["parameters"]["SnapshotRun"];
             };
             header?: never;
@@ -2551,7 +2799,7 @@ export interface operations {
     getPersistenceInventory: {
         parameters: {
             query?: {
-                /** @description Execução de inspeção; sem ele, a mais recente */
+                /** @description Execução da verificação; sem ele, a mais recente */
                 run_id?: components["parameters"]["SnapshotRun"];
             };
             header?: never;
@@ -2567,6 +2815,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PersistenceInventory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getIntegrity: {
+        parameters: {
+            query?: {
+                /** @description Execução da verificação; sem ele, a mais recente */
+                run_id?: components["parameters"]["SnapshotRun"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relatório de integridade */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrityReport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getUpdates: {
+        parameters: {
+            query?: {
+                /** @description Execução da verificação; sem ele, a mais recente */
+                run_id?: components["parameters"]["SnapshotRun"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Relatório de atualizações */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesReport"];
                 };
             };
             401: components["responses"]["Unauthorized"];

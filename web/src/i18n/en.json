@@ -38,7 +38,8 @@
     "backup": "Backup",
     "settings": "Settings",
     "catalog": "Component catalog",
-    "tokens": "API tokens"
+    "tokens": "API tokens",
+    "updates": "Updates"
   },
   "severity": {
     "label": "Severity",
