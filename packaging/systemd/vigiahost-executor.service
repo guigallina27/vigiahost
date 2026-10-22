@@ -1,7 +1,9 @@
 [Unit]
 Description=VigiaHost - executor privilegiado
 Documentation=https://github.com/guigallina27/vigiahost
-After=local-fs.target
+# Só ordem (sem dependência): no boot, o executor sobe depois do clamd da distribuição, se houver, e a saúde dos
+# motores já o encontra pronto.
+After=local-fs.target clamd@scan.service clamav-daemon.service clamd.service
 
 [Service]
 Type=notify

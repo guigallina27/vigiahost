@@ -226,13 +226,31 @@ func NameFlags(name string, typ FileType) []NameFlag {
 	if inner := path.Ext(strings.TrimSuffix(lower, ext)); inner != "" && inner != ".svg" && scriptExts[ext] && imageExts[inner] {
 		flags = append(flags, FlagDoubleExt) // foto.jpg.php
 	}
-	if strings.HasPrefix(name, ".") && scriptExts[ext] {
+	if strings.HasPrefix(name, ".") && scriptExts[ext] && !legitHiddenPHP(lower) {
 		flags = append(flags, FlagHiddenPHP)
 	}
 	if typ == TypePHP && imageExts[ext] {
 		flags = append(flags, FlagTypeMismatch) // código PHP com extensão de imagem
 	}
 	return flags
+}
+
+// Arquivos PHP ocultos que projetos legítimos distribuem: roteador do servidor embutido do Drupal e configurações de
+// ferramentas de desenvolvimento (PHPStan, PhpStorm, PHP CS Fixer, Psalm). Vistos no corpus benigno do laboratório.
+var hiddenPHPNames = map[string]bool{".ht.router.php": true, ".phpstorm.meta.php": true}
+
+var hiddenPHPToolPrefixes = []string{".phpstan", ".php-cs-fixer", ".php_cs", ".psalm"}
+
+func legitHiddenPHP(lower string) bool {
+	if hiddenPHPNames[lower] {
+		return true
+	}
+	for _, p := range hiddenPHPToolPrefixes {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func isBidi(r rune) bool {

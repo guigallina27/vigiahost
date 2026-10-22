@@ -52,6 +52,11 @@ func TestNameFlags(t *testing.T) {
 		{"foto.jpg.php", TypePHP, []NameFlag{FlagDoubleExt}},
 		{".cache.php", TypePHP, []NameFlag{FlagHiddenPHP}},
 		{"avatar.png", TypePHP, []NameFlag{FlagTypeMismatch}},
+		// Distribuídos por Drupal, Joomla e ferramentas de PHP: falsos positivos vistos no corpus benigno.
+		{".ht.router.php", TypePHP, nil},
+		{".phpstan-baseline.php", TypePHP, nil},
+		{".phpstorm.meta.php", TypePHP, nil},
+		{".php-cs-fixer.dist.php", TypePHP, nil},
 		{"a" + zwsp + "b.php", TypePHP, []NameFlag{FlagInvisibleChars}},
 	}
 	for _, c := range cases {
