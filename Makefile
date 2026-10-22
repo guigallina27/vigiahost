@@ -12,11 +12,29 @@ LDFLAGS := -s -w -X $(PKG)/internal/version.Version=$(VERSION) \
            -X $(PKG)/internal/version.Commit=$(COMMIT) \
            -X $(PKG)/internal/version.Date=$(DATE)
 
-.PHONY: build test test-race fuzz vet vuln package clean
+.PHONY: build web web-check generate check-generated test test-race fuzz vet vuln package clean
 
+# Binários Go; embutem o que houver em internal/webui/dist (rode make web antes para incluir a interface).
 build:
 	CGO_ENABLED=0 GOOS=linux GOARCH=$(GOARCH) GOAMD64=v1 \
 		go build -trimpath -buildvcs=false -ldflags "$(LDFLAGS)" -o dist/$(GOARCH)/ ./cmd/vigiahost ./cmd/vigiahost-executor
+
+# Interface React: instala exatamente o lockfile e gera o build em internal/webui/dist.
+web:
+	cd web && pnpm install --frozen-lockfile && pnpm run build
+
+# Lint, tipos e testes unitários da interface (os de acessibilidade usam Playwright: cd web && pnpm test:a11y).
+web-check:
+	cd web && pnpm install --frozen-lockfile && pnpm run lint && pnpm run typecheck && pnpm run test
+
+# Código gerado do contrato api/openapi.yaml: tipos e servidor Go, tipos TypeScript.
+generate:
+	go generate ./internal/api
+	cd web && pnpm run gen:api
+
+# Falha se o código gerado não corresponder ao contrato (usado no CI).
+check-generated: generate
+	git diff --exit-code -- internal/api web/src/api/schema.d.ts
 
 test:
 	go test ./...
@@ -34,8 +52,8 @@ vet:
 vuln:
 	go tool govulncheck ./...
 
-# O nfpm não expande variáveis nos caminhos de origem; os binários da arquitetura vão para dist/stage.
-package: build
+# O pacote sempre leva a interface. O nfpm não expande variáveis nos caminhos de origem; os binários vão para dist/stage.
+package: web build
 	rm -rf dist/stage && mkdir -p dist/stage && cp dist/$(GOARCH)/* dist/stage/
 	for fmt in deb rpm; do \
 		VERSION=$(VERSION) GOARCH=$(GOARCH) MAINTAINER="$(MAINTAINER)" \
@@ -44,3 +62,4 @@ package: build
 
 clean:
 	rm -rf dist
+	find internal/webui/dist -mindepth 1 ! -name README.txt -delete

@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+env:
+  # O corepack baixa o pnpm fixado em web/package.json sem pedir confirmação.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -36,6 +40,32 @@ jobs:
       - name: Vulnerabilidades conhecidas (govulncheck)
         if: matrix.go == 'stable'
         run: make vuln
+
+  web:
+    name: Interface (lint, tipos, testes, acessibilidade e contrato)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # pnpm na versão do packageManager de web/package.json, pelo corepack (sem action de terceiros).
+      - run: corepack enable pnpm
+      - run: make web-check
+      - name: Código gerado em dia com api/openapi.yaml
+        run: make check-generated
+      - name: Build com conferência de licenças e avisos de terceiros
+        run: make web
+      - name: Acessibilidade (axe-core) e teclado nos dois temas
+        working-directory: web
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:a11y
 
   lint:
     name: golangci-lint
@@ -92,7 +122,7 @@ jobs:
 
   packages:
     name: Pacotes (systemd no Ubuntu e contêineres multi-distro)
-    needs: go
+    needs: [go, web]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -101,6 +131,10 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: corepack enable pnpm
       - name: Gera pacotes de duas versões para testar atualização e retorno
         run: |
           mkdir -p pkgs

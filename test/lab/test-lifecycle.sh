@@ -61,6 +61,19 @@ ok "API e executor: $(jq -c '{status, version, executor: (.executor | {connected
 [[ "$(stat -c '%a %U' /var/lib/vigiahost)" == "700 vigiahost" ]] || fail "permissão de /var/lib/vigiahost incorreta"
 ok "socket 660 root:vigiahost e dados 700 vigiahost"
 
+# Interface embarcada: index com CSP, recurso com hash comprimido em brotli e cache imutável, API inexistente em JSON.
+page="$(curl -sS -D /tmp/ui-headers.txt http://127.0.0.1:8743/execucoes)" || fail "interface não respondeu"
+grep -q '<div id="root">' <<<"$page" || fail "index.html da interface não servido"
+grep -qi "^content-security-policy: default-src 'self'" /tmp/ui-headers.txt || fail "interface sem CSP"
+asset="$(grep -o '/assets/index-[A-Za-z0-9_-]*\.js' <<<"$page" | head -1)"
+[[ -n "$asset" ]] || fail "index.html sem o script com hash"
+curl -sS -o /dev/null -D /tmp/asset-headers.txt -H 'Accept-Encoding: br, gzip' "http://127.0.0.1:8743$asset"
+grep -qi '^content-encoding: br' /tmp/asset-headers.txt || fail "recurso sem a versão brotli"
+grep -qi '^cache-control: public, max-age=31536000, immutable' /tmp/asset-headers.txt || fail "recurso sem cache imutável"
+[[ "$(curl -sS -o /dev/null -w '%{http_code} %{content_type}' http://127.0.0.1:8743/api/v1/nada)" == "404 application/json; charset=utf-8" ]] ||
+	fail "rota inexistente da API não respondeu 404 em JSON"
+ok "interface embarcada servida com CSP, brotli e cache imutável ($asset)"
+
 vigiahost doctor >/tmp/doctor.txt || fail "doctor como root falhou: $(cat /tmp/doctor.txt)"
 ok "doctor como root: $(grep Executor /tmp/doctor.txt | tr -s ' ')"
 

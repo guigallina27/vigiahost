@@ -54,4 +54,28 @@ else
 	ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 fi
 
-log "pronto: $(go version)"
+# Node.js LTS oficial (para o build da interface), conferido pelo SHASUMS256.txt de nodejs.org.
+# O pnpm vem pelo corepack, na versão fixada em web/package.json (packageManager).
+node_major=24
+case "$goarch" in
+amd64) nodearch=x64 ;;
+arm64) nodearch=arm64 ;;
+esac
+node_version="$(curl -fsSL https://nodejs.org/dist/index.json | jq -r --arg m "v${node_major}." '[.[] | select(.version | startswith($m))][0].version')"
+if command -v node >/dev/null 2>&1 && [[ "$(node --version)" == "$node_version" ]]; then
+	log "Node.js $node_version já instalado"
+else
+	log "baixando Node.js $node_version ($nodearch)"
+	ntmp="$(mktemp -d)"
+	file="node-${node_version}-linux-${nodearch}.tar.xz"
+	curl -fsSL -o "$ntmp/$file" "https://nodejs.org/dist/${node_version}/${file}"
+	curl -fsSL "https://nodejs.org/dist/${node_version}/SHASUMS256.txt" | grep "  ${file}\$" | (cd "$ntmp" && sha256sum -c --quiet -)
+	rm -rf /usr/local/node
+	mkdir -p /usr/local/node
+	tar -C /usr/local/node --strip-components=1 -xJf "$ntmp/$file"
+	rm -rf "$ntmp"
+	for bin in node npm npx corepack; do ln -sf "/usr/local/node/bin/$bin" "/usr/local/bin/$bin"; done
+fi
+COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack enable --install-directory /usr/local/bin pnpm
+
+log "pronto: $(go version), Node.js $(node --version)"

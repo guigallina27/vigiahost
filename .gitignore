@@ -1,3 +1,12 @@
 # Artefatos de build e dependências locais
 /dist/
 node_modules/
+
+# Build da interface embarcado pelo Go (make web); só o README fica versionado
+/internal/webui/dist/*
+!/internal/webui/dist/README.txt
+
+# Relatórios dos testes da interface
+/web/test-results/
+/web/playwright-report/
+/web/coverage/
