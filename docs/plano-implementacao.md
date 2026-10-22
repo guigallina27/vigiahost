@@ -16,6 +16,7 @@
 | Repositório | **Público**, `guigallina27/vigiahost`, na conta pessoal; transferível para uma organização depois |
 | Distribuição | **Somente GitHub por enquanto**: Releases públicos (pré-lançamento até a 1.0) e, a partir do beta externo, Pages do próprio repositório (escopo, seção 15) |
 | Custódia das chaves | **Raiz GPG offline em dois tokens de hardware** com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI, com aprovação manual |
+| Papel do LMD | **Motor opcional, desligado por padrão**, ligado pelo administrador como fonte adicional de assinaturas, só leitura ([ADR-023](adr/0023-papel-do-lmd.md), com as medições de sobreposição) |
 
 **Ações para começar a Fase 0** (todas suas, porque envolvem contas, compras ou dados de pessoas)
 
@@ -32,7 +33,6 @@
 |---|---|---|
 | Domínio próprio | Beta externo (fim da 1B) | Registrar `vigiahost.com.br` e `vigiahost.com` antes do beta; estavam livres em 22/10/2026 |
 | Fonte padrão de regras YARA | Épico E1.4 | YARA Forge core + regras próprias, após validar licenças |
-| Papel do LMD | Épico E1.10 | Medir a sobreposição no laboratório durante a 1A e decidir antes da 1B |
 | Central multiempresa | Acesso de revendedores e clientes (Fase 3) | Decidir antes da Fase 3 |
 | Organização própria no GitHub | Beta externo | Criar `vigiahost` no plano gratuito e transferir o repositório antes do beta; o nome estava livre em 22/10/2026 |
 
@@ -107,7 +107,7 @@ flowchart LR
 |---|---|---|
 | E1.1 a E1.6 | Executor com política e unidades transitórias; core com fila, agendador, autenticação (senha, TOTP, ALTCHA) e SSE; varredura com YARA-X e ClamAV por descritor; inspetor de processos, rede e persistência; achados com ciclo de vida e cobertura por motor | Validação em servidores próprios |
 | E1.7 Instalação | `setup plan/apply/uninstall` com manifesto e backups datados, `doctor` ampliado, primeiro acesso; exercitado pelo `test/lab/test-lifecycle.sh` | — |
-| E1.8 Interface 1A | Acesso (login, primeiro acesso, segundo fator, recuperação), Visão geral, Execuções, Cobertura, Achados, Exceções, Processos e persistência, Agendamentos, Recursos, Motores, Usuários, Tokens, Auditoria e Backup; axe-core sem violações nos dois temas e sem rolagem horizontal a 320 px | Tela Regras e fontes |
+| E1.8 Interface 1A | Acesso (login, primeiro acesso, segundo fator, recuperação), Visão geral, Execuções, Cobertura, Achados, Exceções, Processos e persistência, Agendamentos, Recursos, Motores, Usuários, Tokens, Auditoria, Backup e Regras e fontes; axe-core sem violações nos dois temas e sem rolagem horizontal a 320 px | — |
 
 ### Fase 1B — Contas e operação
 
@@ -133,7 +133,13 @@ Os testes reais também corrigiram três problemas:
 - cópias de `/etc/skel` em contas novas e a remoção dos arquivos de shell de contas apagadas não viram mais achado;
 - arquivo apagado durante a varredura não conta mais como "sem permissão".
 
-O critério das 500 contas está cumprido. Faltam E1.10, E1.12 e o restante do E1.13.
+E1.10 implementado ([ADR-023](adr/0023-papel-do-lmd.md)):
+- **Papel decidido pela medição:** no laboratório (14 positivos, 47.692 benignos, 20.006 sintéticos), tudo o que o LMD 2.0.1 achou o clamd com as `rfxn.*` também achou, sem falso positivo em nenhum dos dois. O LMD fica opcional e desligado por padrão.
+- **Adaptador:** descoberta (versão, assinaturas, dono root), lista do inventário por descritor, `--json-report` com o `session.tsv` de reserva, quarentena, estágio ClamAV, alertas e ganchos desligados à força, autoteste com EICAR em memória, cobertura e achados do motor `lmd` com a fonte `rfxn`, cache incremental pela versão do LMD.
+- **Tela Regras e fontes** (resto do E1.8): fontes YARA embarcadas e locais (`/etc/vigiahost/rules.d`) com licença, versão, hash, regras e estado; compilação com validação numa unidade isolada; ativar e desativar fonte; assinaturas do ClamAV e do LMD; ligar e desligar o LMD. Ações só do administrador, com reautenticação nas trocas e auditoria.
+- **Validação em laboratório:** varredura real na unidade transitória com as proteções do produto (3 achados do LMD nos positivos; cache na segunda execução) e compilação manual com fonte válida, com erro, com permissão aberta e desativada.
+
+O critério das 500 contas está cumprido. Faltam E1.12 e o restante do E1.13.
 
 ### Fase 2 — Gestão completa local
 

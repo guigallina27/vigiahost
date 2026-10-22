@@ -57,12 +57,16 @@
 | Saída de scanner forjada por nome de arquivo | Formatos estruturados (FILDES, NDJSON, JSON); *fuzzing* dos interpretadores | Planejado (1A) |
 | Nome hostil que derruba ou desvia o motor (o `yr scan -r` 1.21.0 aborta a árvore inteira com nome não UTF-8; quebra de linha corrompe listas; troca por link entre inventário e análise) | Motores nunca percorrem diretórios nem recebem nomes: o inventário abre com `O_NOFOLLOW`, confere o tipo pelo descritor e entrega `/dev/fd/N` ou `FILDES` ([ADR-018](adr/0018-arquivos-aos-motores-por-descritor.md)); corpus sintético com nomes especiais conferido nos motores reais | Protótipo validado (Fase 0); adaptador na 1A |
 | Corrida de link simbólico ou físico na quarentena | Descritor aberto, `O_NOFOLLOW`, `nlink == 1`, identidade conferida | Planejado (2) |
+| LMD (`maldet`, script em shell como root) agindo sozinho: quarentena, suspensão de usuário, alertas, ganchos, remoção das `rfxn.*` do ClamAV (`clamav_unlinksigs`) | Desligado por padrão; quando ligado, roda dentro da unidade da varredura (sistema só leitura, sem rede, só `CAP_DAC_*`); `-co` força quarentena, estágio ClamAV, alertas e ganchos desligados; base própria (`LMD_BASEDIR`) com a quarentena bloqueada; relatório com quarentena ligada é recusado; arquivos por descritor (`/proc/PID/fd/N`), nunca por nome; instalação aceita só do root e sem escrita de outros ([ADR-023](adr/0023-papel-do-lmd.md)) | Implementado e testado no laboratório (E1.10) |
+| Relatório do LMD forjado por conteúdo ou nome de arquivo | Só o `--json-report` (esquema 1.x) e o `session.tsv` são lidos, com tamanho limitado por campo; o arquivo volta pelo índice do descritor; *fuzzing* dos dois intérpretes | Implementado e testado (E1.10) |
 
 ### 3.4 Dados de terceiros (regras, feeds, eventos)
 
 | Ameaça | Controle | Situação |
 |---|---|---|
-| Regra YARA lenta ou maliciosa | Compilação e teste em unidade isolada, limite de tempo, promoção com corpus | Planejado (1A/2) |
+| Regra YARA lenta ou maliciosa | Compilação e teste em unidade isolada, limite de tempo, promoção com corpus | Compilação isolada implementada (E1.8); promoção com corpus planejada (2) |
+| Fonte local de regras (`/etc/vigiahost/rules.d`) adulterada ou hostil | Só diretórios e arquivos do root sem escrita de outros, sem links nem `include`, limites (500 arquivos, 8 MiB por arquivo, 64 MiB por fonte, profundidade 4); cada fonte compilada sozinha; a que falha fica fora do conjunto e aparece na tela; compilação manual em unidade transitória sem rede, um núcleo, até 2 GiB e 15 minutos, com controle positivo no conjunto | Implementado e testado (E1.8) |
+| Core pedindo compilação com caminho arbitrário | `rules.compile` recebe só nomes de fontes validados por padrão; diretórios fixos no executor; o controle positivo não pode ser desativado | Implementado e testado (E1.8) |
 | Feed adulterado ou fora do ar | Origem verificada, versão fixada, produto funciona sem o feed | Planejado (3) |
 
 ### 3.5 Cadeia de suprimentos e distribuição
