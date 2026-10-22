@@ -14,4 +14,4 @@
 
 **Consequências.** Mais fácil: adaptar a cada servidor. Mais difícil: explicar os efeitos na interface. Revisitar com o histórico real de execuções.
 
-**Ações.** [ ] Teste: pedido acima de 75% da RAM sem confirmação é recusado.
+**Ações.** [x] Teste: pedido acima de 75% da RAM sem confirmação é recusado (`profile` e `run.adjust`). Ajuste em tempo real detalhado no [ADR-020](0020-ajuste-em-tempo-real-e-limitacao-por-pressao.md).

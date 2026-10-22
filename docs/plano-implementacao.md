@@ -133,7 +133,16 @@ Os testes reais também corrigiram três problemas:
 - cópias de `/etc/skel` em contas novas e a remoção dos arquivos de shell de contas apagadas não viram mais achado;
 - arquivo apagado durante a varredura não conta mais como "sem permissão".
 
-O critério das 500 contas está cumprido. Faltam E1.10, E1.12 e o restante do E1.13.
+O critério das 500 contas está cumprido.
+
+E1.13 concluído ([ADR-020](adr/0020-ajuste-em-tempo-real-e-limitacao-por-pressao.md)):
+- **Sugestão pelo hardware:** usa núcleos, memória, tipo de disco (rotacional, SSD ou NVMe), pressão média de 5 minutos, carga e as últimas execuções. Cada limite vem com a explicação, e "Aplicar sugestão" grava o perfil próprio `sugerido`.
+- **Ajuste em tempo real:** feito pela operação `run.adjust` (protocolo 1.2), que usa `SetUnitProperties` só com CPU, memória, banda de leitura e peso de E/S. As travas são reaplicadas pelo executor. A rota exige administrador e reautenticação e grava auditoria.
+- **Limitação por PSI no runner:** reduz o paralelismo, pausa os lotes e retoma, e os eventos ficam no resumo.
+- **Métricas por execução:** etapas, arquivos/s, MB/s, CPU e pico de memória do cgroup, tempo limitado e vazão por motor, com comparativo das últimas execuções do mesmo tipo. Os dados vêm da migração 00008.
+- **Validação em laboratório:** aprovada com systemd real (ajuste conferido em `cpu.max` e `memory.max`, métricas reais do cgroup).
+
+Faltam E1.10 e E1.12.
 
 ### Fase 2 — Gestão completa local
 

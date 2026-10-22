@@ -34,6 +34,7 @@
 | Exposição da interface na rede | Escuta em `127.0.0.1` por padrão; aviso no log se não for local | Implementado |
 | Força bruta de login | Bloqueio progressivo, registro para fail2ban/LFD | Planejado (1A) |
 | Conexões lentas prendendo o serviço | Limites de tempo e de cabeçalho no `http.Server` | Implementado |
+| Sessão roubada alterando os limites de uma execução (`POST /runs/{id}/adjust`) | Só administrador, reautenticação recente, confirmação na interface e auditoria `run_limits_adjusted` com antes e depois | Implementado e testado |
 
 ### 3.2 Core → executor (socket Unix)
 
@@ -47,6 +48,7 @@
 | Vazamento de detalhes internos ao core | Erro interno sem detalhes; detalhes só no journal | Implementado e testado |
 | Caminhos fora do escopo nas operações | Política de caminhos com `openat2`/`os.Root` no executor | Planejado (1A) |
 | Excesso de conexões | Limite de conexões simultâneas e de inatividade | Implementado |
+| Ajuste em tempo real usado para tirar a reserva do sistema ou mexer em outra unidade (`run.adjust`) | Campos tipados (CPU, memória, banda, peso de E/S); o executor relê o perfil efetivo, reaplica as travas com o hardware que ele detectou, só libera a reserva com a liberação local e só altera `vigiahost-run-<id>.service` ativa com ID validado; propriedades fora da lista nunca são enviadas ([ADR-020](adr/0020-ajuste-em-tempo-real-e-limitacao-por-pressao.md)) | Implementado e testado (systemd real) |
 
 ### 3.3 Executor → sistema e motores
 
