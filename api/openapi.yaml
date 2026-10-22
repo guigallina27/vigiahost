@@ -4,13 +4,26 @@
 openapi: 3.0.3
 info:
   title: VigiaHost
-  version: 0.1.0
-  description: API do serviço web do VigiaHost. Todas as rotas ficam sob /api/v1.
+  version: 0.2.0
+  description: >
+    API do serviço web do VigiaHost. Todas as rotas ficam sob /api/v1. A interface autentica por cookie de sessão
+    (__Host-vh_session); automações usam token de API no cabeçalho Authorization (Bearer). Ações sensíveis exigem
+    reautenticação recente e respondem 403 com code=reauth_required quando ela falta.
   license:
     name: GPL-3.0-only
     url: https://www.gnu.org/licenses/gpl-3.0.html
 servers:
   - url: /
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+tags:
+  - name: sistema
+  - name: autenticacao
+  - name: execucoes
+  - name: achados
+  - name: configuracao
+  - name: administracao
 paths:
   /api/v1/health:
     get:
@@ -20,6 +33,7 @@ paths:
         Responde 200 quando o executor está conectado e 503 quando não está; o corpo é o mesmo nos dois casos.
         Não exige autenticação e não expõe dados de varredura.
       tags: [sistema]
+      security: []
       responses:
         "200":
           description: Core e executor operacionais
@@ -31,8 +45,792 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Health" }
+
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Estado da sessão atual
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Estado da sessão (autenticada ou não)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Login com usuário e senha
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Senha aceita; a sessão pode ainda exigir o segundo fator (stage)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/verify:
+    post:
+      operationId: verifyMfa
+      summary: Segundo fator do login (código TOTP ou de recuperação)
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: Sessão completa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/setup:
+    post:
+      operationId: beginMfaSetup
+      summary: Gera o segredo do aplicativo autenticador
+      description: Permitido na etapa mfa_setup ou, para trocar de aparelho, na sessão completa com reautenticação.
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Segredo pendente até a confirmação
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaSetup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/mfa/enable:
+    post:
+      operationId: enableMfa
+      summary: Confirma o segredo com um código e devolve os códigos de recuperação (exibidos uma vez)
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: Segundo fator ativo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaEnabled" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Encerra a sessão
+      tags: [autenticacao]
+      security: []
+      responses:
+        "204": { description: Sessão encerrada }
+  /api/v1/auth/reauth:
+    post:
+      operationId: reauth
+      summary: Reautenticação para ações sensíveis (vale 5 minutos)
+      tags: [autenticacao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReauthRequest" }
+      responses:
+        "200":
+          description: Reautenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/password:
+    post:
+      operationId: changePassword
+      summary: Troca a própria senha (encerra as outras sessões)
+      tags: [autenticacao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChange" }
+      responses:
+        "204": { description: Senha trocada }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/auth/setup:
+    post:
+      operationId: setupFirstAdmin
+      summary: Primeiro acesso — cria o administrador com o token exibido no terminal
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetupRequest" }
+      responses:
+        "200":
+          description: Administrador criado; falta configurar o segundo fator
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/reset:
+    post:
+      operationId: resetWithToken
+      summary: Redefine a senha com o token de recuperação gerado pelo root
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetRequest" }
+      responses:
+        "204": { description: Senha redefinida; o segundo fator é configurado de novo no próximo login }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/overview:
+    get:
+      operationId: getOverview
+      summary: Resumo para a Visão geral
+      tags: [sistema]
+      responses:
+        "200":
+          description: Resumo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Overview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/events:
+    get:
+      operationId: streamEvents
+      summary: Eventos ao vivo (SSE) — execuções, achados novos e agendamentos
+      tags: [sistema]
+      responses:
+        "200":
+          description: Fluxo text/event-stream; cada evento traz o tipo e o identificador, e a interface busca o estado pela API
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/runs:
+    get:
+      operationId: listRuns
+      summary: Lista execuções (mais recentes primeiro)
+      tags: [execucoes]
+      parameters:
+        - { name: status, in: query, schema: { type: array, items: { $ref: "#/components/schemas/RunStatus" } }, style: form, explode: true }
+        - { name: kind, in: query, schema: { $ref: "#/components/schemas/RunKind" } }
+        - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: string } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página de execuções
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createRun
+      summary: Enfileira uma execução
+      tags: [execucoes]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: Repetir a mesma chave devolve a execução já criada (clique duplo, nova tentativa)
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunCreate" }
+      responses:
+        "201":
+          description: Execução na fila
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runs/{runId}:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    get:
+      operationId: getRun
+      summary: Detalhe da execução com a cobertura por motor
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{runId}/cancel:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: cancelRun
+      summary: Cancela (na fila ou em andamento; encerra o cgroup inteiro)
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/pause:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: pauseRun
+      summary: Pausa pelo freezer do cgroup v2
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/resume:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: resumeRun
+      summary: Retoma uma execução pausada
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/limits:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: setRunLimits
+      summary: Troca o perfil de recursos da execução em andamento (aplicado na hora pelo cgroup)
+      tags: [execucoes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunLimitsRequest" }
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+
+  /api/v1/findings:
+    get:
+      operationId: listFindings
+      summary: Lista achados (mais recentes primeiro)
+      tags: [achados]
+      parameters:
+        - { name: state, in: query, schema: { type: array, items: { $ref: "#/components/schemas/FindingState" } }, style: form, explode: true }
+        - { name: severity, in: query, schema: { type: array, items: { $ref: "#/components/schemas/Severity" } }, style: form, explode: true }
+        - { name: kind, in: query, schema: { type: array, items: { $ref: "#/components/schemas/FindingKind" } }, style: form, explode: true }
+        - { name: category, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { name: run, in: query, description: Somente achados vistos nesta execução, schema: { type: string } }
+        - { name: q, in: query, description: Trecho do caminho, da assinatura ou o SHA-256, schema: { type: string, maxLength: 512 } }
+        - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página de achados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/findings/{findingId}:
+    parameters:
+      - { $ref: "#/components/parameters/FindingId" }
+    get:
+      operationId: getFinding
+      summary: Detalhe do achado com localizações e histórico
+      tags: [achados]
+      responses:
+        "200":
+          description: Achado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/findings/{findingId}/transition:
+    parameters:
+      - { $ref: "#/components/parameters/FindingId" }
+    post:
+      operationId: transitionFinding
+      summary: Muda o estado do achado no ciclo de vida
+      tags: [achados]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FindingTransition" }
+      responses:
+        "200":
+          description: Achado atualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/exceptions:
+    get:
+      operationId: listExceptions
+      summary: Lista exceções
+      tags: [achados]
+      parameters:
+        - { name: all, in: query, description: Inclui revogadas, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Exceções
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Exception" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createException
+      summary: Cria exceção (exige reautenticação; regra global só administrador)
+      tags: [achados]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExceptionCreate" }
+      responses:
+        "201":
+          description: Exceção criada e aplicada aos achados abertos que ela cobre
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Exception" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/exceptions/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    delete:
+      operationId: revokeException
+      summary: Revoga a exceção
+      tags: [achados]
+      responses:
+        "204": { description: Revogada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schedules:
+    get:
+      operationId: listSchedules
+      summary: Lista agendamentos
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Agendamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Schedule" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createSchedule
+      summary: Cria agendamento
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "201":
+          description: Agendamento criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/schedules/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateSchedule
+      summary: Altera agendamento
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "200":
+          description: Agendamento
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteSchedule
+      summary: Remove agendamento (as execuções criadas por ele continuam)
+      tags: [configuracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/schedules/preview:
+    post:
+      operationId: previewSchedule
+      summary: Valida a expressão e mostra os próximos horários
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CronPreviewRequest" }
+      responses:
+        "200":
+          description: Próximos horários
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CronPreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/resources:
+    get:
+      operationId: getResources
+      summary: Hardware e perfis de recursos efetivos
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Recursos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/resources/profiles/{name}:
+    parameters:
+      - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,31}$" } }
+    put:
+      operationId: saveResourceProfile
+      summary: Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResourceProfile" }
+      responses:
+        "200":
+          description: Recursos atualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      operationId: deleteResourceProfile
+      summary: Volta o perfil ao pré-definido (ou remove o personalizado)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Recursos atualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/engines:
+    get:
+      operationId: getEngines
+      summary: Saúde dos motores (versões, assinaturas, autoteste da última execução)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Motores
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EngineStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      summary: Lista usuários do painel
+      tags: [administracao]
+      responses:
+        "200":
+          description: Usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createUser
+      summary: Cria usuário (administrador, com reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201":
+          description: Usuário criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/users/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    patch:
+      operationId: updateUser
+      summary: Altera perfil, nome ou bloqueio (administrador, com reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Usuário
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteUser
+      summary: Remove usuário (administrador, com reautenticação)
+      tags: [administracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/users/{id}/mfa-reset:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: resetUserMfa
+      summary: Apaga o segundo fator do usuário (configura de novo no próximo login)
+      tags: [administracao]
+      responses:
+        "204": { description: Segundo fator apagado e sessões encerradas }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/tokens:
+    get:
+      operationId: listApiTokens
+      summary: Tokens de API (os próprios; o administrador vê todos)
+      tags: [administracao]
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApiToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createApiToken
+      summary: Cria token de API (exibido uma vez; exige reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApiTokenCreate" }
+      responses:
+        "201":
+          description: Token criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiTokenCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/tokens/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    delete:
+      operationId: revokeApiToken
+      summary: Revoga token de API
+      tags: [administracao]
+      responses:
+        "204": { description: Revogado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/audit:
+    get:
+      operationId: listAudit
+      summary: Auditoria (administrador e auditor) com conferência da cadeia
+      tags: [administracao]
+      parameters:
+        - { name: before, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página da auditoria
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-vh_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token de API (vht_...) para automação; não serve para a interface.
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,39}$" }
+    FindingId:
+      name: findingId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  responses:
+    BadRequest:
+      description: Pedido inválido (a mensagem explica o campo)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem sessão, sessão expirada ou credencial incorreta
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Perfil sem permissão ou reautenticação necessária (code=reauth_required)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Não encontrado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: O estado atual não permite a operação
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Muitas tentativas; bloqueio temporário
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ExecutorUnavailable:
+      description: Executor fora do ar
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { type: string, description: Mensagem para o operador }
+        code:
+          type: string
+          description: Código estável para a interface (reauth_required, mfa_required, forbidden, locked...)
     Health:
       type: object
       additionalProperties: false
@@ -99,3 +897,644 @@ components:
         psi:
           type: boolean
           description: Pressure Stall Information disponível (pausa por pressão).
+
+    Role:
+      type: string
+      enum: [admin, operator, reader, auditor]
+    SessionStage:
+      type: string
+      enum: [password, mfa_setup, full]
+      description: "password: falta o segundo fator; mfa_setup: falta configurar o segundo fator; full: sessão completa."
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, role, mfa_enabled]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        mfa_enabled: { type: boolean }
+        mfa_required: { type: boolean }
+        recovery_codes_left: { type: integer }
+    Session:
+      type: object
+      additionalProperties: false
+      required: [authenticated, setup_required, secure_transport]
+      properties:
+        authenticated:
+          type: boolean
+          description: Sessão completa (todas as etapas concluídas).
+        setup_required:
+          type: boolean
+          description: Nenhum usuário criado ainda (primeiro acesso com o token do terminal).
+        secure_transport:
+          type: boolean
+          description: Conexão por HTTPS ou endereço local; sem isso o login é recusado.
+        stage: { $ref: "#/components/schemas/SessionStage" }
+        user: { $ref: "#/components/schemas/CurrentUser" }
+        reauth_until: { type: string, format: date-time }
+        idle_timeout_seconds: { type: integer }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, maxLength: 64 }
+        password: { type: string, maxLength: 256 }
+    CodeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 32, description: Código TOTP de 6 dígitos ou código de recuperação }
+    ReauthRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password: { type: string, maxLength: 256 }
+        code: { type: string, maxLength: 32 }
+    MfaSetup:
+      type: object
+      additionalProperties: false
+      required: [secret, uri, matrix]
+      properties:
+        secret: { type: string, description: Segredo em base32 para digitar no aplicativo }
+        uri: { type: string, description: Endereço otpauth:// do QR }
+        matrix:
+          type: array
+          description: QR como linhas de "0" e "1" (a interface desenha em SVG)
+          items: { type: string }
+    MfaEnabled:
+      type: object
+      additionalProperties: false
+      required: [session, recovery_codes]
+      properties:
+        session: { $ref: "#/components/schemas/Session" }
+        recovery_codes:
+          type: array
+          items: { type: string }
+    PasswordChange:
+      type: object
+      additionalProperties: false
+      required: [current, new]
+      properties:
+        current: { type: string, maxLength: 256 }
+        new: { type: string, maxLength: 256 }
+    SetupRequest:
+      type: object
+      additionalProperties: false
+      required: [token, username, password]
+      properties:
+        token: { type: string, maxLength: 128 }
+        username: { type: string, maxLength: 64 }
+        display_name: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 256 }
+    ResetRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password]
+      properties:
+        token: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 256 }
+
+    Severity:
+      type: string
+      enum: [critical, high, medium, low, info]
+    FindingState:
+      type: string
+      enum: [new, in_review, confirmed, resolved, false_positive, excepted]
+    FindingKind:
+      type: string
+      enum: [file, process, persistence]
+    RunKind:
+      type: string
+      enum: [files, processes]
+    RunStatus:
+      type: string
+      enum: [queued, reserved, running, completed, partial, failed, engine_failure, canceled, interrupted]
+    SeverityCounts:
+      type: object
+      additionalProperties: false
+      required: [critical, high, medium, low, info, total]
+      properties:
+        critical: { type: integer, format: int64 }
+        high: { type: integer, format: int64 }
+        medium: { type: integer, format: int64 }
+        low: { type: integer, format: int64 }
+        info: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
+    Overview:
+      type: object
+      additionalProperties: false
+      required: [executor, open_findings, active_runs, recent_findings, engines, has_runs, has_schedules]
+      properties:
+        executor: { $ref: "#/components/schemas/ExecutorStatus" }
+        open_findings: { $ref: "#/components/schemas/SeverityCounts" }
+        active_runs:
+          type: array
+          items: { $ref: "#/components/schemas/Run" }
+        last_files_run: { $ref: "#/components/schemas/Run" }
+        last_processes_run: { $ref: "#/components/schemas/Run" }
+        recent_findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineHealth" }
+        has_runs: { type: boolean }
+        has_schedules: { type: boolean }
+
+    ResourceProfile:
+      type: object
+      additionalProperties: false
+      required: [name, cpu_quota_percent, memory_max_bytes, io_read_bytes_per_sec, io_weight, workers, clamd_concurrency, max_runtime_sec, nice, max_file_bytes]
+      properties:
+        name: { type: string }
+        cpu_quota_percent: { type: integer, description: "Soma de núcleos em % (200 = dois núcleos)" }
+        memory_max_bytes: { type: integer, format: int64 }
+        io_read_bytes_per_sec: { type: integer, format: int64, description: 0 = sem limite de banda (só peso) }
+        io_weight: { type: integer }
+        workers: { type: integer }
+        clamd_concurrency: { type: integer }
+        max_runtime_sec: { type: integer }
+        nice: { type: integer }
+        max_file_bytes: { type: integer, format: int64 }
+    ProfileEntry:
+      type: object
+      additionalProperties: false
+      required: [profile, custom, preset]
+      properties:
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        custom: { type: boolean, description: Alterado pelo operador }
+        preset: { type: boolean, description: Um dos pré-definidos (leve, padrao, intensivo) }
+    Hardware:
+      type: object
+      additionalProperties: false
+      required: [cpus, memory_bytes, rotational, allow_no_reserve, systemd_version, freezer]
+      properties:
+        cpus: { type: integer }
+        memory_bytes: { type: integer, format: int64 }
+        rotational: { type: boolean }
+        allow_no_reserve: { type: boolean }
+        systemd_version: { type: string }
+        freezer: { type: boolean, description: Pausa disponível (systemd 246+ e cgroup v2) }
+    Resources:
+      type: object
+      additionalProperties: false
+      required: [profiles]
+      properties:
+        hardware: { $ref: "#/components/schemas/Hardware" }
+        executor_error: { type: string }
+        profiles:
+          type: array
+          items: { $ref: "#/components/schemas/ProfileEntry" }
+
+    RunSummary:
+      type: object
+      additionalProperties: false
+      required: [status, files_seen, files_eligible, bytes_eligible, findings, objects, cache_hits, files_per_second, mb_per_second]
+      properties:
+        status: { $ref: "#/components/schemas/RunStatus" }
+        error: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        files_seen: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        skipped:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        findings: { type: integer, format: int64 }
+        objects: { type: integer, format: int64 }
+        cache_hits: { type: integer, format: int64 }
+        files_per_second: { type: number }
+        mb_per_second: { type: number }
+        warnings:
+          type: array
+          items: { type: string }
+    Run:
+      type: object
+      additionalProperties: false
+      required: [id, kind, status, origin, requested_by, paths, exclude, incremental, profile, priority, attempts, created_at, phase, paused, files_seen, files_eligible, files_processed, bytes_eligible, bytes_processed, findings_count, error]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        origin: { type: string, enum: [manual, schedule, system] }
+        requested_by: { type: string }
+        schedule_id: { type: integer, format: int64 }
+        scheduled_for: { type: string, format: date-time }
+        paths: { type: array, items: { type: string } }
+        exclude: { type: array, items: { type: string } }
+        incremental: { type: boolean }
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        priority: { type: integer }
+        attempts: { type: integer }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        phase: { type: string }
+        paused: { type: boolean }
+        files_seen: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+        files_processed: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        bytes_processed: { type: integer, format: int64 }
+        findings_count: { type: integer, format: int64 }
+        error: { type: string }
+        summary: { $ref: "#/components/schemas/RunSummary" }
+    EngineCoverage:
+      type: object
+      additionalProperties: false
+      required: [engine, version, rules_version, available, selftest_passed, selftest_detail, eligible, analyzed, from_cache, bytes_analyzed, seconds, skipped, errors, error]
+      properties:
+        engine: { type: string }
+        version: { type: string }
+        rules_version: { type: string }
+        available: { type: boolean }
+        selftest_passed: { type: boolean }
+        selftest_detail: { type: string }
+        eligible: { type: integer, format: int64 }
+        analyzed: { type: integer, format: int64 }
+        from_cache: { type: integer, format: int64 }
+        bytes_analyzed: { type: integer, format: int64 }
+        seconds: { type: number }
+        skipped:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        errors:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        error: { type: string }
+    RunDetail:
+      type: object
+      additionalProperties: false
+      required: [run, engines]
+      properties:
+        run: { $ref: "#/components/schemas/Run" }
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineCoverage" }
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [runs]
+      properties:
+        runs:
+          type: array
+          items: { $ref: "#/components/schemas/Run" }
+        next_before: { type: string }
+    RunCreate:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind: { $ref: "#/components/schemas/RunKind" }
+        paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
+        incremental: { type: boolean, default: true }
+        profile: { type: string, description: "Nome do perfil de recursos (padrão: padrao)" }
+        priority: { type: integer, minimum: -10, maximum: 10 }
+    RunLimitsRequest:
+      type: object
+      additionalProperties: false
+      required: [profile]
+      properties:
+        profile: { type: string }
+
+    Location:
+      type: object
+      additionalProperties: false
+      required: [path, dev, ino, size, mode, uid, gid, nlink]
+      properties:
+        path: { type: string, description: Caminho para exibição (bytes inválidos substituídos) }
+        path_hex: { type: string, description: Bytes exatos em hexadecimal quando o nome não é UTF-8 válido }
+        dev: { type: integer, format: int64 }
+        ino: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        mode: { type: integer, format: int64 }
+        uid: { type: integer, format: int64 }
+        gid: { type: integer, format: int64 }
+        nlink: { type: integer, format: int64 }
+        mtime: { type: string, format: date-time }
+        ctime: { type: string, format: date-time }
+    ProcessEvidence:
+      type: object
+      additionalProperties: false
+      required: [pid, ppid, uid, comm, exe]
+      properties:
+        pid: { type: integer }
+        ppid: { type: integer }
+        uid: { type: integer, format: int64 }
+        comm: { type: string }
+        exe: { type: string }
+        cmdline: { type: array, items: { type: string } }
+        unit: { type: string }
+        cgroup: { type: string }
+        exe_sha256: { type: string }
+        start_time: { type: string }
+        listening: { type: array, items: { type: string } }
+        connected: { type: array, items: { type: string } }
+    PersistenceEntry:
+      type: object
+      additionalProperties: false
+      required: [kind, path]
+      properties:
+        kind: { type: string }
+        path: { type: string }
+        detail: { type: string }
+        sha256: { type: string }
+        owner: { type: string }
+        package: { type: string }
+        change: { type: string, enum: [added, changed, removed, ""] }
+    Finding:
+      type: object
+      additionalProperties: false
+      required: [id, kind, engine, engine_version, rules_version, signature, source, license, author, reference, description, category, severity, file_type, state, assignee, first_run, last_run, first_seen, last_seen, state_changed, times_seen, locations_count, evidence]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/FindingKind" }
+        engine: { type: string }
+        engine_version: { type: string }
+        rules_version: { type: string }
+        signature: { type: string }
+        source: { type: string }
+        license: { type: string }
+        author: { type: string }
+        reference: { type: string }
+        description: { type: string }
+        category: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        sha256: { type: string }
+        file_type: { type: string }
+        state: { $ref: "#/components/schemas/FindingState" }
+        assignee: { type: string }
+        exception_id: { type: integer, format: int64 }
+        first_run: { type: string }
+        last_run: { type: string }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+        state_changed: { type: string, format: date-time }
+        times_seen: { type: integer, format: int64 }
+        location: { $ref: "#/components/schemas/Location" }
+        locations_count: { type: integer, format: int64 }
+        evidence:
+          type: object
+          additionalProperties: { type: string }
+        process: { $ref: "#/components/schemas/ProcessEvidence" }
+        persistence: { $ref: "#/components/schemas/PersistenceEntry" }
+    FindingEvent:
+      type: object
+      additionalProperties: false
+      required: [at, actor, action, from, to, note]
+      properties:
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string }
+        from: { type: string }
+        to: { type: string }
+        note: { type: string }
+    FindingDetail:
+      type: object
+      additionalProperties: false
+      required: [finding, locations, events, allowed_transitions]
+      properties:
+        finding: { $ref: "#/components/schemas/Finding" }
+        locations:
+          type: array
+          items: { $ref: "#/components/schemas/Location" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/FindingEvent" }
+        allowed_transitions:
+          type: array
+          items: { $ref: "#/components/schemas/FindingState" }
+    FindingPage:
+      type: object
+      additionalProperties: false
+      required: [findings]
+      properties:
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        next_before: { type: integer, format: int64 }
+    FindingTransition:
+      type: object
+      additionalProperties: false
+      required: [to]
+      properties:
+        to: { $ref: "#/components/schemas/FindingState" }
+        note: { type: string, maxLength: 2000 }
+
+    ExceptionScope:
+      type: string
+      enum: [hash, hash_rule, rule_prefix, rule_global]
+    Exception:
+      type: object
+      additionalProperties: false
+      required: [id, scope, sha256, signature, path_prefix, reason, created_by, created_at, revoked_by, active]
+      properties:
+        id: { type: integer, format: int64 }
+        scope: { $ref: "#/components/schemas/ExceptionScope" }
+        sha256: { type: string }
+        signature: { type: string }
+        path_prefix: { type: string }
+        reason: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+        revoked_by: { type: string }
+        active: { type: boolean }
+    ExceptionCreate:
+      type: object
+      additionalProperties: false
+      required: [scope, reason]
+      properties:
+        scope: { $ref: "#/components/schemas/ExceptionScope" }
+        finding_id: { type: integer, format: int64, description: Preenche hash e assinatura a partir do achado }
+        sha256: { type: string, maxLength: 64 }
+        signature: { type: string, maxLength: 256 }
+        path_prefix: { type: string, maxLength: 4096 }
+        reason: { type: string, minLength: 3, maxLength: 2000 }
+        expires_at: { type: string, format: date-time }
+
+    MissedPolicy:
+      type: string
+      enum: [skip, run_once]
+    Schedule:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, cron, timezone, paths, exclude, incremental, profile, missed_policy, enabled, created_by, created_at, updated_at, upcoming]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        cron: { type: string }
+        timezone: { type: string }
+        paths: { type: array, items: { type: string } }
+        exclude: { type: array, items: { type: string } }
+        incremental: { type: boolean }
+        profile: { type: string }
+        missed_policy: { $ref: "#/components/schemas/MissedPolicy" }
+        enabled: { type: boolean }
+        next_run_at: { type: string, format: date-time }
+        last_run_at: { type: string, format: date-time }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        upcoming:
+          type: array
+          items: { type: string, format: date-time }
+    ScheduleInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, cron]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        cron: { type: string, maxLength: 128, description: "5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly" }
+        timezone: { type: string, default: UTC, description: Fuso IANA (ex. America/Sao_Paulo) }
+        paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
+        incremental: { type: boolean, default: true }
+        profile: { type: string, default: padrao }
+        missed_policy: { $ref: "#/components/schemas/MissedPolicy" }
+        enabled: { type: boolean, default: true }
+    CronPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [cron]
+      properties:
+        cron: { type: string, maxLength: 128 }
+        timezone: { type: string }
+    CronPreview:
+      type: object
+      additionalProperties: false
+      required: [next]
+      properties:
+        next:
+          type: array
+          items: { type: string, format: date-time }
+
+    EngineState:
+      type: string
+      enum: [operational, degraded, unavailable]
+      description: Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+    LastSelfTest:
+      type: object
+      additionalProperties: false
+      required: [run_id, passed, detail]
+      properties:
+        run_id: { type: string }
+        passed: { type: boolean }
+        detail: { type: string }
+        at: { type: string, format: date-time }
+    EngineHealth:
+      type: object
+      additionalProperties: false
+      required: [id, name, state]
+      properties:
+        id: { type: string, enum: [yara-x, clamav] }
+        name: { type: string }
+        state: { $ref: "#/components/schemas/EngineState" }
+        version: { type: string }
+        rules_version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        mode: { type: string, description: "clamd (FILDES) ou clamscan" }
+        detail: { type: string }
+        last_selftest: { $ref: "#/components/schemas/LastSelfTest" }
+    EngineStatus:
+      type: object
+      additionalProperties: false
+      required: [engines]
+      properties:
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineHealth" }
+        executor_error: { type: string }
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, role, disabled, mfa_enabled, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        mfa_enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time }
+    UserCreate:
+      type: object
+      additionalProperties: false
+      required: [username, role, password]
+      properties:
+        username: { type: string, maxLength: 64 }
+        display_name: { type: string, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        password: { type: string, maxLength: 256 }
+    UserUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name: { type: string, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+    ApiToken:
+      type: object
+      additionalProperties: false
+      required: [id, name, username, role, prefix, created_at, expires_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        prefix: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_used: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+    ApiTokenCreate:
+      type: object
+      additionalProperties: false
+      required: [name, role, expires_in_days]
+      properties:
+        name: { type: string, maxLength: 64 }
+        role: { $ref: "#/components/schemas/Role" }
+        expires_in_days: { type: integer, minimum: 1, maximum: 365 }
+    ApiTokenCreated:
+      type: object
+      additionalProperties: false
+      required: [token, info]
+      properties:
+        token: { type: string, description: Exibido uma vez; guardado só por hash }
+        info: { $ref: "#/components/schemas/ApiToken" }
+    AuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, at, actor, action, target, detail, ip]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string }
+        target: { type: string }
+        detail: { type: string }
+        ip: { type: string }
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [entries, chain_ok]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEntry" }
+        chain_ok: { type: boolean }
+        broken_at: { type: integer, format: int64 }
+        next_before: { type: integer, format: int64 }

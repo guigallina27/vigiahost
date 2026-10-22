@@ -24,10 +24,648 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estado da sessão atual */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Login com usuário e senha */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Segundo fator do login (código TOTP ou de recuperação) */
+        post: operations["verifyMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gera o segredo do aplicativo autenticador
+         * @description Permitido na etapa mfa_setup ou, para trocar de aparelho, na sessão completa com reautenticação.
+         */
+        post: operations["beginMfaSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirma o segredo com um código e devolve os códigos de recuperação (exibidos uma vez) */
+        post: operations["enableMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Encerra a sessão */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reauth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reautenticação para ações sensíveis (vale 5 minutos) */
+        post: operations["reauth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Troca a própria senha (encerra as outras sessões) */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Primeiro acesso — cria o administrador com o token exibido no terminal */
+        post: operations["setupFirstAdmin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redefine a senha com o token de recuperação gerado pelo root */
+        post: operations["resetWithToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumo para a Visão geral */
+        get: operations["getOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eventos ao vivo (SSE) — execuções, achados novos e agendamentos */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista execuções (mais recentes primeiro) */
+        get: operations["listRuns"];
+        put?: never;
+        /** Enfileira uma execução */
+        post: operations["createRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        /** Detalhe da execução com a cobertura por motor */
+        get: operations["getRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cancela (na fila ou em andamento; encerra o cgroup inteiro) */
+        post: operations["cancelRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pausa pelo freezer do cgroup v2 */
+        post: operations["pauseRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Retoma uma execução pausada */
+        post: operations["resumeRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Troca o perfil de recursos da execução em andamento (aplicado na hora pelo cgroup) */
+        post: operations["setRunLimits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista achados (mais recentes primeiro) */
+        get: operations["listFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/findings/{findingId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingId: components["parameters"]["FindingId"];
+            };
+            cookie?: never;
+        };
+        /** Detalhe do achado com localizações e histórico */
+        get: operations["getFinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/findings/{findingId}/transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingId: components["parameters"]["FindingId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Muda o estado do achado no ciclo de vida */
+        post: operations["transitionFinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista exceções */
+        get: operations["listExceptions"];
+        put?: never;
+        /** Cria exceção (exige reautenticação; regra global só administrador) */
+        post: operations["createException"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/exceptions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoga a exceção */
+        delete: operations["revokeException"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista agendamentos */
+        get: operations["listSchedules"];
+        put?: never;
+        /** Cria agendamento */
+        post: operations["createSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Altera agendamento */
+        put: operations["updateSchedule"];
+        post?: never;
+        /** Remove agendamento (as execuções criadas por ele continuam) */
+        delete: operations["deleteSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Valida a expressão e mostra os próximos horários */
+        post: operations["previewSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Hardware e perfis de recursos efetivos */
+        get: operations["getResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resources/profiles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo) */
+        put: operations["saveResourceProfile"];
+        post?: never;
+        /** Volta o perfil ao pré-definido (ou remove o personalizado) */
+        delete: operations["deleteResourceProfile"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/engines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Saúde dos motores (versões, assinaturas, autoteste da última execução) */
+        get: operations["getEngines"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Lista usuários do painel */
+        get: operations["listUsers"];
+        put?: never;
+        /** Cria usuário (administrador, com reautenticação) */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove usuário (administrador, com reautenticação) */
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        /** Altera perfil, nome ou bloqueio (administrador, com reautenticação) */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/v1/users/{id}/mfa-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apaga o segundo fator do usuário (configura de novo no próximo login) */
+        post: operations["resetUserMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tokens de API (os próprios; o administrador vê todos) */
+        get: operations["listApiTokens"];
+        put?: never;
+        /** Cria token de API (exibido uma vez; exige reautenticação) */
+        post: operations["createApiToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoga token de API */
+        delete: operations["revokeApiToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Auditoria (administrador e auditor) com conferência da cadeia */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            /** @description Mensagem para o operador */
+            error: string;
+            /** @description Código estável para a interface (reauth_required, mfa_required, forbidden, locked...) */
+            code?: string;
+        };
         Health: {
             /**
              * @description ok: executor conectado; degraded: core sem executor.
@@ -73,9 +711,632 @@ export interface components {
             /** @description Pressure Stall Information disponível (pausa por pressão). */
             psi: boolean;
         };
+        /** @enum {string} */
+        Role: "admin" | "operator" | "reader" | "auditor";
+        /**
+         * @description password: falta o segundo fator; mfa_setup: falta configurar o segundo fator; full: sessão completa.
+         * @enum {string}
+         */
+        SessionStage: "password" | "mfa_setup" | "full";
+        CurrentUser: {
+            /** Format: int64 */
+            id: number;
+            username: string;
+            display_name: string;
+            role: components["schemas"]["Role"];
+            mfa_enabled: boolean;
+            mfa_required?: boolean;
+            recovery_codes_left?: number;
+        };
+        Session: {
+            /** @description Sessão completa (todas as etapas concluídas). */
+            authenticated: boolean;
+            /** @description Nenhum usuário criado ainda (primeiro acesso com o token do terminal). */
+            setup_required: boolean;
+            /** @description Conexão por HTTPS ou endereço local; sem isso o login é recusado. */
+            secure_transport: boolean;
+            stage?: components["schemas"]["SessionStage"];
+            user?: components["schemas"]["CurrentUser"];
+            /** Format: date-time */
+            reauth_until?: string;
+            idle_timeout_seconds?: number;
+        };
+        LoginRequest: {
+            username: string;
+            password: string;
+        };
+        CodeRequest: {
+            /** @description Código TOTP de 6 dígitos ou código de recuperação */
+            code: string;
+        };
+        ReauthRequest: {
+            password: string;
+            code?: string;
+        };
+        MfaSetup: {
+            /** @description Segredo em base32 para digitar no aplicativo */
+            secret: string;
+            /** @description Endereço otpauth:// do QR */
+            uri: string;
+            /** @description QR como linhas de "0" e "1" (a interface desenha em SVG) */
+            matrix: string[];
+        };
+        MfaEnabled: {
+            session: components["schemas"]["Session"];
+            recovery_codes: string[];
+        };
+        PasswordChange: {
+            current: string;
+            new: string;
+        };
+        SetupRequest: {
+            token: string;
+            username: string;
+            display_name?: string;
+            password: string;
+        };
+        ResetRequest: {
+            token: string;
+            password: string;
+        };
+        /** @enum {string} */
+        Severity: "critical" | "high" | "medium" | "low" | "info";
+        /** @enum {string} */
+        FindingState: "new" | "in_review" | "confirmed" | "resolved" | "false_positive" | "excepted";
+        /** @enum {string} */
+        FindingKind: "file" | "process" | "persistence";
+        /** @enum {string} */
+        RunKind: "files" | "processes";
+        /** @enum {string} */
+        RunStatus: "queued" | "reserved" | "running" | "completed" | "partial" | "failed" | "engine_failure" | "canceled" | "interrupted";
+        SeverityCounts: {
+            /** Format: int64 */
+            critical: number;
+            /** Format: int64 */
+            high: number;
+            /** Format: int64 */
+            medium: number;
+            /** Format: int64 */
+            low: number;
+            /** Format: int64 */
+            info: number;
+            /** Format: int64 */
+            total: number;
+        };
+        Overview: {
+            executor: components["schemas"]["ExecutorStatus"];
+            open_findings: components["schemas"]["SeverityCounts"];
+            active_runs: components["schemas"]["Run"][];
+            last_files_run?: components["schemas"]["Run"];
+            last_processes_run?: components["schemas"]["Run"];
+            recent_findings: components["schemas"]["Finding"][];
+            engines: components["schemas"]["EngineHealth"][];
+            has_runs: boolean;
+            has_schedules: boolean;
+        };
+        ResourceProfile: {
+            name: string;
+            /** @description Soma de núcleos em % (200 = dois núcleos) */
+            cpu_quota_percent: number;
+            /** Format: int64 */
+            memory_max_bytes: number;
+            /**
+             * Format: int64
+             * @description 0 = sem limite de banda (só peso)
+             */
+            io_read_bytes_per_sec: number;
+            io_weight: number;
+            workers: number;
+            clamd_concurrency: number;
+            max_runtime_sec: number;
+            nice: number;
+            /** Format: int64 */
+            max_file_bytes: number;
+        };
+        ProfileEntry: {
+            profile: components["schemas"]["ResourceProfile"];
+            /** @description Alterado pelo operador */
+            custom: boolean;
+            /** @description Um dos pré-definidos (leve */
+            preset: boolean;
+        };
+        Hardware: {
+            cpus: number;
+            /** Format: int64 */
+            memory_bytes: number;
+            rotational: boolean;
+            allow_no_reserve: boolean;
+            systemd_version: string;
+            /** @description Pausa disponível (systemd 246+ e cgroup v2) */
+            freezer: boolean;
+        };
+        Resources: {
+            hardware?: components["schemas"]["Hardware"];
+            executor_error?: string;
+            profiles: components["schemas"]["ProfileEntry"][];
+        };
+        RunSummary: {
+            status: components["schemas"]["RunStatus"];
+            error?: string;
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: int64 */
+            files_seen: number;
+            /** Format: int64 */
+            files_eligible: number;
+            /** Format: int64 */
+            bytes_eligible: number;
+            skipped?: {
+                [key: string]: number;
+            };
+            /** Format: int64 */
+            findings: number;
+            /** Format: int64 */
+            objects: number;
+            /** Format: int64 */
+            cache_hits: number;
+            files_per_second: number;
+            mb_per_second: number;
+            warnings?: string[];
+        };
+        Run: {
+            id: string;
+            kind: components["schemas"]["RunKind"];
+            status: components["schemas"]["RunStatus"];
+            /** @enum {string} */
+            origin: "manual" | "schedule" | "system";
+            requested_by: string;
+            /** Format: int64 */
+            schedule_id?: number;
+            /** Format: date-time */
+            scheduled_for?: string;
+            paths: string[];
+            exclude: string[];
+            incremental: boolean;
+            profile: components["schemas"]["ResourceProfile"];
+            priority: number;
+            attempts: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at?: string;
+            /** Format: date-time */
+            finished_at?: string;
+            phase: string;
+            paused: boolean;
+            /** Format: int64 */
+            files_seen: number;
+            /** Format: int64 */
+            files_eligible: number;
+            /** Format: int64 */
+            files_processed: number;
+            /** Format: int64 */
+            bytes_eligible: number;
+            /** Format: int64 */
+            bytes_processed: number;
+            /** Format: int64 */
+            findings_count: number;
+            error: string;
+            summary?: components["schemas"]["RunSummary"];
+        };
+        EngineCoverage: {
+            engine: string;
+            version: string;
+            rules_version: string;
+            available: boolean;
+            selftest_passed: boolean;
+            selftest_detail: string;
+            /** Format: int64 */
+            eligible: number;
+            /** Format: int64 */
+            analyzed: number;
+            /** Format: int64 */
+            from_cache: number;
+            /** Format: int64 */
+            bytes_analyzed: number;
+            seconds: number;
+            skipped: {
+                [key: string]: number;
+            };
+            errors: {
+                [key: string]: number;
+            };
+            error: string;
+        };
+        RunDetail: {
+            run: components["schemas"]["Run"];
+            engines: components["schemas"]["EngineCoverage"][];
+        };
+        RunPage: {
+            runs: components["schemas"]["Run"][];
+            next_before?: string;
+        };
+        RunCreate: {
+            kind: components["schemas"]["RunKind"];
+            paths?: string[];
+            exclude?: string[];
+            /** @default true */
+            incremental: boolean;
+            /** @description Nome do perfil de recursos (padrão: padrao) */
+            profile?: string;
+            priority?: number;
+        };
+        RunLimitsRequest: {
+            profile: string;
+        };
+        Location: {
+            /** @description Caminho para exibição (bytes inválidos substituídos) */
+            path: string;
+            /** @description Bytes exatos em hexadecimal quando o nome não é UTF-8 válido */
+            path_hex?: string;
+            /** Format: int64 */
+            dev: number;
+            /** Format: int64 */
+            ino: number;
+            /** Format: int64 */
+            size: number;
+            /** Format: int64 */
+            mode: number;
+            /** Format: int64 */
+            uid: number;
+            /** Format: int64 */
+            gid: number;
+            /** Format: int64 */
+            nlink: number;
+            /** Format: date-time */
+            mtime?: string;
+            /** Format: date-time */
+            ctime?: string;
+        };
+        ProcessEvidence: {
+            pid: number;
+            ppid: number;
+            /** Format: int64 */
+            uid: number;
+            comm: string;
+            exe: string;
+            cmdline?: string[];
+            unit?: string;
+            cgroup?: string;
+            exe_sha256?: string;
+            start_time?: string;
+            listening?: string[];
+            connected?: string[];
+        };
+        PersistenceEntry: {
+            kind: string;
+            path: string;
+            detail?: string;
+            sha256?: string;
+            owner?: string;
+            package?: string;
+            /** @enum {string} */
+            change?: "added" | "changed" | "removed" | "";
+        };
+        Finding: {
+            /** Format: int64 */
+            id: number;
+            kind: components["schemas"]["FindingKind"];
+            engine: string;
+            engine_version: string;
+            rules_version: string;
+            signature: string;
+            source: string;
+            license: string;
+            author: string;
+            reference: string;
+            description: string;
+            category: string;
+            severity: components["schemas"]["Severity"];
+            sha256?: string;
+            file_type: string;
+            state: components["schemas"]["FindingState"];
+            assignee: string;
+            /** Format: int64 */
+            exception_id?: number;
+            first_run: string;
+            last_run: string;
+            /** Format: date-time */
+            first_seen: string;
+            /** Format: date-time */
+            last_seen: string;
+            /** Format: date-time */
+            state_changed: string;
+            /** Format: int64 */
+            times_seen: number;
+            location?: components["schemas"]["Location"];
+            /** Format: int64 */
+            locations_count: number;
+            evidence: {
+                [key: string]: string;
+            };
+            process?: components["schemas"]["ProcessEvidence"];
+            persistence?: components["schemas"]["PersistenceEntry"];
+        };
+        FindingEvent: {
+            /** Format: date-time */
+            at: string;
+            actor: string;
+            action: string;
+            from: string;
+            to: string;
+            note: string;
+        };
+        FindingDetail: {
+            finding: components["schemas"]["Finding"];
+            locations: components["schemas"]["Location"][];
+            events: components["schemas"]["FindingEvent"][];
+            allowed_transitions: components["schemas"]["FindingState"][];
+        };
+        FindingPage: {
+            findings: components["schemas"]["Finding"][];
+            /** Format: int64 */
+            next_before?: number;
+        };
+        FindingTransition: {
+            to: components["schemas"]["FindingState"];
+            note?: string;
+        };
+        /** @enum {string} */
+        ExceptionScope: "hash" | "hash_rule" | "rule_prefix" | "rule_global";
+        Exception: {
+            /** Format: int64 */
+            id: number;
+            scope: components["schemas"]["ExceptionScope"];
+            sha256: string;
+            signature: string;
+            path_prefix: string;
+            reason: string;
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at?: string;
+            /** Format: date-time */
+            revoked_at?: string;
+            revoked_by: string;
+            active: boolean;
+        };
+        ExceptionCreate: {
+            scope: components["schemas"]["ExceptionScope"];
+            /**
+             * Format: int64
+             * @description Preenche hash e assinatura a partir do achado
+             */
+            finding_id?: number;
+            sha256?: string;
+            signature?: string;
+            path_prefix?: string;
+            reason: string;
+            /** Format: date-time */
+            expires_at?: string;
+        };
+        /** @enum {string} */
+        MissedPolicy: "skip" | "run_once";
+        Schedule: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            kind: components["schemas"]["RunKind"];
+            cron: string;
+            timezone: string;
+            paths: string[];
+            exclude: string[];
+            incremental: boolean;
+            profile: string;
+            missed_policy: components["schemas"]["MissedPolicy"];
+            enabled: boolean;
+            /** Format: date-time */
+            next_run_at?: string;
+            /** Format: date-time */
+            last_run_at?: string;
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            upcoming: string[];
+        };
+        ScheduleInput: {
+            name: string;
+            kind: components["schemas"]["RunKind"];
+            /** @description 5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly */
+            cron: string;
+            /**
+             * @description Fuso IANA (ex. America/Sao_Paulo)
+             * @default UTC
+             */
+            timezone: string;
+            paths?: string[];
+            exclude?: string[];
+            /** @default true */
+            incremental: boolean;
+            /** @default padrao */
+            profile: string;
+            missed_policy?: components["schemas"]["MissedPolicy"];
+            /** @default true */
+            enabled: boolean;
+        };
+        CronPreviewRequest: {
+            cron: string;
+            timezone?: string;
+        };
+        CronPreview: {
+            next: string[];
+        };
+        /**
+         * @description Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+         * @enum {string}
+         */
+        EngineState: "operational" | "degraded" | "unavailable";
+        LastSelfTest: {
+            run_id: string;
+            passed: boolean;
+            detail: string;
+            /** Format: date-time */
+            at?: string;
+        };
+        EngineHealth: {
+            /** @enum {string} */
+            id: "yara-x" | "clamav";
+            name: string;
+            state: components["schemas"]["EngineState"];
+            version?: string;
+            rules_version?: string;
+            signatures_version?: string;
+            signatures_date?: string;
+            /** @description clamd (FILDES) ou clamscan */
+            mode?: string;
+            detail?: string;
+            last_selftest?: components["schemas"]["LastSelfTest"];
+        };
+        EngineStatus: {
+            engines: components["schemas"]["EngineHealth"][];
+            executor_error?: string;
+        };
+        User: {
+            /** Format: int64 */
+            id: number;
+            username: string;
+            display_name: string;
+            role: components["schemas"]["Role"];
+            disabled: boolean;
+            mfa_enabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_login_at?: string;
+        };
+        UserCreate: {
+            username: string;
+            display_name?: string;
+            role: components["schemas"]["Role"];
+            password: string;
+        };
+        UserUpdate: {
+            display_name?: string;
+            role?: components["schemas"]["Role"];
+            disabled?: boolean;
+        };
+        ApiToken: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            username: string;
+            role: components["schemas"]["Role"];
+            prefix: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            last_used?: string;
+            /** Format: date-time */
+            revoked_at?: string;
+        };
+        ApiTokenCreate: {
+            name: string;
+            role: components["schemas"]["Role"];
+            expires_in_days: number;
+        };
+        ApiTokenCreated: {
+            /** @description Exibido uma vez; guardado só por hash */
+            token: string;
+            info: components["schemas"]["ApiToken"];
+        };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            actor: string;
+            action: string;
+            target: string;
+            detail: string;
+            ip: string;
+        };
+        AuditPage: {
+            entries: components["schemas"]["AuditEntry"][];
+            chain_ok: boolean;
+            /** Format: int64 */
+            broken_at?: number;
+            /** Format: int64 */
+            next_before?: number;
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Pedido inválido (a mensagem explica o campo) */
+        BadRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Sem sessão, sessão expirada ou credencial incorreta */
+        Unauthorized: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Perfil sem permissão ou reautenticação necessária (code=reauth_required) */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Não encontrado */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description O estado atual não permite a operação */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Muitas tentativas; bloqueio temporário */
+        TooManyRequests: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Executor fora do ar */
+        ExecutorUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        Limit: number;
+        RunId: string;
+        FindingId: number;
+        Id: number;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -109,6 +1370,1091 @@ export interface operations {
                     "application/json": components["schemas"]["Health"];
                 };
             };
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado da sessão (autenticada ou não) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Senha aceita; a sessão pode ainda exigir o segundo fator (stage) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    verifyMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Sessão completa */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    beginMfaSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Segredo pendente até a confirmação */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaSetup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    enableMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description Segundo fator ativo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaEnabled"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sessão encerrada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    reauth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReauthRequest"];
+            };
+        };
+        responses: {
+            /** @description Reautenticado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooManyRequests"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Senha trocada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    setupFirstAdmin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetupRequest"];
+            };
+        };
+        responses: {
+            /** @description Administrador criado; falta configurar o segundo fator */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    resetWithToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetRequest"];
+            };
+        };
+        responses: {
+            /** @description Senha redefinida; o segundo fator é configurado de novo no próximo login */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resumo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Fluxo text/event-stream; cada evento traz o tipo e o identificador, e a interface busca o estado pela API */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listRuns: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["RunStatus"][];
+                kind?: components["schemas"]["RunKind"];
+                /** @description Cursor (next_before da página anterior) */
+                before?: string;
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de execuções */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createRun: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Repetir a mesma chave devolve a execução já criada (clique duplo, nova tentativa) */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunCreate"];
+            };
+        };
+        responses: {
+            /** @description Execução na fila */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execução */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execução */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    pauseRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execução */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    resumeRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Execução */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    setRunLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunLimitsRequest"];
+            };
+        };
+        responses: {
+            /** @description Execução */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    listFindings: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["FindingState"][];
+                severity?: components["schemas"]["Severity"][];
+                kind?: components["schemas"]["FindingKind"][];
+                category?: string[];
+                /** @description Somente achados vistos nesta execução */
+                run?: string;
+                /** @description Trecho do caminho */
+                q?: string;
+                /** @description Cursor (next_before da página anterior) */
+                before?: number;
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de achados */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingId: components["parameters"]["FindingId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Achado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    transitionFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                findingId: components["parameters"]["FindingId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingTransition"];
+            };
+        };
+        responses: {
+            /** @description Achado atualizado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listExceptions: {
+        parameters: {
+            query?: {
+                /** @description Inclui revogadas */
+                all?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exceções */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Exception"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createException: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExceptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Exceção criada e aplicada aos achados abertos que ela cobre */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Exception"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeException: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revogada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Agendamentos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Agendamento criado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Agendamento */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removido */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    previewSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CronPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Próximos horários */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CronPreview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getResources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recursos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resources"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    saveResourceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceProfile"];
+            };
+        };
+        responses: {
+            /** @description Recursos atualizados */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resources"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteResourceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Recursos atualizados */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resources"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    getEngines: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Motores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineStatus"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usuários */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Usuário criado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removido */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Usuário */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    resetUserMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Segundo fator apagado e sessões encerradas */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listApiTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tokens */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiToken"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    createApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Token criado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiTokenCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    revokeApiToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revogado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                before?: number;
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página da auditoria */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }

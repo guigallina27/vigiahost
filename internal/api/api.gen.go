@@ -6,27 +6,501 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/oapi-codegen/runtime"
 )
 
-// Defines values for HealthStatus.
+// Defines values for EngineHealthId.
 const (
-	Degraded HealthStatus = "degraded"
-	Ok       HealthStatus = "ok"
+	Clamav EngineHealthId = "clamav"
+	YaraX  EngineHealthId = "yara-x"
 )
 
-// Valid indicates whether the value is a known member of the HealthStatus enum.
-func (e HealthStatus) Valid() bool {
+// Valid indicates whether the value is a known member of the EngineHealthId enum.
+func (e EngineHealthId) Valid() bool {
 	switch e {
-	case Degraded:
+	case Clamav:
 		return true
-	case Ok:
+	case YaraX:
 		return true
 	default:
 		return false
 	}
 }
+
+// Defines values for EngineState.
+const (
+	EngineStateDegraded    EngineState = "degraded"
+	EngineStateOperational EngineState = "operational"
+	EngineStateUnavailable EngineState = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the EngineState enum.
+func (e EngineState) Valid() bool {
+	switch e {
+	case EngineStateDegraded:
+		return true
+	case EngineStateOperational:
+		return true
+	case EngineStateUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExceptionScope.
+const (
+	Hash       ExceptionScope = "hash"
+	HashRule   ExceptionScope = "hash_rule"
+	RuleGlobal ExceptionScope = "rule_global"
+	RulePrefix ExceptionScope = "rule_prefix"
+)
+
+// Valid indicates whether the value is a known member of the ExceptionScope enum.
+func (e ExceptionScope) Valid() bool {
+	switch e {
+	case Hash:
+		return true
+	case HashRule:
+		return true
+	case RuleGlobal:
+		return true
+	case RulePrefix:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingKind.
+const (
+	File        FindingKind = "file"
+	Persistence FindingKind = "persistence"
+	Process     FindingKind = "process"
+)
+
+// Valid indicates whether the value is a known member of the FindingKind enum.
+func (e FindingKind) Valid() bool {
+	switch e {
+	case File:
+		return true
+	case Persistence:
+		return true
+	case Process:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FindingState.
+const (
+	Confirmed     FindingState = "confirmed"
+	Excepted      FindingState = "excepted"
+	FalsePositive FindingState = "false_positive"
+	InReview      FindingState = "in_review"
+	New           FindingState = "new"
+	Resolved      FindingState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the FindingState enum.
+func (e FindingState) Valid() bool {
+	switch e {
+	case Confirmed:
+		return true
+	case Excepted:
+		return true
+	case FalsePositive:
+		return true
+	case InReview:
+		return true
+	case New:
+		return true
+	case Resolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HealthStatus.
+const (
+	HealthStatusDegraded HealthStatus = "degraded"
+	HealthStatusOk       HealthStatus = "ok"
+)
+
+// Valid indicates whether the value is a known member of the HealthStatus enum.
+func (e HealthStatus) Valid() bool {
+	switch e {
+	case HealthStatusDegraded:
+		return true
+	case HealthStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MissedPolicy.
+const (
+	RunOnce MissedPolicy = "run_once"
+	Skip    MissedPolicy = "skip"
+)
+
+// Valid indicates whether the value is a known member of the MissedPolicy enum.
+func (e MissedPolicy) Valid() bool {
+	switch e {
+	case RunOnce:
+		return true
+	case Skip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersistenceEntryChange.
+const (
+	Added   PersistenceEntryChange = "added"
+	Changed PersistenceEntryChange = "changed"
+	Empty   PersistenceEntryChange = ""
+	Removed PersistenceEntryChange = "removed"
+)
+
+// Valid indicates whether the value is a known member of the PersistenceEntryChange enum.
+func (e PersistenceEntryChange) Valid() bool {
+	switch e {
+	case Added:
+		return true
+	case Changed:
+		return true
+	case Empty:
+		return true
+	case Removed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Role.
+const (
+	Admin    Role = "admin"
+	Auditor  Role = "auditor"
+	Operator Role = "operator"
+	Reader   Role = "reader"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Auditor:
+		return true
+	case Operator:
+		return true
+	case Reader:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunOrigin.
+const (
+	RunOriginManual   RunOrigin = "manual"
+	RunOriginSchedule RunOrigin = "schedule"
+	RunOriginSystem   RunOrigin = "system"
+)
+
+// Valid indicates whether the value is a known member of the RunOrigin enum.
+func (e RunOrigin) Valid() bool {
+	switch e {
+	case RunOriginManual:
+		return true
+	case RunOriginSchedule:
+		return true
+	case RunOriginSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunKind.
+const (
+	Files     RunKind = "files"
+	Processes RunKind = "processes"
+)
+
+// Valid indicates whether the value is a known member of the RunKind enum.
+func (e RunKind) Valid() bool {
+	switch e {
+	case Files:
+		return true
+	case Processes:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunStatus.
+const (
+	Canceled      RunStatus = "canceled"
+	Completed     RunStatus = "completed"
+	EngineFailure RunStatus = "engine_failure"
+	Failed        RunStatus = "failed"
+	Interrupted   RunStatus = "interrupted"
+	Partial       RunStatus = "partial"
+	Queued        RunStatus = "queued"
+	Reserved      RunStatus = "reserved"
+	Running       RunStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the RunStatus enum.
+func (e RunStatus) Valid() bool {
+	switch e {
+	case Canceled:
+		return true
+	case Completed:
+		return true
+	case EngineFailure:
+		return true
+	case Failed:
+		return true
+	case Interrupted:
+		return true
+	case Partial:
+		return true
+	case Queued:
+		return true
+	case Reserved:
+		return true
+	case Running:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionStage.
+const (
+	SessionStageFull     SessionStage = "full"
+	SessionStageMfaSetup SessionStage = "mfa_setup"
+	SessionStagePassword SessionStage = "password"
+)
+
+// Valid indicates whether the value is a known member of the SessionStage enum.
+func (e SessionStage) Valid() bool {
+	switch e {
+	case SessionStageFull:
+		return true
+	case SessionStageMfaSetup:
+		return true
+	case SessionStagePassword:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Severity.
+const (
+	Critical Severity = "critical"
+	High     Severity = "high"
+	Info     Severity = "info"
+	Low      Severity = "low"
+	Medium   Severity = "medium"
+)
+
+// Valid indicates whether the value is a known member of the Severity enum.
+func (e Severity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case High:
+		return true
+	case Info:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// ApiToken defines model for ApiToken.
+type ApiToken struct {
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt time.Time  `json:"expires_at"`
+	Id        int64      `json:"id"`
+	LastUsed  *time.Time `json:"last_used,omitempty"`
+	Name      string     `json:"name"`
+	Prefix    string     `json:"prefix"`
+	RevokedAt *time.Time `json:"revoked_at,omitempty"`
+	Role      Role       `json:"role"`
+	Username  string     `json:"username"`
+}
+
+// ApiTokenCreate defines model for ApiTokenCreate.
+type ApiTokenCreate struct {
+	ExpiresInDays int    `json:"expires_in_days"`
+	Name          string `json:"name"`
+	Role          Role   `json:"role"`
+}
+
+// ApiTokenCreated defines model for ApiTokenCreated.
+type ApiTokenCreated struct {
+	Info ApiToken `json:"info"`
+
+	// Token Exibido uma vez; guardado só por hash
+	Token string `json:"token"`
+}
+
+// AuditEntry defines model for AuditEntry.
+type AuditEntry struct {
+	Action string    `json:"action"`
+	Actor  string    `json:"actor"`
+	At     time.Time `json:"at"`
+	Detail string    `json:"detail"`
+	Id     int64     `json:"id"`
+	Ip     string    `json:"ip"`
+	Target string    `json:"target"`
+}
+
+// AuditPage defines model for AuditPage.
+type AuditPage struct {
+	BrokenAt   *int64       `json:"broken_at,omitempty"`
+	ChainOk    bool         `json:"chain_ok"`
+	Entries    []AuditEntry `json:"entries"`
+	NextBefore *int64       `json:"next_before,omitempty"`
+}
+
+// CodeRequest defines model for CodeRequest.
+type CodeRequest struct {
+	// Code Código TOTP de 6 dígitos ou código de recuperação
+	Code string `json:"code"`
+}
+
+// CronPreview defines model for CronPreview.
+type CronPreview struct {
+	Next []time.Time `json:"next"`
+}
+
+// CronPreviewRequest defines model for CronPreviewRequest.
+type CronPreviewRequest struct {
+	Cron     string  `json:"cron"`
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// CurrentUser defines model for CurrentUser.
+type CurrentUser struct {
+	DisplayName       string `json:"display_name"`
+	Id                int64  `json:"id"`
+	MfaEnabled        bool   `json:"mfa_enabled"`
+	MfaRequired       *bool  `json:"mfa_required,omitempty"`
+	RecoveryCodesLeft *int   `json:"recovery_codes_left,omitempty"`
+	Role              Role   `json:"role"`
+	Username          string `json:"username"`
+}
+
+// EngineCoverage defines model for EngineCoverage.
+type EngineCoverage struct {
+	Analyzed       int64            `json:"analyzed"`
+	Available      bool             `json:"available"`
+	BytesAnalyzed  int64            `json:"bytes_analyzed"`
+	Eligible       int64            `json:"eligible"`
+	Engine         string           `json:"engine"`
+	Error          string           `json:"error"`
+	Errors         map[string]int64 `json:"errors"`
+	FromCache      int64            `json:"from_cache"`
+	RulesVersion   string           `json:"rules_version"`
+	Seconds        float32          `json:"seconds"`
+	SelftestDetail string           `json:"selftest_detail"`
+	SelftestPassed bool             `json:"selftest_passed"`
+	Skipped        map[string]int64 `json:"skipped"`
+	Version        string           `json:"version"`
+}
+
+// EngineHealth defines model for EngineHealth.
+type EngineHealth struct {
+	Detail       *string        `json:"detail,omitempty"`
+	Id           EngineHealthId `json:"id"`
+	LastSelftest *LastSelfTest  `json:"last_selftest,omitempty"`
+
+	// Mode clamd (FILDES) ou clamscan
+	Mode              *string `json:"mode,omitempty"`
+	Name              string  `json:"name"`
+	RulesVersion      *string `json:"rules_version,omitempty"`
+	SignaturesDate    *string `json:"signatures_date,omitempty"`
+	SignaturesVersion *string `json:"signatures_version,omitempty"`
+
+	// State Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+	State   EngineState `json:"state"`
+	Version *string     `json:"version,omitempty"`
+}
+
+// EngineHealthId defines model for EngineHealth.Id.
+type EngineHealthId string
+
+// EngineState Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+type EngineState string
+
+// EngineStatus defines model for EngineStatus.
+type EngineStatus struct {
+	Engines       []EngineHealth `json:"engines"`
+	ExecutorError *string        `json:"executor_error,omitempty"`
+}
+
+// Error defines model for Error.
+type Error struct {
+	// Code Código estável para a interface (reauth_required, mfa_required, forbidden, locked...)
+	Code *string `json:"code,omitempty"`
+
+	// Error Mensagem para o operador
+	Error string `json:"error"`
+}
+
+// Exception defines model for Exception.
+type Exception struct {
+	Active     bool           `json:"active"`
+	CreatedAt  time.Time      `json:"created_at"`
+	CreatedBy  string         `json:"created_by"`
+	ExpiresAt  *time.Time     `json:"expires_at,omitempty"`
+	Id         int64          `json:"id"`
+	PathPrefix string         `json:"path_prefix"`
+	Reason     string         `json:"reason"`
+	RevokedAt  *time.Time     `json:"revoked_at,omitempty"`
+	RevokedBy  string         `json:"revoked_by"`
+	Scope      ExceptionScope `json:"scope"`
+	Sha256     string         `json:"sha256"`
+	Signature  string         `json:"signature"`
+}
+
+// ExceptionCreate defines model for ExceptionCreate.
+type ExceptionCreate struct {
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+
+	// FindingId Preenche hash e assinatura a partir do achado
+	FindingId  *int64         `json:"finding_id,omitempty"`
+	PathPrefix *string        `json:"path_prefix,omitempty"`
+	Reason     string         `json:"reason"`
+	Scope      ExceptionScope `json:"scope"`
+	Sha256     *string        `json:"sha256,omitempty"`
+	Signature  *string        `json:"signature,omitempty"`
+}
+
+// ExceptionScope defines model for ExceptionScope.
+type ExceptionScope string
 
 // ExecutorStatus defines model for ExecutorStatus.
 type ExecutorStatus struct {
@@ -47,6 +521,87 @@ type ExecutorStatus struct {
 	Version *string `json:"version,omitempty"`
 }
 
+// Finding defines model for Finding.
+type Finding struct {
+	Assignee       string            `json:"assignee"`
+	Author         string            `json:"author"`
+	Category       string            `json:"category"`
+	Description    string            `json:"description"`
+	Engine         string            `json:"engine"`
+	EngineVersion  string            `json:"engine_version"`
+	Evidence       map[string]string `json:"evidence"`
+	ExceptionId    *int64            `json:"exception_id,omitempty"`
+	FileType       string            `json:"file_type"`
+	FirstRun       string            `json:"first_run"`
+	FirstSeen      time.Time         `json:"first_seen"`
+	Id             int64             `json:"id"`
+	Kind           FindingKind       `json:"kind"`
+	LastRun        string            `json:"last_run"`
+	LastSeen       time.Time         `json:"last_seen"`
+	License        string            `json:"license"`
+	Location       *Location         `json:"location,omitempty"`
+	LocationsCount int64             `json:"locations_count"`
+	Persistence    *PersistenceEntry `json:"persistence,omitempty"`
+	Process        *ProcessEvidence  `json:"process,omitempty"`
+	Reference      string            `json:"reference"`
+	RulesVersion   string            `json:"rules_version"`
+	Severity       Severity          `json:"severity"`
+	Sha256         *string           `json:"sha256,omitempty"`
+	Signature      string            `json:"signature"`
+	Source         string            `json:"source"`
+	State          FindingState      `json:"state"`
+	StateChanged   time.Time         `json:"state_changed"`
+	TimesSeen      int64             `json:"times_seen"`
+}
+
+// FindingDetail defines model for FindingDetail.
+type FindingDetail struct {
+	AllowedTransitions []FindingState `json:"allowed_transitions"`
+	Events             []FindingEvent `json:"events"`
+	Finding            Finding        `json:"finding"`
+	Locations          []Location     `json:"locations"`
+}
+
+// FindingEvent defines model for FindingEvent.
+type FindingEvent struct {
+	Action string    `json:"action"`
+	Actor  string    `json:"actor"`
+	At     time.Time `json:"at"`
+	From   string    `json:"from"`
+	Note   string    `json:"note"`
+	To     string    `json:"to"`
+}
+
+// FindingKind defines model for FindingKind.
+type FindingKind string
+
+// FindingPage defines model for FindingPage.
+type FindingPage struct {
+	Findings   []Finding `json:"findings"`
+	NextBefore *int64    `json:"next_before,omitempty"`
+}
+
+// FindingState defines model for FindingState.
+type FindingState string
+
+// FindingTransition defines model for FindingTransition.
+type FindingTransition struct {
+	Note *string      `json:"note,omitempty"`
+	To   FindingState `json:"to"`
+}
+
+// Hardware defines model for Hardware.
+type Hardware struct {
+	AllowNoReserve bool `json:"allow_no_reserve"`
+	Cpus           int  `json:"cpus"`
+
+	// Freezer Pausa disponível (systemd 246+ e cgroup v2)
+	Freezer        bool   `json:"freezer"`
+	MemoryBytes    int64  `json:"memory_bytes"`
+	Rotational     bool   `json:"rotational"`
+	SystemdVersion string `json:"systemd_version"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	Executor ExecutorStatus `json:"executor"`
@@ -62,6 +617,325 @@ type Health struct {
 
 // HealthStatus ok: executor conectado; degraded: core sem executor.
 type HealthStatus string
+
+// LastSelfTest defines model for LastSelfTest.
+type LastSelfTest struct {
+	At     *time.Time `json:"at,omitempty"`
+	Detail string     `json:"detail"`
+	Passed bool       `json:"passed"`
+	RunId  string     `json:"run_id"`
+}
+
+// Location defines model for Location.
+type Location struct {
+	Ctime *time.Time `json:"ctime,omitempty"`
+	Dev   int64      `json:"dev"`
+	Gid   int64      `json:"gid"`
+	Ino   int64      `json:"ino"`
+	Mode  int64      `json:"mode"`
+	Mtime *time.Time `json:"mtime,omitempty"`
+	Nlink int64      `json:"nlink"`
+
+	// Path Caminho para exibição (bytes inválidos substituídos)
+	Path string `json:"path"`
+
+	// PathHex Bytes exatos em hexadecimal quando o nome não é UTF-8 válido
+	PathHex *string `json:"path_hex,omitempty"`
+	Size    int64   `json:"size"`
+	Uid     int64   `json:"uid"`
+}
+
+// LoginRequest defines model for LoginRequest.
+type LoginRequest struct {
+	Password string `json:"password"`
+	Username string `json:"username"`
+}
+
+// MfaEnabled defines model for MfaEnabled.
+type MfaEnabled struct {
+	RecoveryCodes []string `json:"recovery_codes"`
+	Session       Session  `json:"session"`
+}
+
+// MfaSetup defines model for MfaSetup.
+type MfaSetup struct {
+	// Matrix QR como linhas de "0" e "1" (a interface desenha em SVG)
+	Matrix []string `json:"matrix"`
+
+	// Secret Segredo em base32 para digitar no aplicativo
+	Secret string `json:"secret"`
+
+	// Uri Endereço otpauth:// do QR
+	Uri string `json:"uri"`
+}
+
+// MissedPolicy defines model for MissedPolicy.
+type MissedPolicy string
+
+// Overview defines model for Overview.
+type Overview struct {
+	ActiveRuns       []Run          `json:"active_runs"`
+	Engines          []EngineHealth `json:"engines"`
+	Executor         ExecutorStatus `json:"executor"`
+	HasRuns          bool           `json:"has_runs"`
+	HasSchedules     bool           `json:"has_schedules"`
+	LastFilesRun     *Run           `json:"last_files_run,omitempty"`
+	LastProcessesRun *Run           `json:"last_processes_run,omitempty"`
+	OpenFindings     SeverityCounts `json:"open_findings"`
+	RecentFindings   []Finding      `json:"recent_findings"`
+}
+
+// PasswordChange defines model for PasswordChange.
+type PasswordChange struct {
+	Current string `json:"current"`
+	New     string `json:"new"`
+}
+
+// PersistenceEntry defines model for PersistenceEntry.
+type PersistenceEntry struct {
+	Change  *PersistenceEntryChange `json:"change,omitempty"`
+	Detail  *string                 `json:"detail,omitempty"`
+	Kind    string                  `json:"kind"`
+	Owner   *string                 `json:"owner,omitempty"`
+	Package *string                 `json:"package,omitempty"`
+	Path    string                  `json:"path"`
+	Sha256  *string                 `json:"sha256,omitempty"`
+}
+
+// PersistenceEntryChange defines model for PersistenceEntry.Change.
+type PersistenceEntryChange string
+
+// ProcessEvidence defines model for ProcessEvidence.
+type ProcessEvidence struct {
+	Cgroup    *string   `json:"cgroup,omitempty"`
+	Cmdline   *[]string `json:"cmdline,omitempty"`
+	Comm      string    `json:"comm"`
+	Connected *[]string `json:"connected,omitempty"`
+	Exe       string    `json:"exe"`
+	ExeSha256 *string   `json:"exe_sha256,omitempty"`
+	Listening *[]string `json:"listening,omitempty"`
+	Pid       int       `json:"pid"`
+	Ppid      int       `json:"ppid"`
+	StartTime *string   `json:"start_time,omitempty"`
+	Uid       int64     `json:"uid"`
+	Unit      *string   `json:"unit,omitempty"`
+}
+
+// ProfileEntry defines model for ProfileEntry.
+type ProfileEntry struct {
+	// Custom Alterado pelo operador
+	Custom bool `json:"custom"`
+
+	// Preset Um dos pré-definidos (leve
+	Preset  bool            `json:"preset"`
+	Profile ResourceProfile `json:"profile"`
+}
+
+// ReauthRequest defines model for ReauthRequest.
+type ReauthRequest struct {
+	Code     *string `json:"code,omitempty"`
+	Password string  `json:"password"`
+}
+
+// ResetRequest defines model for ResetRequest.
+type ResetRequest struct {
+	Password string `json:"password"`
+	Token    string `json:"token"`
+}
+
+// ResourceProfile defines model for ResourceProfile.
+type ResourceProfile struct {
+	ClamdConcurrency int `json:"clamd_concurrency"`
+
+	// CpuQuotaPercent Soma de núcleos em % (200 = dois núcleos)
+	CpuQuotaPercent int `json:"cpu_quota_percent"`
+
+	// IoReadBytesPerSec 0 = sem limite de banda (só peso)
+	IoReadBytesPerSec int64  `json:"io_read_bytes_per_sec"`
+	IoWeight          int    `json:"io_weight"`
+	MaxFileBytes      int64  `json:"max_file_bytes"`
+	MaxRuntimeSec     int    `json:"max_runtime_sec"`
+	MemoryMaxBytes    int64  `json:"memory_max_bytes"`
+	Name              string `json:"name"`
+	Nice              int    `json:"nice"`
+	Workers           int    `json:"workers"`
+}
+
+// Resources defines model for Resources.
+type Resources struct {
+	ExecutorError *string        `json:"executor_error,omitempty"`
+	Hardware      *Hardware      `json:"hardware,omitempty"`
+	Profiles      []ProfileEntry `json:"profiles"`
+}
+
+// Role defines model for Role.
+type Role string
+
+// Run defines model for Run.
+type Run struct {
+	Attempts       int             `json:"attempts"`
+	BytesEligible  int64           `json:"bytes_eligible"`
+	BytesProcessed int64           `json:"bytes_processed"`
+	CreatedAt      time.Time       `json:"created_at"`
+	Error          string          `json:"error"`
+	Exclude        []string        `json:"exclude"`
+	FilesEligible  int64           `json:"files_eligible"`
+	FilesProcessed int64           `json:"files_processed"`
+	FilesSeen      int64           `json:"files_seen"`
+	FindingsCount  int64           `json:"findings_count"`
+	FinishedAt     *time.Time      `json:"finished_at,omitempty"`
+	Id             string          `json:"id"`
+	Incremental    bool            `json:"incremental"`
+	Kind           RunKind         `json:"kind"`
+	Origin         RunOrigin       `json:"origin"`
+	Paths          []string        `json:"paths"`
+	Paused         bool            `json:"paused"`
+	Phase          string          `json:"phase"`
+	Priority       int             `json:"priority"`
+	Profile        ResourceProfile `json:"profile"`
+	RequestedBy    string          `json:"requested_by"`
+	ScheduleId     *int64          `json:"schedule_id,omitempty"`
+	ScheduledFor   *time.Time      `json:"scheduled_for,omitempty"`
+	StartedAt      *time.Time      `json:"started_at,omitempty"`
+	Status         RunStatus       `json:"status"`
+	Summary        *RunSummary     `json:"summary,omitempty"`
+}
+
+// RunOrigin defines model for Run.Origin.
+type RunOrigin string
+
+// RunCreate defines model for RunCreate.
+type RunCreate struct {
+	Exclude     *[]string `json:"exclude,omitempty"`
+	Incremental *bool     `json:"incremental,omitempty"`
+	Kind        RunKind   `json:"kind"`
+	Paths       *[]string `json:"paths,omitempty"`
+	Priority    *int      `json:"priority,omitempty"`
+
+	// Profile Nome do perfil de recursos (padrão: padrao)
+	Profile *string `json:"profile,omitempty"`
+}
+
+// RunDetail defines model for RunDetail.
+type RunDetail struct {
+	Engines []EngineCoverage `json:"engines"`
+	Run     Run              `json:"run"`
+}
+
+// RunKind defines model for RunKind.
+type RunKind string
+
+// RunLimitsRequest defines model for RunLimitsRequest.
+type RunLimitsRequest struct {
+	Profile string `json:"profile"`
+}
+
+// RunPage defines model for RunPage.
+type RunPage struct {
+	NextBefore *string `json:"next_before,omitempty"`
+	Runs       []Run   `json:"runs"`
+}
+
+// RunStatus defines model for RunStatus.
+type RunStatus string
+
+// RunSummary defines model for RunSummary.
+type RunSummary struct {
+	BytesEligible  int64             `json:"bytes_eligible"`
+	CacheHits      int64             `json:"cache_hits"`
+	Error          *string           `json:"error,omitempty"`
+	FilesEligible  int64             `json:"files_eligible"`
+	FilesPerSecond float32           `json:"files_per_second"`
+	FilesSeen      int64             `json:"files_seen"`
+	Findings       int64             `json:"findings"`
+	FinishedAt     *time.Time        `json:"finished_at,omitempty"`
+	MbPerSecond    float32           `json:"mb_per_second"`
+	Objects        int64             `json:"objects"`
+	Skipped        *map[string]int64 `json:"skipped,omitempty"`
+	StartedAt      *time.Time        `json:"started_at,omitempty"`
+	Status         RunStatus         `json:"status"`
+	Warnings       *[]string         `json:"warnings,omitempty"`
+}
+
+// Schedule defines model for Schedule.
+type Schedule struct {
+	CreatedAt    time.Time    `json:"created_at"`
+	CreatedBy    string       `json:"created_by"`
+	Cron         string       `json:"cron"`
+	Enabled      bool         `json:"enabled"`
+	Exclude      []string     `json:"exclude"`
+	Id           int64        `json:"id"`
+	Incremental  bool         `json:"incremental"`
+	Kind         RunKind      `json:"kind"`
+	LastRunAt    *time.Time   `json:"last_run_at,omitempty"`
+	MissedPolicy MissedPolicy `json:"missed_policy"`
+	Name         string       `json:"name"`
+	NextRunAt    *time.Time   `json:"next_run_at,omitempty"`
+	Paths        []string     `json:"paths"`
+	Profile      string       `json:"profile"`
+	Timezone     string       `json:"timezone"`
+	Upcoming     []time.Time  `json:"upcoming"`
+	UpdatedAt    time.Time    `json:"updated_at"`
+}
+
+// ScheduleInput defines model for ScheduleInput.
+type ScheduleInput struct {
+	// Cron 5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly
+	Cron         string        `json:"cron"`
+	Enabled      *bool         `json:"enabled,omitempty"`
+	Exclude      *[]string     `json:"exclude,omitempty"`
+	Incremental  *bool         `json:"incremental,omitempty"`
+	Kind         RunKind       `json:"kind"`
+	MissedPolicy *MissedPolicy `json:"missed_policy,omitempty"`
+	Name         string        `json:"name"`
+	Paths        *[]string     `json:"paths,omitempty"`
+	Profile      *string       `json:"profile,omitempty"`
+
+	// Timezone Fuso IANA (ex. America/Sao_Paulo)
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// Session defines model for Session.
+type Session struct {
+	// Authenticated Sessão completa (todas as etapas concluídas).
+	Authenticated      bool       `json:"authenticated"`
+	IdleTimeoutSeconds *int       `json:"idle_timeout_seconds,omitempty"`
+	ReauthUntil        *time.Time `json:"reauth_until,omitempty"`
+
+	// SecureTransport Conexão por HTTPS ou endereço local; sem isso o login é recusado.
+	SecureTransport bool `json:"secure_transport"`
+
+	// SetupRequired Nenhum usuário criado ainda (primeiro acesso com o token do terminal).
+	SetupRequired bool `json:"setup_required"`
+
+	// Stage password: falta o segundo fator; mfa_setup: falta configurar o segundo fator; full: sessão completa.
+	Stage *SessionStage `json:"stage,omitempty"`
+	User  *CurrentUser  `json:"user,omitempty"`
+}
+
+// SessionStage password: falta o segundo fator; mfa_setup: falta configurar o segundo fator; full: sessão completa.
+type SessionStage string
+
+// SetupRequest defines model for SetupRequest.
+type SetupRequest struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	Password    string  `json:"password"`
+	Token       string  `json:"token"`
+	Username    string  `json:"username"`
+}
+
+// Severity defines model for Severity.
+type Severity string
+
+// SeverityCounts defines model for SeverityCounts.
+type SeverityCounts struct {
+	Critical int64 `json:"critical"`
+	High     int64 `json:"high"`
+	Info     int64 `json:"info"`
+	Low      int64 `json:"low"`
+	Medium   int64 `json:"medium"`
+	Total    int64 `json:"total"`
+}
 
 // SystemCapabilities Sistema detectado pelo executor (escopo, seção 5.3).
 type SystemCapabilities struct {
@@ -89,11 +963,300 @@ type SystemCapabilities struct {
 	Systemd bool `json:"systemd"`
 }
 
+// User defines model for User.
+type User struct {
+	CreatedAt   time.Time  `json:"created_at"`
+	Disabled    bool       `json:"disabled"`
+	DisplayName string     `json:"display_name"`
+	Id          int64      `json:"id"`
+	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
+	MfaEnabled  bool       `json:"mfa_enabled"`
+	Role        Role       `json:"role"`
+	Username    string     `json:"username"`
+}
+
+// UserCreate defines model for UserCreate.
+type UserCreate struct {
+	DisplayName *string `json:"display_name,omitempty"`
+	Password    string  `json:"password"`
+	Role        Role    `json:"role"`
+	Username    string  `json:"username"`
+}
+
+// UserUpdate defines model for UserUpdate.
+type UserUpdate struct {
+	Disabled    *bool   `json:"disabled,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Role        *Role   `json:"role,omitempty"`
+}
+
+// FindingId defines model for FindingId.
+type FindingId = int64
+
+// Id defines model for Id.
+type Id = int64
+
+// Limit defines model for Limit.
+type Limit = int
+
+// RunId defines model for RunId.
+type RunId = string
+
+// BadRequest defines model for BadRequest.
+type BadRequest = Error
+
+// Conflict defines model for Conflict.
+type Conflict = Error
+
+// ExecutorUnavailable defines model for ExecutorUnavailable.
+type ExecutorUnavailable = Error
+
+// Forbidden defines model for Forbidden.
+type Forbidden = Error
+
+// NotFound defines model for NotFound.
+type NotFound = Error
+
+// TooManyRequests defines model for TooManyRequests.
+type TooManyRequests = Error
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = Error
+
+// ListAuditParams defines parameters for ListAudit.
+type ListAuditParams struct {
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListExceptionsParams defines parameters for ListExceptions.
+type ListExceptionsParams struct {
+	// All Inclui revogadas
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
+// ListFindingsParams defines parameters for ListFindings.
+type ListFindingsParams struct {
+	State    *[]FindingState `form:"state,omitempty" json:"state,omitempty"`
+	Severity *[]Severity     `form:"severity,omitempty" json:"severity,omitempty"`
+	Kind     *[]FindingKind  `form:"kind,omitempty" json:"kind,omitempty"`
+	Category *[]string       `form:"category,omitempty" json:"category,omitempty"`
+
+	// Run Somente achados vistos nesta execução
+	Run *string `form:"run,omitempty" json:"run,omitempty"`
+
+	// Q Trecho do caminho
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Before Cursor (next_before da página anterior)
+	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListRunsParams defines parameters for ListRuns.
+type ListRunsParams struct {
+	Status *[]RunStatus `form:"status,omitempty" json:"status,omitempty"`
+	Kind   *RunKind     `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Before Cursor (next_before da página anterior)
+	Before *string `form:"before,omitempty" json:"before,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CreateRunParams defines parameters for CreateRun.
+type CreateRunParams struct {
+	// IdempotencyKey Repetir a mesma chave devolve a execução já criada (clique duplo, nova tentativa)
+	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
+
+// LoginJSONRequestBody defines body for Login for application/json ContentType.
+type LoginJSONRequestBody = LoginRequest
+
+// EnableMfaJSONRequestBody defines body for EnableMfa for application/json ContentType.
+type EnableMfaJSONRequestBody = CodeRequest
+
+// VerifyMfaJSONRequestBody defines body for VerifyMfa for application/json ContentType.
+type VerifyMfaJSONRequestBody = CodeRequest
+
+// ChangePasswordJSONRequestBody defines body for ChangePassword for application/json ContentType.
+type ChangePasswordJSONRequestBody = PasswordChange
+
+// ReauthJSONRequestBody defines body for Reauth for application/json ContentType.
+type ReauthJSONRequestBody = ReauthRequest
+
+// ResetWithTokenJSONRequestBody defines body for ResetWithToken for application/json ContentType.
+type ResetWithTokenJSONRequestBody = ResetRequest
+
+// SetupFirstAdminJSONRequestBody defines body for SetupFirstAdmin for application/json ContentType.
+type SetupFirstAdminJSONRequestBody = SetupRequest
+
+// CreateExceptionJSONRequestBody defines body for CreateException for application/json ContentType.
+type CreateExceptionJSONRequestBody = ExceptionCreate
+
+// TransitionFindingJSONRequestBody defines body for TransitionFinding for application/json ContentType.
+type TransitionFindingJSONRequestBody = FindingTransition
+
+// SaveResourceProfileJSONRequestBody defines body for SaveResourceProfile for application/json ContentType.
+type SaveResourceProfileJSONRequestBody = ResourceProfile
+
+// CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
+type CreateRunJSONRequestBody = RunCreate
+
+// SetRunLimitsJSONRequestBody defines body for SetRunLimits for application/json ContentType.
+type SetRunLimitsJSONRequestBody = RunLimitsRequest
+
+// CreateScheduleJSONRequestBody defines body for CreateSchedule for application/json ContentType.
+type CreateScheduleJSONRequestBody = ScheduleInput
+
+// PreviewScheduleJSONRequestBody defines body for PreviewSchedule for application/json ContentType.
+type PreviewScheduleJSONRequestBody = CronPreviewRequest
+
+// UpdateScheduleJSONRequestBody defines body for UpdateSchedule for application/json ContentType.
+type UpdateScheduleJSONRequestBody = ScheduleInput
+
+// CreateApiTokenJSONRequestBody defines body for CreateApiToken for application/json ContentType.
+type CreateApiTokenJSONRequestBody = ApiTokenCreate
+
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = UserCreate
+
+// UpdateUserJSONRequestBody defines body for UpdateUser for application/json ContentType.
+type UpdateUserJSONRequestBody = UserUpdate
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAudit Auditoria (administrador e auditor) com conferência da cadeia
+	// (GET /api/v1/audit)
+	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
+	// Login Login com usuário e senha
+	// (POST /api/v1/auth/login)
+	Login(w http.ResponseWriter, r *http.Request)
+	// Logout Encerra a sessão
+	// (POST /api/v1/auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request)
+	// EnableMfa Confirma o segredo com um código e devolve os códigos de recuperação (exibidos uma vez)
+	// (POST /api/v1/auth/mfa/enable)
+	EnableMfa(w http.ResponseWriter, r *http.Request)
+	// BeginMfaSetup Gera o segredo do aplicativo autenticador
+	// (POST /api/v1/auth/mfa/setup)
+	BeginMfaSetup(w http.ResponseWriter, r *http.Request)
+	// VerifyMfa Segundo fator do login (código TOTP ou de recuperação)
+	// (POST /api/v1/auth/mfa/verify)
+	VerifyMfa(w http.ResponseWriter, r *http.Request)
+	// ChangePassword Troca a própria senha (encerra as outras sessões)
+	// (POST /api/v1/auth/password)
+	ChangePassword(w http.ResponseWriter, r *http.Request)
+	// Reauth Reautenticação para ações sensíveis (vale 5 minutos)
+	// (POST /api/v1/auth/reauth)
+	Reauth(w http.ResponseWriter, r *http.Request)
+	// ResetWithToken Redefine a senha com o token de recuperação gerado pelo root
+	// (POST /api/v1/auth/reset)
+	ResetWithToken(w http.ResponseWriter, r *http.Request)
+	// GetSession Estado da sessão atual
+	// (GET /api/v1/auth/session)
+	GetSession(w http.ResponseWriter, r *http.Request)
+	// SetupFirstAdmin Primeiro acesso — cria o administrador com o token exibido no terminal
+	// (POST /api/v1/auth/setup)
+	SetupFirstAdmin(w http.ResponseWriter, r *http.Request)
+	// GetEngines Saúde dos motores (versões, assinaturas, autoteste da última execução)
+	// (GET /api/v1/engines)
+	GetEngines(w http.ResponseWriter, r *http.Request)
+	// StreamEvents Eventos ao vivo (SSE) — execuções, achados novos e agendamentos
+	// (GET /api/v1/events)
+	StreamEvents(w http.ResponseWriter, r *http.Request)
+	// ListExceptions Lista exceções
+	// (GET /api/v1/exceptions)
+	ListExceptions(w http.ResponseWriter, r *http.Request, params ListExceptionsParams)
+	// CreateException Cria exceção (exige reautenticação; regra global só administrador)
+	// (POST /api/v1/exceptions)
+	CreateException(w http.ResponseWriter, r *http.Request)
+	// RevokeException Revoga a exceção
+	// (DELETE /api/v1/exceptions/{id})
+	RevokeException(w http.ResponseWriter, r *http.Request, id Id)
+	// ListFindings Lista achados (mais recentes primeiro)
+	// (GET /api/v1/findings)
+	ListFindings(w http.ResponseWriter, r *http.Request, params ListFindingsParams)
+	// GetFinding Detalhe do achado com localizações e histórico
+	// (GET /api/v1/findings/{findingId})
+	GetFinding(w http.ResponseWriter, r *http.Request, findingId FindingId)
+	// TransitionFinding Muda o estado do achado no ciclo de vida
+	// (POST /api/v1/findings/{findingId}/transition)
+	TransitionFinding(w http.ResponseWriter, r *http.Request, findingId FindingId)
 	// GetHealth Saúde do core e da conexão com o executor
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// GetOverview Resumo para a Visão geral
+	// (GET /api/v1/overview)
+	GetOverview(w http.ResponseWriter, r *http.Request)
+	// GetResources Hardware e perfis de recursos efetivos
+	// (GET /api/v1/resources)
+	GetResources(w http.ResponseWriter, r *http.Request)
+	// DeleteResourceProfile Volta o perfil ao pré-definido (ou remove o personalizado)
+	// (DELETE /api/v1/resources/profiles/{name})
+	DeleteResourceProfile(w http.ResponseWriter, r *http.Request, name string)
+	// SaveResourceProfile Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo)
+	// (PUT /api/v1/resources/profiles/{name})
+	SaveResourceProfile(w http.ResponseWriter, r *http.Request, name string)
+	// ListRuns Lista execuções (mais recentes primeiro)
+	// (GET /api/v1/runs)
+	ListRuns(w http.ResponseWriter, r *http.Request, params ListRunsParams)
+	// CreateRun Enfileira uma execução
+	// (POST /api/v1/runs)
+	CreateRun(w http.ResponseWriter, r *http.Request, params CreateRunParams)
+	// GetRun Detalhe da execução com a cobertura por motor
+	// (GET /api/v1/runs/{runId})
+	GetRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// CancelRun Cancela (na fila ou em andamento; encerra o cgroup inteiro)
+	// (POST /api/v1/runs/{runId}/cancel)
+	CancelRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// SetRunLimits Troca o perfil de recursos da execução em andamento (aplicado na hora pelo cgroup)
+	// (POST /api/v1/runs/{runId}/limits)
+	SetRunLimits(w http.ResponseWriter, r *http.Request, runId RunId)
+	// PauseRun Pausa pelo freezer do cgroup v2
+	// (POST /api/v1/runs/{runId}/pause)
+	PauseRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// ResumeRun Retoma uma execução pausada
+	// (POST /api/v1/runs/{runId}/resume)
+	ResumeRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// ListSchedules Lista agendamentos
+	// (GET /api/v1/schedules)
+	ListSchedules(w http.ResponseWriter, r *http.Request)
+	// CreateSchedule Cria agendamento
+	// (POST /api/v1/schedules)
+	CreateSchedule(w http.ResponseWriter, r *http.Request)
+	// PreviewSchedule Valida a expressão e mostra os próximos horários
+	// (POST /api/v1/schedules/preview)
+	PreviewSchedule(w http.ResponseWriter, r *http.Request)
+	// DeleteSchedule Remove agendamento (as execuções criadas por ele continuam)
+	// (DELETE /api/v1/schedules/{id})
+	DeleteSchedule(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateSchedule Altera agendamento
+	// (PUT /api/v1/schedules/{id})
+	UpdateSchedule(w http.ResponseWriter, r *http.Request, id Id)
+	// ListApiTokens Tokens de API (os próprios; o administrador vê todos)
+	// (GET /api/v1/tokens)
+	ListApiTokens(w http.ResponseWriter, r *http.Request)
+	// CreateApiToken Cria token de API (exibido uma vez; exige reautenticação)
+	// (POST /api/v1/tokens)
+	CreateApiToken(w http.ResponseWriter, r *http.Request)
+	// RevokeApiToken Revoga token de API
+	// (DELETE /api/v1/tokens/{id})
+	RevokeApiToken(w http.ResponseWriter, r *http.Request, id Id)
+	// ListUsers Lista usuários do painel
+	// (GET /api/v1/users)
+	ListUsers(w http.ResponseWriter, r *http.Request)
+	// CreateUser Cria usuário (administrador, com reautenticação)
+	// (POST /api/v1/users)
+	CreateUser(w http.ResponseWriter, r *http.Request)
+	// DeleteUser Remove usuário (administrador, com reautenticação)
+	// (DELETE /api/v1/users/{id})
+	DeleteUser(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateUser Altera perfil, nome ou bloqueio (administrador, com reautenticação)
+	// (PATCH /api/v1/users/{id})
+	UpdateUser(w http.ResponseWriter, r *http.Request, id Id)
+	// ResetUserMfa Apaga o segundo fator do usuário (configura de novo no próximo login)
+	// (POST /api/v1/users/{id}/mfa-reset)
+	ResetUserMfa(w http.ResponseWriter, r *http.Request, id Id)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -105,11 +1268,1051 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
+// ListAudit operation middleware
+func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditParams
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAudit(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Login operation middleware
+func (siw *ServerInterfaceWrapper) Login(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Login(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableMfa operation middleware
+func (siw *ServerInterfaceWrapper) EnableMfa(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableMfa(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BeginMfaSetup operation middleware
+func (siw *ServerInterfaceWrapper) BeginMfaSetup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BeginMfaSetup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyMfa operation middleware
+func (siw *ServerInterfaceWrapper) VerifyMfa(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyMfa(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangePassword operation middleware
+func (siw *ServerInterfaceWrapper) ChangePassword(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangePassword(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Reauth operation middleware
+func (siw *ServerInterfaceWrapper) Reauth(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Reauth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetWithToken operation middleware
+func (siw *ServerInterfaceWrapper) ResetWithToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetWithToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSession operation middleware
+func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetupFirstAdmin operation middleware
+func (siw *ServerInterfaceWrapper) SetupFirstAdmin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetupFirstAdmin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEngines operation middleware
+func (siw *ServerInterfaceWrapper) GetEngines(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEngines(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamEvents operation middleware
+func (siw *ServerInterfaceWrapper) StreamEvents(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamEvents(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListExceptions operation middleware
+func (siw *ServerInterfaceWrapper) ListExceptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListExceptionsParams
+
+	// ------------- Optional query parameter "all" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "all", r.URL.Query(), &params.All, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "all"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "all", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListExceptions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateException operation middleware
+func (siw *ServerInterfaceWrapper) CreateException(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateException(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeException operation middleware
+func (siw *ServerInterfaceWrapper) RevokeException(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeException(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListFindings operation middleware
+func (siw *ServerInterfaceWrapper) ListFindings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListFindingsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "severity" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "severity", r.URL.Query(), &params.Severity, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "severity"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "severity", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "category" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "category", r.URL.Query(), &params.Category, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "category"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "category", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "run" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "run", r.URL.Query(), &params.Run, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "run"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListFindings(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFinding operation middleware
+func (siw *ServerInterfaceWrapper) GetFinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "findingId" -------------
+	var findingId FindingId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "findingId", r.PathValue("findingId"), &findingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "findingId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFinding(w, r, findingId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TransitionFinding operation middleware
+func (siw *ServerInterfaceWrapper) TransitionFinding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "findingId" -------------
+	var findingId FindingId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "findingId", r.PathValue("findingId"), &findingId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "findingId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TransitionFinding(w, r, findingId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetResources operation middleware
+func (siw *ServerInterfaceWrapper) GetResources(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetResources(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteResourceProfile operation middleware
+func (siw *ServerInterfaceWrapper) DeleteResourceProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteResourceProfile(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveResourceProfile operation middleware
+func (siw *ServerInterfaceWrapper) SaveResourceProfile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveResourceProfile(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRuns operation middleware
+func (siw *ServerInterfaceWrapper) ListRuns(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRunsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "array", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRuns(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateRun operation middleware
+func (siw *ServerInterfaceWrapper) CreateRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreateRunParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateRun(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRun operation middleware
+func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelRun operation middleware
+func (siw *ServerInterfaceWrapper) CancelRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetRunLimits operation middleware
+func (siw *ServerInterfaceWrapper) SetRunLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRunLimits(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PauseRun operation middleware
+func (siw *ServerInterfaceWrapper) PauseRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PauseRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResumeRun operation middleware
+func (siw *ServerInterfaceWrapper) ResumeRun(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResumeRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListSchedules operation middleware
+func (siw *ServerInterfaceWrapper) ListSchedules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListSchedules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateSchedule operation middleware
+func (siw *ServerInterfaceWrapper) CreateSchedule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateSchedule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewSchedule operation middleware
+func (siw *ServerInterfaceWrapper) PreviewSchedule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewSchedule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteSchedule operation middleware
+func (siw *ServerInterfaceWrapper) DeleteSchedule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteSchedule(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateSchedule operation middleware
+func (siw *ServerInterfaceWrapper) UpdateSchedule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateSchedule(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListApiTokens operation middleware
+func (siw *ServerInterfaceWrapper) ListApiTokens(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListApiTokens(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateApiToken operation middleware
+func (siw *ServerInterfaceWrapper) CreateApiToken(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateApiToken(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeApiToken operation middleware
+func (siw *ServerInterfaceWrapper) RevokeApiToken(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeApiToken(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListUsers operation middleware
+func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListUsers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateUser operation middleware
+func (siw *ServerInterfaceWrapper) CreateUser(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateUser(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteUser(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateUser operation middleware
+func (siw *ServerInterfaceWrapper) UpdateUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateUser(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetUserMfa operation middleware
+func (siw *ServerInterfaceWrapper) ResetUserMfa(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetUserMfa(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -240,6 +2443,49 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/health", wrapper.GetHealth)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/session", wrapper.GetSession)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.Login)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/mfa/verify", wrapper.VerifyMfa)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/mfa/setup", wrapper.BeginMfaSetup)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/mfa/enable", wrapper.EnableMfa)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/logout", wrapper.Logout)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/reauth", wrapper.Reauth)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/password", wrapper.ChangePassword)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/setup", wrapper.SetupFirstAdmin)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/reset", wrapper.ResetWithToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/overview", wrapper.GetOverview)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/events", wrapper.StreamEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/runs", wrapper.ListRuns)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs", wrapper.CreateRun)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/runs/{runId}", wrapper.GetRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/cancel", wrapper.CancelRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/pause", wrapper.PauseRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/resume", wrapper.ResumeRun)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/limits", wrapper.SetRunLimits)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/findings", wrapper.ListFindings)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/findings/{findingId}", wrapper.GetFinding)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/findings/{findingId}/transition", wrapper.TransitionFinding)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/exceptions", wrapper.ListExceptions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/exceptions", wrapper.CreateException)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/exceptions/{id}", wrapper.RevokeException)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/schedules", wrapper.ListSchedules)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/schedules", wrapper.CreateSchedule)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/schedules/{id}", wrapper.DeleteSchedule)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/schedules/{id}", wrapper.UpdateSchedule)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/schedules/preview", wrapper.PreviewSchedule)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/resources", wrapper.GetResources)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.DeleteResourceProfile)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.SaveResourceProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/engines", wrapper.GetEngines)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/users", wrapper.ListUsers)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users", wrapper.CreateUser)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/users/{id}", wrapper.DeleteUser)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/users/{id}", wrapper.UpdateUser)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users/{id}/mfa-reset", wrapper.ResetUserMfa)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/tokens", wrapper.ListApiTokens)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/tokens", wrapper.CreateApiToken)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/tokens/{id}", wrapper.RevokeApiToken)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/audit", wrapper.ListAudit)
 
 	return m
 }

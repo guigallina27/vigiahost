@@ -39,7 +39,7 @@ func TestHealthComExecutorConectado(t *testing.T) {
 	if err := dec.Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	if body.Status != api.Ok || body.Version != "0.0.1" || !body.Executor.Connected {
+	if body.Status != api.HealthStatusOk || body.Version != "0.0.1" || !body.Executor.Connected {
 		t.Errorf("corpo inesperado: %+v", body)
 	}
 	if sys := body.Executor.System; sys == nil || sys.DistroId != "almalinux" || !sys.CgroupV2 || sys.DistroLike == nil || (*sys.DistroLike)[0] != "rhel" {
