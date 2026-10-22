@@ -2,10 +2,10 @@ package notify
 
 import (
 	"encoding/json"
-	"net"
 	"net/mail"
 	"net/netip"
 	"net/url"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -188,7 +188,7 @@ func (c WebhookConfig) Validate() error {
 		return invalid("o endereço do webhook não pode ter fragmento (#)")
 	}
 	if p := u.Port(); p != "" {
-		if _, err := net.LookupPort("tcp", p); err != nil {
+		if n, err := strconv.Atoi(p); err != nil || n < 1 || n > 65535 {
 			return invalid("porta do webhook inválida")
 		}
 	}

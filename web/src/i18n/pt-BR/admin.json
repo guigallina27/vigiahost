@@ -199,7 +199,15 @@
         "run_resumed": "Retomou execução",
         "run_limits_changed": "Mudou limites da execução",
         "finding_transition": "Mudou o estado de um achado",
-        "backup_created": "Fez cópia do banco"
+        "backup_created": "Fez cópia do banco",
+        "notification_channel_created": "Criou canal de notificação",
+        "notification_channel_updated": "Alterou canal de notificação",
+        "notification_channel_deleted": "Removeu canal de notificação",
+        "notification_test": "Enviou teste de notificação",
+        "notification_rule_created": "Criou regra de envio",
+        "notification_rule_updated": "Alterou regra de envio",
+        "notification_rule_deleted": "Removeu regra de envio",
+        "notification_retry": "Reenviou notificação"
       }
     },
     "account": {

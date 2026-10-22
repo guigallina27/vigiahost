@@ -133,7 +133,11 @@ Os testes reais também corrigiram três problemas:
 - cópias de `/etc/skel` em contas novas e a remoção dos arquivos de shell de contas apagadas não viram mais achado;
 - arquivo apagado durante a varredura não conta mais como "sem permissão".
 
-O critério das 500 contas está cumprido. Faltam E1.10, E1.12 e o restante do E1.13.
+O critério das 500 contas está cumprido.
+
+E1.12 implementado ([ADR-020](adr/0020-notificacoes-e-segredos-de-integracoes.md), formato em [notificacoes.md](notificacoes.md)): canais de e-mail (STARTTLS, TLS ou relé local) e webhook assinado no padrão Standard Webhooks; regras por canal e evento (achado novo por severidade mínima, execução com falha ou parcial, motor ou autoteste, executor indisponível, cópia do banco com falha); caixa de saída com recuo, deduplicação, agrupamento e reenvio; segredos cifrados com a chave fora do banco; tela Notificações com botão de teste. Falta validar a entrega real no laboratório com o pacote instalado.
+
+Faltam E1.10 e o restante do E1.13.
 
 ### Fase 2 — Gestão completa local
 

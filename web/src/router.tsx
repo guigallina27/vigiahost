@@ -30,6 +30,7 @@ const pages: RouteObject[] = [
   { path: "processos", element: page(() => import("./pages/inventory/ProcessesPage").then((m) => m.ProcessesPage)) },
   { path: "agendamentos", element: page(() => import("./pages/config/SchedulesPage").then((m) => m.SchedulesPage)) },
   { path: "recursos", element: page(() => import("./pages/config/ResourcesPage").then((m) => m.ResourcesPage)) },
+  { path: "notificacoes", element: page(() => import("./pages/notifications/NotificationsPage").then((m) => m.NotificationsPage)) },
   { path: "motores", element: page(() => import("./pages/config/EnginesPage").then((m) => m.EnginesPage)) },
   { path: "usuarios", element: page(() => import("./pages/admin/UsersPage").then((m) => m.UsersPage)) },
   { path: "tokens", element: page(() => import("./pages/admin/TokensPage").then((m) => m.TokensPage)) },

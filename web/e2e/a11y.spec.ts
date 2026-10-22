@@ -595,6 +595,128 @@ const backups: S["BackupList"] = {
   ],
 };
 
+const notificationChannels: S["NotificationChannel"][] = [
+  {
+    id: 1,
+    name: "Plantão por e-mail",
+    kind: "email",
+    enabled: true,
+    include_details: true,
+    email: {
+      host: "smtp.example.com",
+      port: 587,
+      security: "starttls",
+      username: "alertas",
+      from: "VigiaHost <alertas@example.com>",
+      to: ["plantao@example.com", "seguranca@example.com"],
+    },
+    secret_configured: true,
+    secret_readable: true,
+    last_state: "sent",
+    last_at: "2026-10-22T11:30:00Z",
+    created_by: "admin",
+    created_at: "2026-10-20T10:00:00Z",
+    updated_at: "2026-10-20T10:00:00Z",
+  },
+  {
+    id: 2,
+    name: "SIEM da equipe",
+    kind: "webhook",
+    enabled: false,
+    include_details: false,
+    webhook: { url: "https://siem.example.com/hooks/vigiahost/abcdefghijklmnopqrstuvwxyz0123456789", allow_private_network: false },
+    secret_configured: true,
+    secret_readable: false,
+    last_state: "failed",
+    last_at: "2026-10-22T09:00:00Z",
+    last_error: "webhook respondeu HTTP 401: assinatura recusada",
+    created_by: "admin",
+    created_at: "2026-10-21T10:00:00Z",
+    updated_at: "2026-10-21T10:00:00Z",
+  },
+];
+
+const notificationRules: S["NotificationRule"][] = [
+  {
+    id: 1,
+    channel_id: 1,
+    event: "finding_new",
+    min_severity: "high",
+    dedup_minutes: 1440,
+    enabled: true,
+    created_at: "2026-10-20T10:00:00Z",
+    updated_at: "2026-10-20T10:00:00Z",
+  },
+  {
+    id: 2,
+    channel_id: 2,
+    event: "executor_unavailable",
+    min_severity: "high",
+    dedup_minutes: 60,
+    enabled: false,
+    created_at: "2026-10-21T10:00:00Z",
+    updated_at: "2026-10-21T10:00:00Z",
+  },
+];
+
+const notificationOutbox: S["OutboxPage"] = {
+  entries: [
+    {
+      id: 3,
+      channel_id: 1,
+      channel_name: "Plantão por e-mail",
+      channel_kind: "email",
+      event: "finding_new",
+      summary: "12 achados novos (maior severidade: crítica)",
+      item_count: 12,
+      severity_counts: { critical: 2, high: 10 },
+      items: [{ severity: "critical", title: "YARA-X: PHP_Webshell_Generic", finding_id: 7, run_id: FILES_RUN }],
+      state: "pending",
+      attempts: 1,
+      max_attempts: 8,
+      next_attempt_at: "2026-10-22T12:00:30Z",
+      last_error: "SMTP RCPT TO plantao@example.com: 450 caixa ocupada",
+      created_at: "2026-10-22T11:58:00Z",
+      updated_at: "2026-10-22T11:59:00Z",
+    },
+    {
+      id: 2,
+      channel_id: 2,
+      channel_name: "SIEM da equipe",
+      channel_kind: "webhook",
+      event: "test",
+      summary: "mensagem de teste",
+      item_count: 1,
+      severity_counts: { info: 1 },
+      items: [{ severity: "info", title: "Mensagem de teste" }],
+      state: "failed",
+      attempts: 1,
+      max_attempts: 1,
+      last_error: "webhook respondeu HTTP 401: assinatura recusada",
+      created_at: "2026-10-22T09:00:00Z",
+      updated_at: "2026-10-22T09:00:00Z",
+    },
+    {
+      id: 1,
+      channel_id: 1,
+      channel_name: "Plantão por e-mail",
+      channel_kind: "email",
+      event: "backup_failed",
+      summary: "Cópia automática do banco falhou",
+      item_count: 1,
+      severity_counts: { high: 1 },
+      items: [{ severity: "high", title: "Cópia automática do banco falhou" }],
+      state: "sent",
+      attempts: 1,
+      max_attempts: 8,
+      last_error: "",
+      created_at: "2026-10-21T03:00:00Z",
+      updated_at: "2026-10-21T03:00:05Z",
+      sent_at: "2026-10-21T03:00:05Z",
+    },
+  ],
+};
+
 // --- Simulação da API ---
 
 type Mode = "ok" | "degraded" | "offline";
@@ -653,6 +775,9 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
     if (path === "/tokens") return route.fulfill({ json: tokens });
     if (path === "/audit") return route.fulfill({ json: audit });
     if (path === "/backups") return route.fulfill({ json: backups });
+    if (path === "/notifications/channels") return route.fulfill({ json: notificationChannels });
+    if (path === "/notifications/rules") return route.fulfill({ json: notificationRules });
+    if (path === "/notifications/outbox") return route.fulfill({ json: notificationOutbox });
     return fail(route, 404, `Rota não simulada: ${path}`);
   });
 }
@@ -691,6 +816,7 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "tokens", path: "/tokens", ready: "Monitoramento Zabbix" },
   { name: "auditoria", path: "/auditoria", ready: "198.51.100.20" },
   { name: "backup", path: "/backup", ready: "vigiahost-20261022-030000.db" },
+  { name: "notificações", path: "/notificacoes", ready: "Cópia automática do banco falhou" },
   { name: "configurações", path: "/configuracoes", ready: "Aparência" },
   { name: "catálogo", path: "/catalogo", ready: "ConfirmDialog" },
   { name: "página planejada", path: "/regras", ready: "Planejada · 1A" },
@@ -719,6 +845,18 @@ for (const scheme of ["light", "dark"] as const) {
       await page.goto("/catalogo");
       await page.getByRole("button", { name: "Abrir confirmação com senha" }).click();
       await expect(page.getByRole("dialog", { name: "Criar exceção global?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("formulário de canal de notificação sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/notificacoes");
+      await expect(page.getByText("SIEM da equipe").first()).toBeVisible();
+      await page.getByRole("button", { name: "Criar canal" }).first().click();
+      await expect(page.getByRole("heading", { name: "Novo canal" })).toBeFocused();
+      await expectNoViolations(page);
+      await page.getByRole("radio", { name: /Webhook/ }).check();
+      await page.getByRole("button", { name: "Gerar segredo" }).click();
       await expectNoViolations(page);
     });
 
@@ -800,6 +938,7 @@ const reflow: { path: string; mock?: Mock }[] = [
   { path: `/execucoes/${FILES_RUN}` },
   { path: "/processos" },
   { path: "/auditoria" },
+  { path: "/notificacoes" },
   { path: "/catalogo" },
   { path: "/configuracoes" },
   { path: "/", mock: { session: "anonymous" } },

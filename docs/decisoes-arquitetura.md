@@ -23,3 +23,4 @@
 | [016](adr/0016-autenticacao-do-painel.md) | Autenticação do painel web (**proposto**) | 13 |
 | [017](adr/0017-base-da-interface.md) | Base da interface: contrato gerado, design system e cadeia de suprimentos do front-end | 6.3, 14, 19 |
 | [018](adr/0018-arquivos-aos-motores-por-descritor.md) | Arquivos entregues aos motores por descritor, nunca por nome | 7, 13 |
+| [020](adr/0020-notificacoes-e-segredos-de-integracoes.md) | Notificações com caixa de saída no banco, webhook no padrão Standard Webhooks e segredos cifrados | 13, 16 |

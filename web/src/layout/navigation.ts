@@ -72,7 +72,7 @@ export const navigation: NavGroup[] = [
       { to: "/recursos", label: "nav.resources", icon: Gauge },
       { to: "/motores", label: "nav.engines", icon: SlidersHorizontal },
       { to: "/regras", label: "nav.rules", icon: BookOpen, phase: "1A" },
-      { to: "/notificacoes", label: "nav.notifications", icon: Bell, phase: "1B" },
+      { to: "/notificacoes", label: "nav.notifications", icon: Bell },
     ],
   },
   {
