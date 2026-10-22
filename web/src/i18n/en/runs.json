@@ -97,11 +97,13 @@
       "submit": "Start scan",
       "submitting": "Queuing…",
       "errors": {
-        "pathsRequired": "Enter at least one path.",
+        "pathsRequired": "Enter at least one path or choose server accounts.",
         "notAbsolute": "Use absolute paths starting with /. Fix: {{path}}",
         "pathsTooMany": "Enter at most {{max}} paths.",
-        "excludeTooMany": "Enter at most {{max}} exclusions."
-      }
+        "excludeTooMany": "Enter at most {{max}} exclusions.",
+        "accountsRequired": "Choose at least one account from the list or switch to \"All accounts\"."
+      },
+      "pathsOptionalHint": "Optional when accounts are chosen: the server builds each account scope. One absolute path per line. Up to 64."
     },
     "detail": {
       "title": "Run {{id}}",

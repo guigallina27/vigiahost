@@ -6,10 +6,12 @@ import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CoverageBar } from "../components/CoverageBar";
 import { EmptyState } from "../components/EmptyState";
 import { EngineHealth } from "../components/EngineHealth";
+import { FilterChip } from "../components/FilterChip";
 import { HashText } from "../components/HashText";
 import { PathText } from "../components/PathText";
 import { TableScroll } from "../components/TableScroll";
 import { SeverityBadge, severities } from "../components/SeverityBadge";
+import { SeverityCounts } from "../components/SeverityCounts";
 import { StatusBadge, findingStates, runStates } from "../components/StatusBadge";
 import { Timestamp } from "../components/Timestamp";
 import { PageHeader } from "../layout/PageHeader";
@@ -50,6 +52,7 @@ function Section({ id, title, notes, children }: { id: string; title: string; no
 
 export default function CatalogPage() {
   const [dialog, setDialog] = useState<null | "simple" | "reauth" | "batch">(null);
+  const [chip, setChip] = useState(true);
   return (
     <>
       <PageHeader title="Catálogo de componentes" subtitle="Kit visual vivo (docs/kit-visual.md): marca, tokens, variantes, estados e notas de acessibilidade" />
@@ -203,6 +206,33 @@ export default function CatalogPage() {
             </tbody>
           </table>
         </TableScroll>
+      </Section>
+
+      <Section
+        id="cat-severity-counts"
+        title="SeverityCounts"
+        notes="Achados abertos por severidade: selo + número, nunca só cor. Em linha (tabelas) mostra só as severidades com achados; em grade (painéis) mostra todas e pode virar link para a lista filtrada."
+      >
+        <div className="flex flex-col gap-4">
+          <SeverityCounts counts={{ critical: 2, high: 1, medium: 0, low: 4, info: 0, total: 7 }} />
+          <SeverityCounts counts={{ critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 }} />
+          <SeverityCounts counts={{ critical: 2, high: 1, medium: 0, low: 4, info: 0, total: 7 }} layout="grid" hrefFor={(s) => `/catalogo#cat-severity-counts-${s}`} />
+        </div>
+      </Section>
+
+      <Section
+        id="cat-filter-chip"
+        title="FilterChip"
+        notes="Filtro aplicado que veio de outra tela (ex.: ?account=): mostra o valor e remove com um clique. Botão de 44 px com nome próprio; o valor quebra sem estourar."
+      >
+        <div className="flex flex-wrap gap-3">
+          {chip ? (
+            <FilterChip label="Conta" value="loja (1001)" onRemove={() => setChip(false)} removeLabel="Remover filtro de conta" />
+          ) : (
+            <Button onClick={() => setChip(true)}>Aplicar filtro de conta</Button>
+          )}
+          <FilterChip label="Execução" value="r-20261021-030000-abcd1234-muito-longa" onRemove={() => undefined} />
+        </div>
       </Section>
 
       <Section id="cat-time" title="Timestamp" notes="Relativo + absoluto + fuso, sempre juntos. O fuso é o do servidor quando a API informar.">

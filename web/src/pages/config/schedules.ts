@@ -1,4 +1,5 @@
 import type { Schemas } from "../../api/client";
+import { choiceToSelection, noAccounts, selectionToChoice, type AccountChoice } from "../accounts/accounts";
 
 // Lógica pura dos agendamentos: expressão cron em linguagem simples e montagem do corpo da requisição.
 
@@ -19,6 +20,8 @@ export type ScheduleFormValues = {
   /** Um caminho por linha. */
   paths: string;
   exclude: string;
+  /** Contas do servidor verificadas a cada execução (só arquivos); com elas, os caminhos ficam opcionais. */
+  accounts: AccountChoice;
 };
 
 /** Fuso do navegador, ponto de partida razoável para quem cria o agendamento. */
@@ -42,6 +45,7 @@ export function emptyScheduleValues(timezone = browserTimeZone()): ScheduleFormV
     incremental: true,
     paths: "",
     exclude: "",
+    accounts: noAccounts,
   };
 }
 
@@ -57,6 +61,7 @@ export function valuesFromSchedule(s: Schedule): ScheduleFormValues {
     incremental: s.incremental,
     paths: s.paths.join("\n"),
     exclude: s.exclude.join("\n"),
+    accounts: selectionToChoice(s.accounts),
   };
 }
 
@@ -85,7 +90,8 @@ export function buildScheduleInput(v: ScheduleFormValues): ScheduleInput {
     incremental: v.kind === "files" ? v.incremental : true,
   };
   if (v.kind === "processes") return base;
-  return { ...base, paths: splitLines(v.paths), exclude: splitLines(v.exclude) };
+  const accounts = choiceToSelection(v.accounts);
+  return { ...base, paths: splitLines(v.paths), exclude: splitLines(v.exclude), ...(accounts ? { accounts } : {}) };
 }
 
 // ---- Expressão cron em linguagem simples ----

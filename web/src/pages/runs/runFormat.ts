@@ -1,4 +1,5 @@
 import type { Schemas } from "../../api/client";
+import { choiceToSelection, parseUid, type AccountChoice } from "../accounts/accounts";
 
 // Regras puras das telas de execução (filtros, corpo do pedido, ações por estado, formatação), testáveis sem React.
 
@@ -28,7 +29,7 @@ export type StatusGroup = keyof typeof STATUS_GROUPS;
 export const STATUS_GROUP_KEYS = Object.keys(STATUS_GROUPS) as StatusGroup[];
 export const RUN_KINDS: RunKind[] = ["files", "processes"];
 
-export type RunFilters = { status?: StatusGroup; kind?: RunKind };
+export type RunFilters = { status?: StatusGroup; kind?: RunKind; /** Só execuções que cobriram a conta (UID). */ account?: number };
 
 /** Lê os filtros do endereço, ignorando valores desconhecidos (endereço editado à mão ou antigo). */
 export function filtersFromSearch(params: URLSearchParams): RunFilters {
@@ -37,14 +38,17 @@ export function filtersFromSearch(params: URLSearchParams): RunFilters {
   if (status && (STATUS_GROUP_KEYS as string[]).includes(status)) out.status = status as StatusGroup;
   const kind = params.get("kind");
   if (kind && (RUN_KINDS as string[]).includes(kind)) out.kind = kind as RunKind;
+  const account = parseUid(params.get("account"));
+  if (account !== undefined) out.account = account;
   return out;
 }
 
 /** Parâmetros de consulta da API para os filtros (sem chaves vazias, para a chave de cache ficar estável). */
-export function filtersToQuery(f: RunFilters): { status?: RunStatus[]; kind?: RunKind } {
-  const q: { status?: RunStatus[]; kind?: RunKind } = {};
+export function filtersToQuery(f: RunFilters): { status?: RunStatus[]; kind?: RunKind; account?: number } {
+  const q: { status?: RunStatus[]; kind?: RunKind; account?: number } = {};
   if (f.status) q.status = [...STATUS_GROUPS[f.status]];
   if (f.kind) q.kind = f.kind;
+  if (f.account !== undefined) q.account = f.account;
   return q;
 }
 
@@ -73,10 +77,13 @@ export type RunDraft = {
   incremental: boolean;
   /** Vazio: o servidor usa o perfil padrão. */
   profile: string;
+  /** Contas do servidor; com elas, os caminhos ficam opcionais (o servidor monta o escopo de cada conta). */
+  accounts?: AccountChoice;
 };
 
 export type DraftError =
   | { field: "paths"; code: "pathsRequired" }
+  | { field: "accounts"; code: "accountsRequired" }
   | { field: "paths" | "exclude"; code: "notAbsolute"; path: string }
   | { field: "paths"; code: "pathsTooMany"; max: number }
   | { field: "exclude"; code: "excludeTooMany"; max: number };
@@ -91,8 +98,12 @@ export function buildRunCreate(draft: RunDraft): { ok: true; body: RunCreate } |
   if (draft.profile) body.profile = draft.profile;
   if (draft.kind === "processes") return { ok: true, body };
 
+  const accounts = draft.accounts ? choiceToSelection(draft.accounts) : undefined;
+  if (draft.accounts?.mode === "selected" && !accounts) {
+    return { ok: false, error: { field: "accounts", code: "accountsRequired" } };
+  }
   const paths = parseLines(draft.paths);
-  if (paths.length === 0) return { ok: false, error: { field: "paths", code: "pathsRequired" } };
+  if (paths.length === 0 && !accounts) return { ok: false, error: { field: "paths", code: "pathsRequired" } };
   if (paths.length > MAX_PATHS) return { ok: false, error: { field: "paths", code: "pathsTooMany", max: MAX_PATHS } };
   const badPath = paths.find((p) => !p.startsWith("/"));
   if (badPath) return { ok: false, error: { field: "paths", code: "notAbsolute", path: badPath } };
@@ -104,7 +115,8 @@ export function buildRunCreate(draft: RunDraft): { ok: true; body: RunCreate } |
   const badExclude = exclude.find((p) => !p.startsWith("/"));
   if (badExclude) return { ok: false, error: { field: "exclude", code: "notAbsolute", path: badExclude } };
 
-  body.paths = paths;
+  if (paths.length > 0) body.paths = paths;
+  if (accounts) body.accounts = accounts;
   if (exclude.length > 0) body.exclude = exclude;
   return { ok: true, body };
 }

@@ -106,6 +106,7 @@ const filesRun: S["Run"] = {
   schedule_id: 1,
   scheduled_for: "2026-10-21T03:00:00Z",
   paths: ["/home", "/var/www"],
+  accounts: [1001, 1002],
   exclude: ["/home/*/cache"],
   incremental: true,
   profile,
@@ -208,6 +209,62 @@ const coverage: S["EngineCoverage"][] = [
     error: "",
   },
 ];
+
+// --- Contas ---
+
+const lojaAccount: S["Account"] = {
+  uid: 1001,
+  name: "loja",
+  home: "/home/loja",
+  shell: "/bin/bash",
+  system: false,
+  home_ok: true,
+  open_findings: { critical: 1, high: 1, medium: 0, low: 0, info: 0, total: 2 },
+  last_run: {
+    id: FILES_RUN,
+    status: "completed",
+    created_at: "2026-10-21T03:00:00Z",
+    finished_at: "2026-10-21T03:42:10Z",
+    files_processed: 14_108,
+    files_eligible: 14_108,
+  },
+  processes: 1,
+  persistence_items: 1,
+};
+
+const hostingAccounts: S["Account"][] = [
+  lojaAccount,
+  {
+    uid: 1002,
+    name: "blog",
+    home: "/home/blog",
+    shell: "/sbin/nologin",
+    system: false,
+    home_ok: false,
+    open_findings: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+    processes: 0,
+    persistence_items: 0,
+  },
+];
+
+const rootAccount: S["Account"] = {
+  uid: 0,
+  name: "root",
+  home: "/root",
+  shell: "/bin/bash",
+  system: true,
+  home_ok: true,
+  open_findings: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+  processes: 1,
+  persistence_items: 1,
+};
+
+const accountList = (system: boolean): S["AccountList"] => ({
+  uid_min: 1000,
+  uid_max: 60000,
+  inventory_at: "2026-10-21T09:00:20Z",
+  accounts: system ? [rootAccount, ...hostingAccounts] : hostingAccounts,
+});
 
 const runDetails: Record<string, S["RunDetail"]> = {
   [FILES_RUN]: { run: filesRun, engines: coverage },
@@ -578,6 +635,12 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
       const detail = runDetails[decodeURIComponent(run[1] ?? "")];
       return detail ? route.fulfill({ json: detail }) : fail(route, 404, "Execução não encontrada");
     }
+    if (path === "/accounts") return route.fulfill({ json: accountList(url.searchParams.get("system") === "true") });
+    const acct = /^\/accounts\/(\d+)$/.exec(path);
+    if (acct) {
+      const found = [rootAccount, ...hostingAccounts].find((a) => String(a.uid) === acct[1]);
+      return found ? route.fulfill({ json: found }) : fail(route, 404, "conta não encontrada");
+    }
     if (path === "/findings") return route.fulfill({ json: { findings: [criticalFinding, processFinding] } satisfies S["FindingPage"] });
     if (path === `/findings/${criticalFinding.id}`) return route.fulfill({ json: findingDetail });
     if (path === "/exceptions") return route.fulfill({ json: exceptions });
@@ -613,6 +676,9 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "achados", path: "/achados", ready: "PHP_Webshell_Generic" },
   { name: "detalhe do achado", path: `/achados/${criticalFinding.id}`, ready: location.path },
   { name: "exceções", path: "/excecoes", ready: "Biblioteca legítima do tema" },
+  { name: "contas", path: "/contas", ready: "Contas de hospedagem: UID" },
+  { name: "detalhe da conta", path: "/contas/1001", ready: "Persistência da conta" },
+  { name: "achados da conta", path: "/achados?account=1001", ready: "loja (1001)" },
   { name: "execuções", path: "/execucoes", ready: FILES_RUN },
   { name: "detalhe da execução", path: `/execucoes/${FILES_RUN}`, ready: "clamav" },
   { name: "cobertura", path: "/cobertura", ready: "Última verificação de arquivos" },
@@ -653,6 +719,15 @@ for (const scheme of ["light", "dark"] as const) {
       await page.goto("/catalogo");
       await page.getByRole("button", { name: "Abrir confirmação com senha" }).click();
       await expect(page.getByRole("dialog", { name: "Criar exceção global?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de verificar todas as contas sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/contas");
+      await expect(page.getByText("Contas de hospedagem: UID")).toBeVisible();
+      await page.getByRole("button", { name: "Verificar todas as contas" }).click();
+      await expect(page.getByRole("dialog", { name: "Verificar todas as contas?" })).toBeVisible();
       await expectNoViolations(page);
     });
   });
@@ -719,6 +794,8 @@ const reflow: { path: string; mock?: Mock }[] = [
   { path: "/" },
   { path: "/achados" },
   { path: `/achados/${criticalFinding.id}` },
+  { path: "/contas" },
+  { path: "/contas/1001" },
   { path: "/execucoes" },
   { path: `/execucoes/${FILES_RUN}` },
   { path: "/processos" },
@@ -734,7 +811,9 @@ for (const r of reflow) {
     await mockApi(page, r.mock);
     await page.setViewportSize({ width: 320, height: 640 });
     await page.goto(r.path);
-    await expect(page.locator("h1")).toBeVisible();
+    // Antes do painel aparece a tela de verificação da sessão (outro main, com h1 próprio), e o main do painel fica
+    // vazio enquanto a página carregada sob demanda chega: só o título dentro de #conteudo indica a tela montada.
+    await expect(page.locator(r.mock?.session === "anonymous" ? "main h1" : "#conteudo h1")).toBeVisible();
     await expectLoaded(page);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);

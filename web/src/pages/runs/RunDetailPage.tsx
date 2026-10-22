@@ -14,6 +14,9 @@ import { PathText } from "../../components/PathText";
 import { Timestamp } from "../../components/Timestamp";
 import { PageHeader } from "../../layout/PageHeader";
 import { formatNumber, formatPercent } from "../../lib/format";
+import { accountHref } from "../accounts/accounts";
+import { accountsQuery } from "../accounts/queries";
+import { SafeText } from "../inventory/SafeText";
 import { DurationText, KindLabel, OriginText, PhaseText, RunStatus, useProfileLabel, useProfileSummary } from "./RunBits";
 import { EngineCoverageCard, SkipReasonTable } from "./RunCoverage";
 import { resourcesQuery, runQuery } from "./queries";
@@ -161,6 +164,7 @@ function RunDetailView({ detail }: { detail: RunDetail }) {
           </Panel>
         )}
 
+        {run.kind === "files" && run.accounts && run.accounts.length > 0 && <AccountsPanel uids={run.accounts} />}
         {run.kind === "files" && <PathsPanel run={run} />}
       </div>
     </>
@@ -256,6 +260,50 @@ function DetailsPanel({ run }: { run: Run }) {
         )}
         {run.attempts > 1 && <Item label={t("runs.detail.attempts")}>{run.attempts}</Item>}
       </dl>
+    </Panel>
+  );
+}
+
+const ACCOUNTS_SHOWN = 30;
+
+/**
+ * Contas cobertas pela execução, com o nome quando a lista de contas responde (senão, só o UID), e a regra das áreas
+ * temporárias: lá entram só os arquivos cujo dono é uma das contas.
+ */
+function AccountsPanel({ uids }: { uids: number[] }) {
+  const { t, i18n } = useTranslation();
+  const [all, setAll] = useState(false);
+  // Com as contas de sistema: a execução pode ter escolhido uma pelo UID.
+  const accounts = useQuery({ ...accountsQuery(true), staleTime: 60_000 });
+  const names = new Map((accounts.data?.accounts ?? []).map((a) => [a.uid, a.name]));
+  const shown = all ? uids : uids.slice(0, ACCOUNTS_SHOWN);
+  return (
+    <Panel title={t("accounts.runCoverage.title")}>
+      <p className="m-0">{t("accounts.runCoverage.count", { count: uids.length, formatted: formatNumber(uids.length, i18n.language) })}</p>
+      <p className="m-0 text-sm text-ink-muted">{t("accounts.runCoverage.ownerFilter")}</p>
+      <ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1 p-0">
+        {shown.map((uid) => {
+          const name = names.get(uid);
+          return (
+            <li key={uid} className="min-w-0">
+              <Link to={accountHref(uid)} className="inline-flex min-h-11 items-center gap-1 font-semibold">
+                {name ? (
+                  <>
+                    <SafeText text={name} /> <span className="font-normal text-ink-muted">({uid})</span>
+                  </>
+                ) : (
+                  t("accounts.chip.uidOnly", { uid })
+                )}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {uids.length > ACCOUNTS_SHOWN && (
+        <Button variant="ghost" className="self-start" onClick={() => setAll((v) => !v)} aria-expanded={all}>
+          {all ? t("accounts.runCoverage.showLess") : t("accounts.runCoverage.showAll", { count: uids.length })}
+        </Button>
+      )}
     </Panel>
   );
 }

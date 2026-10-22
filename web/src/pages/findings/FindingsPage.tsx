@@ -23,8 +23,10 @@ import {
   severityList,
   splitCategories,
   toggleValue,
+  withoutAccount,
   type FindingFilters,
 } from "./filters";
+import { AccountFilterChip } from "../accounts/AccountParts";
 import { FindingObject } from "./parts";
 import { TableScroll } from "../../components/TableScroll";
 
@@ -53,6 +55,11 @@ export function FindingsPage() {
       <PageHeader title={t("findings.title")} subtitle={t("findings.subtitle")} />
 
       <div className="flex flex-col gap-6">
+        {filters.account !== undefined && (
+          <div>
+            <AccountFilterChip uid={filters.account} onRemove={() => setFilters(withoutAccount(filters))} />
+          </div>
+        )}
         <FiltersForm filters={filters} onChange={setFilters} />
 
         {query.isPending ? (

@@ -84,9 +84,15 @@ Severidade usa selo **preenchido** (o que é); estado usa selo **contornado** (e
 
 Use os existentes antes de criar outro (todos em `web/src/components/`): `Button` (primary, secondary, danger,
 ghost), `Field`/`SelectField`/`TextAreaField`/`FormError`, `Panel`, `PageHeader`, `EmptyState`, `Badge`,
-`SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog`,
-`CaptchaField`, `BrandMark`, `TableScroll`. Tabelas: `<TableScroll label="…"><table class="vh-table">` com `caption`
+`SeverityBadge`, `SeverityCounts`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`,
+`ConfirmDialog`, `FilterChip`, `CaptchaField`, `BrandMark`, `TableScroll`. Tabelas: `<TableScroll label="…"><table class="vh-table">` com `caption`
 e `th scope`; o `TableScroll` rola no próprio contêiner e é uma região nomeada que recebe foco (WCAG 2.1.1 e 1.4.10).
+
+- `SeverityCounts`: achados abertos por severidade, selo + número. `layout="inline"` (células de tabela) mostra só as
+  severidades com achados e "Nenhum achado aberto" quando zera; `layout="grid"` (painéis) mostra todas e, com `hrefFor`,
+  cada cartão vira link para a lista filtrada.
+- `FilterChip`: filtro aplicado que chega por link de outra tela (ex.: `?account=` nos achados e nas execuções), com o
+  valor visível e botão de remover de 44 px com nome próprio. Não substitui os campos do formulário de filtros.
 
 Componente novo reutilizável: entra no catálogo `/catalogo` com variantes e estados antes de ser usado em páginas.
 

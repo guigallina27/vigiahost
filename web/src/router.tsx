@@ -21,6 +21,8 @@ function page(load: () => Promise<ComponentType>): RouteObject["element"] {
 const pages: RouteObject[] = [
   { path: "achados", element: page(() => import("./pages/findings/FindingsPage").then((m) => m.FindingsPage)) },
   { path: "achados/:findingId", element: page(() => import("./pages/findings/FindingDetailPage").then((m) => m.FindingDetailPage)) },
+  { path: "contas", element: page(() => import("./pages/accounts/AccountsPage").then((m) => m.AccountsPage)) },
+  { path: "contas/:uid", element: page(() => import("./pages/accounts/AccountDetailPage").then((m) => m.AccountDetailPage)) },
   { path: "excecoes", element: page(() => import("./pages/findings/ExceptionsPage").then((m) => m.ExceptionsPage)) },
   { path: "execucoes", element: page(() => import("./pages/runs/RunsPage").then((m) => m.RunsPage)) },
   { path: "execucoes/:runId", element: page(() => import("./pages/runs/RunDetailPage").then((m) => m.RunDetailPage)) },

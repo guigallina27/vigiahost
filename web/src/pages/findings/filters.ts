@@ -1,5 +1,6 @@
 import type { Schemas } from "../../api/client";
 import type { operations } from "../../api/schema";
+import { parseUid } from "../accounts/accounts";
 
 // Filtros da lista de achados: a URL é a fonte de verdade, para que links da visão geral
 // (/achados?severity=critical, /achados?run_id=...) e o botão Voltar do navegador funcionem.
@@ -29,6 +30,8 @@ export type FindingFilters = {
   categories: string[];
   runId: string;
   q: string;
+  /** Só achados da conta (UID), vindo da tela Contas (?account=). */
+  account?: number;
 };
 
 export type FindingsQuery = NonNullable<operations["listFindings"]["parameters"]["query"]>;
@@ -59,7 +62,9 @@ export function parseFilters(params: URLSearchParams): FindingFilters {
     // Só valores inválidos: volta ao padrão em vez de mostrar tudo sem querer.
     if (states.length === 0) states = [...openStates];
   }
+  const account = parseUid(params.get("account"));
   return {
+    ...(account !== undefined ? { account } : {}),
     states,
     severities: pick(params.getAll("severity"), severityList),
     kinds: pick(params.getAll("kind"), kindList),
@@ -84,6 +89,7 @@ export function filtersToParams(f: FindingFilters): URLSearchParams {
   for (const c of f.categories) p.append("category", c);
   if (f.runId) p.set("run_id", f.runId);
   if (f.q) p.set("q", f.q);
+  if (f.account !== undefined) p.set("account", String(f.account));
   return p;
 }
 
@@ -96,8 +102,16 @@ export function filtersToQuery(f: FindingFilters, before?: number): FindingsQuer
   if (f.categories.length > 0) q.category = f.categories;
   if (f.runId) q.run = f.runId;
   if (f.q) q.q = f.q.slice(0, 512);
+  if (f.account !== undefined) q.account = f.account;
   if (before !== undefined) q.before = before;
   return q;
+}
+
+/** Os mesmos filtros sem a conta (remover o "chip" de conta). */
+export function withoutAccount(f: FindingFilters): FindingFilters {
+  const out: FindingFilters = { ...f };
+  delete out.account;
+  return out;
 }
 
 /** Indica se algo difere do padrão (para oferecer "Limpar filtros"). */

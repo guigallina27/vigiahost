@@ -12,6 +12,7 @@ import { Timestamp } from "../../components/Timestamp";
 import { useCurrentUser } from "../../auth/session";
 import { PageHeader } from "../../layout/PageHeader";
 import { formatNumber, formatPercent } from "../../lib/format";
+import { AccountFilterChip } from "../accounts/AccountParts";
 import { NewRunDialog } from "./NewRunDialog";
 import { DurationText, KindLabel, OriginText, PhaseText, RunStatus } from "./RunBits";
 import {
@@ -91,6 +92,11 @@ export function RunsPage() {
               ...RUN_KINDS.map((k) => ({ value: k, label: t(`runs.kind.${k}`) })),
             ]}
           />
+          {filters.account !== undefined && (
+            <div className="flex min-h-11 items-center">
+              <AccountFilterChip uid={filters.account} onRemove={() => setFilter("account", "")} />
+            </div>
+          )}
           {filtered && (
             <Button variant="ghost" onClick={() => setParams(new URLSearchParams(), { replace: true })}>
               <FilterX aria-hidden="true" className="size-4" />
@@ -227,6 +233,11 @@ function RunsTable({ runs }: { runs: Run[] }) {
                       </>
                     )}
                   </span>
+                  {run.accounts && run.accounts.length > 0 && (
+                    <span className="mt-1 block text-sm text-ink-muted">
+                      {t("accounts.runCoverage.count", { count: run.accounts.length, formatted: formatNumber(run.accounts.length, lng) })}
+                    </span>
+                  )}
                 </td>
                 <td className="min-w-28">
                   <OriginText run={run} />

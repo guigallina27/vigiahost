@@ -122,7 +122,18 @@ flowchart LR
 
 **Critério de saída**: escopo por conta correto em laboratório com 500 contas; rotina diária incremental dentro da janela no servidor de referência; primeira versão no canal beta.
 
-**Situação em 22/10/2026**: E1.11 (exceções por hash, hash + regra e regra + prefixo, com validade, justificativa e auditoria) e E1.14 (cópia antes de migrar, cópia automática diária com retenção de 7, cópia manual pelo painel e pelo terminal, `vigiahost backup restore` com cópia `pre-restore` e recusa com o serviço ativo) implementados. Perfis próprios de recursos (parte do E1.13) já estão na API e na tela Recursos. Faltam E1.9, E1.10, E1.12 e o restante do E1.13.
+**Situação em 22/10/2026**: E1.11 (exceções por hash, hash + regra e regra + prefixo, com validade, justificativa e auditoria) e E1.14 (cópia antes de migrar, cópia automática diária com retenção de 7, cópia manual pelo painel e pelo terminal, `vigiahost backup restore` com cópia `pre-restore` e recusa com o serviço ativo) implementados. Perfis próprios de recursos (parte do E1.13) já estão na API e na tela Recursos. E1.9 implementado:
+- **Descoberta e escopo:** contas descobertas pelo executor (`getent passwd` e `UID_MIN`/`UID_MAX`, protocolo 1.1). O escopo por conta cobre o diretório pessoal e, em `/tmp`, `/var/tmp` e `/dev/shm`, só os arquivos do UID.
+- **Atribuição:** achados ligados à conta pelo UID, pelo caminho e pelo dono.
+- **Telas e agendamentos:** telas Contas e Detalhe da conta, verificação e agendamento por conta ou de todas.
+- **Validação em laboratório:** teste real aprovado com 503 contas. A lista sai em menos de 200 ms, "verificar todas" roda em 3 s e cada achado foi atribuído só à conta dona.
+
+Os testes reais também corrigiram três problemas:
+- o limite do IPC agora vale por sentido (2 MiB nos pedidos e 16 MiB nas respostas);
+- cópias de `/etc/skel` em contas novas e a remoção dos arquivos de shell de contas apagadas não viram mais achado;
+- arquivo apagado durante a varredura não conta mais como "sem permissão".
+
+O critério das 500 contas está cumprido. Faltam E1.10, E1.12 e o restante do E1.13.
 
 ### Fase 2 — Gestão completa local
 

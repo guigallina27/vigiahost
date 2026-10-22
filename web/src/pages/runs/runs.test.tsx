@@ -175,7 +175,7 @@ describe("NewRunDialog", () => {
     renderDialog();
 
     await user.click(screen.getByRole("button", { name: "Iniciar verificação" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Informe ao menos um caminho.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Informe ao menos um caminho ou escolha contas do servidor.");
     expect(posts).toHaveLength(0);
 
     await user.type(screen.getByLabelText("Caminhos a verificar"), "/proc");

@@ -84,7 +84,8 @@
       "delete": "Delete schedule",
       "deleteTitle": "Delete this schedule?",
       "deleteImpact": "It will create no new runs. Past runs and their findings remain.",
-      "deleteConfirm": "Delete schedule"
+      "deleteConfirm": "Delete schedule",
+      "pathsOptionalHint": "Optional when accounts are chosen. One per line, starting with /."
     },
     "resources": {
       "title": "Resources",

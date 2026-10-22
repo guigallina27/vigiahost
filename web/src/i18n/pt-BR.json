@@ -248,5 +248,12 @@
     "operator": "Operador",
     "reader": "Leitura",
     "auditor": "Auditor"
+  },
+  "severityCounts": {
+    "label": "Achados abertos por severidade",
+    "none": "Nenhum achado aberto"
+  },
+  "filterChip": {
+    "remove": "Remover filtro: {{label}}"
   }
 }

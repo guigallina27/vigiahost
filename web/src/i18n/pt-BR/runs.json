@@ -97,11 +97,13 @@
       "submit": "Iniciar verificação",
       "submitting": "Enfileirando…",
       "errors": {
-        "pathsRequired": "Informe ao menos um caminho.",
+        "pathsRequired": "Informe ao menos um caminho ou escolha contas do servidor.",
         "notAbsolute": "Use caminhos absolutos, começando por /. Corrija: {{path}}",
         "pathsTooMany": "Informe no máximo {{max}} caminhos.",
-        "excludeTooMany": "Informe no máximo {{max}} exclusões."
-      }
+        "excludeTooMany": "Informe no máximo {{max}} exclusões.",
+        "accountsRequired": "Escolha ao menos uma conta da lista ou mude para \"Todas as contas\"."
+      },
+      "pathsOptionalHint": "Opcional com contas escolhidas: o escopo de cada conta é montado pelo servidor. Um caminho absoluto por linha. Até 64."
     },
     "detail": {
       "title": "Execução {{id}}",

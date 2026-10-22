@@ -174,6 +174,13 @@ function ScheduleCard({
         </Info>
         {s.kind === "files" && (
           <>
+            {(s.accounts?.all || (s.accounts?.uids?.length ?? 0) > 0) && (
+              <Info label={t("accounts.picker.legend")}>
+                {s.accounts?.all
+                  ? t("accounts.picker.summaryAll")
+                  : t("accounts.picker.summarySelected", { count: s.accounts?.uids?.length ?? 0 })}
+              </Info>
+            )}
             <Info label={t("config.schedules.paths")}>
               <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
                 {s.paths.map((p) => (

@@ -42,7 +42,7 @@ export const navigation: NavGroup[] = [
     items: [
       { to: "/", label: "nav.overview", icon: LayoutDashboard },
       { to: "/achados", label: "nav.findings", icon: ScanSearch },
-      { to: "/contas", label: "nav.accounts", icon: Users, phase: "1B" },
+      { to: "/contas", label: "nav.accounts", icon: Users },
       { to: "/execucoes", label: "nav.runs", icon: ListChecks },
       { to: "/cobertura", label: "nav.coverage", icon: PieChart },
     ],

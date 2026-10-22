@@ -7,6 +7,8 @@ import { useNavigate } from "react-router";
 import { api, unwrap } from "../../api/client";
 import { Button } from "../../components/Button";
 import { FormError, SelectField, TextAreaField } from "../../components/Field";
+import { noAccounts, type AccountChoice } from "../accounts/accounts";
+import { AccountPicker } from "../accounts/AccountPicker";
 import { useProfileLabel, useProfileSummary } from "./RunBits";
 import { resourcesQuery } from "./queries";
 import { buildRunCreate, newIdempotencyKey, type DraftError, type RunCreate, type RunKind } from "./runFormat";
@@ -46,6 +48,8 @@ function draftErrorMessage(t: TFunction, e: DraftError): string {
   switch (e.code) {
     case "pathsRequired":
       return t("runs.new.errors.pathsRequired");
+    case "accountsRequired":
+      return t("runs.new.errors.accountsRequired");
     case "notAbsolute":
       return t("runs.new.errors.notAbsolute", { path: e.path });
     case "pathsTooMany":
@@ -65,6 +69,7 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
 
   const [kind, setKind] = useState<RunKind>("files");
   const [paths, setPaths] = useState("");
+  const [accounts, setAccounts] = useState<AccountChoice>(noAccounts);
   const [exclude, setExclude] = useState("");
   const [incremental, setIncremental] = useState(true);
   const [profile, setProfile] = useState("");
@@ -94,7 +99,7 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const built = buildRunCreate({ kind, paths, exclude, incremental, profile: selected ? selectedName : "" });
+    const built = buildRunCreate({ kind, paths, exclude, incremental, profile: selected ? selectedName : "", accounts });
     if (!built.ok) {
       setDraftError(built.error);
       return;
@@ -108,7 +113,9 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
   ];
   const pathsInvalid = draftError?.field === "paths";
   const excludeInvalid = draftError?.field === "exclude";
-  const message = draftError ? draftErrorMessage(t, draftError) : create.error?.message;
+  const accountsError = draftError?.field === "accounts" ? draftErrorMessage(t, draftError) : null;
+  const message = draftError && !accountsError ? draftErrorMessage(t, draftError) : create.error?.message;
+  const withAccounts = accounts.mode !== "none";
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-5 p-5">
@@ -151,11 +158,11 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
         <>
           <TextAreaField
             label={t("runs.new.paths")}
-            hint={t("runs.new.pathsHint")}
+            hint={withAccounts ? t("runs.new.pathsOptionalHint") : t("runs.new.pathsHint")}
             name="paths"
             mono
             rows={4}
-            required
+            required={!withAccounts}
             spellCheck={false}
             autoCapitalize="none"
             autoComplete="off"
@@ -165,6 +172,14 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
               setPaths(e.target.value);
               changed();
             }}
+          />
+          <AccountPicker
+            value={accounts}
+            onChange={(next) => {
+              setAccounts(next);
+              changed();
+            }}
+            error={accountsError}
           />
           <TextAreaField
             label={t("runs.new.exclude")}

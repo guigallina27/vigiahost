@@ -7,6 +7,7 @@ import { Button } from "../../components/Button";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field, FormError, SelectField, TextAreaField } from "../../components/Field";
 import { Timestamp } from "../../components/Timestamp";
+import { AccountPicker } from "../accounts/AccountPicker";
 import { cronToText } from "./cronText";
 import { profileLabel, resourcesQuery, useDebounced, zoneProp } from "./queries";
 import { fieldForServerError, type ScheduleField } from "./scheduleErrors";
@@ -217,11 +218,15 @@ export function ScheduleForm({ editing, initial, onDone, onCancel }: Props) {
         </div>
 
         {values.kind === "files" && (
+          <AccountPicker value={values.accounts} onChange={(next) => set("accounts", next)} />
+        )}
+
+        {values.kind === "files" && (
           <div className="grid gap-4 md:grid-cols-2">
             <div className="grid min-w-0 gap-1">
               <TextAreaField
                 label={t("config.schedules.paths")}
-                hint={t("config.schedules.pathsHint")}
+                hint={values.accounts.mode !== "none" ? t("config.schedules.pathsOptionalHint") : t("config.schedules.pathsHint")}
                 value={values.paths}
                 onChange={(e) => set("paths", e.target.value)}
                 mono

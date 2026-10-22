@@ -248,5 +248,12 @@
     "operator": "Operator",
     "reader": "Read-only",
     "auditor": "Auditor"
+  },
+  "severityCounts": {
+    "label": "Open findings by severity",
+    "none": "No open findings"
+  },
+  "filterChip": {
+    "remove": "Remove filter: {{label}}"
   }
 }

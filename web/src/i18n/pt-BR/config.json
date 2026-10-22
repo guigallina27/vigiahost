@@ -84,7 +84,8 @@
       "delete": "Excluir agendamento",
       "deleteTitle": "Excluir este agendamento?",
       "deleteImpact": "Nenhuma execução nova será criada por ele. As execuções já feitas e seus achados continuam.",
-      "deleteConfirm": "Excluir agendamento"
+      "deleteConfirm": "Excluir agendamento",
+      "pathsOptionalHint": "Opcional com contas escolhidas. Um por linha, começando com /."
     },
     "resources": {
       "title": "Recursos",
