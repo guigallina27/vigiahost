@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"github.com/guigallina27/vigiahost/internal/accounts"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
 )
 
@@ -27,6 +28,8 @@ const (
 	OpRunCleanup Op = "run.cleanup"
 	// OpAccounts lista as contas do servidor (protocolo 1.1; executores 1.0 respondem "operação desconhecida").
 	OpAccounts Op = "accounts.list"
+	// OpRunAdjust ajusta limites de CPU, memória e E/S de uma execução em andamento, campo a campo (protocolo 1.2).
+	OpRunAdjust Op = "run.adjust"
 )
 
 // Códigos de erro das operações de execução.
@@ -63,6 +66,8 @@ type RunState struct {
 	ExitCode int              `json:"exit_code"` // do processo principal, quando terminou
 	Progress *report.Progress `json:"progress,omitempty"`
 	Summary  *report.Summary  `json:"summary,omitempty"`
+	// Limits é o perfil efetivo depois dos ajustes em tempo real (nil sem ajuste; vale o do pedido).
+	Limits *report.Profile `json:"limits,omitempty"`
 }
 
 // RunLimits ajusta limites de uma execução em andamento (propriedades de cgroup em tempo real).
@@ -70,6 +75,24 @@ type RunLimits struct {
 	RunID     string         `json:"run_id"`
 	Profile   report.Profile `json:"profile"`
 	NoReserve bool           `json:"no_reserve,omitempty"`
+}
+
+// RunAdjust muda limites de uma execução em andamento. Só estes campos existem: o executor junta-os ao perfil efetivo
+// que ele mesmo gravou para a execução, aplica as travas (reserva do sistema, faixas) ao resultado e só então chama
+// SetUnitProperties na unidade. Campo ausente mantém o valor atual.
+type RunAdjust struct {
+	RunID             string `json:"run_id"`
+	CPUQuotaPercent   *int   `json:"cpu_quota_percent,omitempty"`
+	MemoryMaxBytes    *int64 `json:"memory_max_bytes,omitempty"`
+	IOReadBytesPerSec *int64 `json:"io_read_bytes_per_sec,omitempty"`
+	IOWeight          *int   `json:"io_weight,omitempty"`
+	// NoReserve pede limites acima da reserva; só vale com a liberação na configuração local do executor.
+	NoReserve bool `json:"no_reserve,omitempty"`
+}
+
+// Empty diz se o ajuste não muda nada.
+func (a RunAdjust) Empty() bool {
+	return a.CPUQuotaPercent == nil && a.MemoryMaxBytes == nil && a.IOReadBytesPerSec == nil && a.IOWeight == nil
 }
 
 // RunList devolve as execuções conhecidas pelo executor (unidades e diretórios), para reconciliação.
@@ -85,4 +108,8 @@ type Hardware struct {
 	AllowNoReserv bool   `json:"allow_no_reserve"`
 	Systemd       string `json:"systemd_version"`
 	Freezer       bool   `json:"freezer"`
+	// Campos do protocolo 1.2 (ausentes em executores mais antigos).
+	DiskType string         `json:"disk_type,omitempty"` // hdd, ssd ou nvme
+	Pressure *perf.Pressure `json:"pressure,omitempty"`  // pressão do servidor no momento da consulta
+	LoadAvg  float64        `json:"load_avg,omitempty"`  // carga média de 15 minutos
 }

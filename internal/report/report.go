@@ -17,6 +17,8 @@ const (
 	ProgressFile = "progress.json"
 	FindingsFile = "findings.ndjson"
 	SummaryFile  = "summary.json"
+	// LimitsFile guarda o perfil efetivo depois de ajustes em tempo real (gravado só pelo executor).
+	LimitsFile = "limits.json"
 	// Instantâneos da inspeção de processos.
 	ProcessesFile   = "processes.json"
 	PersistenceFile = "persistence.json"
@@ -59,6 +61,16 @@ type Profile struct {
 	Nice              int   `json:"nice"`
 	// MaxFileBytes é o limite de tamanho por arquivo para a fila normal; acima disso vai para a fila de grandes.
 	MaxFileBytes int64 `json:"max_file_bytes"`
+	// Limiares de pressão (PSI "some" avg10, em %) acima dos quais a execução reduz o paralelismo e, persistindo,
+	// pausa entre lotes até a pressão cair (escopo, seção 12). Zero desliga a limitação por aquele recurso.
+	PressureCPU    int `json:"pressure_cpu,omitempty"`
+	PressureIO     int `json:"pressure_io,omitempty"`
+	PressureMemory int `json:"pressure_memory,omitempty"`
+}
+
+// PressureEnabled diz se algum limiar de pressão está ligado.
+func (p Profile) PressureEnabled() bool {
+	return p.PressureCPU > 0 || p.PressureIO > 0 || p.PressureMemory > 0
 }
 
 // Phase é a etapa corrente da execução, mostrada no progresso.
@@ -84,6 +96,22 @@ type Progress struct {
 	Findings       int64     `json:"findings"`
 	UpdatedAt      time.Time `json:"updated_at"`
 	StartedAt      time.Time `json:"started_at"`
+	// Throttle é o estado da limitação por pressão neste instante (nil sem limitação ativa).
+	Throttle *ThrottleState `json:"throttle,omitempty"`
+}
+
+// Estados da limitação por pressão.
+const (
+	ThrottleReduced = "reduced" // paralelismo reduzido
+	ThrottlePaused  = "paused"  // novos lotes suspensos até a pressão cair
+)
+
+// ThrottleState descreve a limitação em andamento.
+type ThrottleState struct {
+	State    string  `json:"state"`    // reduced ou paused
+	Workers  int     `json:"workers"`  // workers liberados agora (0 quando pausada)
+	Resource string  `json:"resource"` // cpu, io ou memory: o recurso que disparou
+	Pressure float64 `json:"pressure"` // valor medido (avg10, %)
 }
 
 // Severity segue a escala do glossário.
@@ -282,4 +310,58 @@ type Summary struct {
 	FilesPerSecond float64              `json:"files_per_second"`
 	MBPerSecond    float64              `json:"mb_per_second"`
 	Warnings       []string             `json:"warnings,omitempty"`
+	// Metrics são as medidas de desempenho da execução (escopo, seção 12.1, "Medição").
+	Metrics *Metrics `json:"metrics,omitempty"`
+}
+
+// Metrics são as medidas de desempenho gravadas pela própria execução no fim.
+type Metrics struct {
+	// Phases traz a duração de cada etapa, na ordem em que aconteceram.
+	Phases []PhaseTiming `json:"phases"`
+	// CPUSeconds é a CPU consumida pela unidade inteira (usuário + sistema, todos os processos filhos).
+	CPUSeconds float64 `json:"cpu_seconds"`
+	// MemoryPeakBytes é o pico de memória da unidade (cgroup; inclui o cache de páginas contido por MemoryHigh).
+	MemoryPeakBytes int64 `json:"memory_peak_bytes"`
+	// BytesRead é o volume lido para hash e análise (arquivos inalterados do cache não são relidos).
+	BytesRead int64 `json:"bytes_read"`
+	// Source diz de onde vieram CPU e memória: "cgroup" (unidade inteira) ou "rusage" (só o processo, sem cgroup v2).
+	Source   string        `json:"source"`
+	Throttle ThrottleStats `json:"throttle"`
+}
+
+// PhaseTiming é a duração de uma etapa.
+type PhaseTiming struct {
+	Phase   Phase   `json:"phase"`
+	Seconds float64 `json:"seconds"`
+}
+
+// ThrottleStats resume a limitação por pressão ao longo da execução.
+type ThrottleStats struct {
+	// Available indica PSI legível no servidor; Enabled, que o perfil tinha algum limiar ligado.
+	Available bool `json:"available"`
+	Enabled   bool `json:"enabled"`
+	// LimitedSeconds é o tempo com paralelismo reduzido ou pausado; PausedSeconds, só o tempo pausado.
+	LimitedSeconds float64         `json:"limited_seconds"`
+	PausedSeconds  float64         `json:"paused_seconds"`
+	Events         []ThrottleEvent `json:"events,omitempty"`
+	// EventsDropped conta eventos além do limite guardado (os primeiros ficam).
+	EventsDropped int `json:"events_dropped,omitempty"`
+}
+
+// Ações registradas nos eventos de limitação.
+const (
+	ThrottleActionReduce  = "reduce"  // paralelismo reduzido
+	ThrottleActionPause   = "pause"   // lotes suspensos
+	ThrottleActionRaise   = "raise"   // paralelismo aumentado de novo, ainda abaixo do perfil
+	ThrottleActionRestore = "restore" // de volta ao paralelismo do perfil
+)
+
+// ThrottleEvent é uma mudança de ritmo por pressão.
+type ThrottleEvent struct {
+	At        time.Time `json:"at"`
+	Action    string    `json:"action"`
+	Resource  string    `json:"resource"`
+	Pressure  float64   `json:"pressure"`
+	Threshold int       `json:"threshold"`
+	Workers   int       `json:"workers"`
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/auth"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/store"
 )
@@ -41,7 +42,21 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 	}
 	switch op {
 	case ipc.OpHardware:
-		set(ipc.Hardware{CPUs: 4, MemoryBytes: 8 << 30, Freezer: true, Systemd: "252"})
+		set(ipc.Hardware{CPUs: 4, MemoryBytes: 8 << 30, Freezer: true, Systemd: "252", DiskType: "ssd", LoadAvg: 0.4,
+			Pressure: &perf.Pressure{Available: true, CPU: perf.PressureStat{Avg10: 2, Avg60: 1.5, Avg300: 1}}})
+	case ipc.OpRunAdjust:
+		adj := in.(ipc.RunAdjust)
+		if adj.CPUQuotaPercent != nil && *adj.CPUQuotaPercent > 300 {
+			return &ipc.Error{Code: ipc.CodeLimitRefused, Message: "limite recusado: CPU acima da reserva do sistema"}
+		}
+		lim := report.Profile{Name: "leve", CPUQuotaPercent: 100, MemoryMaxBytes: 1 << 30, IOWeight: 10}
+		if adj.CPUQuotaPercent != nil {
+			lim.CPUQuotaPercent = *adj.CPUQuotaPercent
+		}
+		if adj.MemoryMaxBytes != nil {
+			lim.MemoryMaxBytes = *adj.MemoryMaxBytes
+		}
+		set(ipc.RunState{RunID: adj.RunID, Active: "active", Limits: &lim})
 	case ipc.OpRunStart:
 		id := in.(ipc.RunStart).Request.RunID
 		f.started = append(f.started, id)

@@ -141,17 +141,54 @@ func DetectHardware() profile.Hardware {
 		_ = f.Close()
 	}
 	if entries, err := os.ReadDir("/sys/block"); err == nil {
+		var names []string
+		rotational := map[string]bool{}
 		for _, e := range entries {
-			if strings.HasPrefix(e.Name(), "loop") || strings.HasPrefix(e.Name(), "ram") || strings.HasPrefix(e.Name(), "zram") {
+			if strings.HasPrefix(e.Name(), "loop") || strings.HasPrefix(e.Name(), "ram") || strings.HasPrefix(e.Name(), "zram") ||
+				strings.HasPrefix(e.Name(), "dm-") || strings.HasPrefix(e.Name(), "md") || strings.HasPrefix(e.Name(), "sr") {
 				continue
 			}
+			names = append(names, e.Name())
 			if b, err := os.ReadFile(filepath.Join("/sys/block", e.Name(), "queue", "rotational")); err == nil && strings.TrimSpace(string(b)) == "1" {
 				hw.Rotational = true
+				rotational[e.Name()] = true
 			}
 		}
+		hw.DiskType = DiskType(names, rotational)
 	}
 	return hw
 }
 
+// DiskType classifica os discos pelo mais lento: hdd se algum é rotacional, nvme se todos são NVMe, ssd no resto.
+// Sem disco identificado, devolve vazio (o perfil cai no campo Rotational).
+func DiskType(names []string, rotational map[string]bool) string {
+	if len(names) == 0 {
+		return ""
+	}
+	nvme := true
+	for _, n := range names {
+		if rotational[n] {
+			return profile.DiskHDD
+		}
+		if !strings.HasPrefix(n, "nvme") {
+			nvme = false
+		}
+	}
+	if nvme {
+		return profile.DiskNVMe
+	}
+	return profile.DiskSSD
+}
+
 // UnitName é o nome determinístico da unidade de uma execução (ADR-004).
 func UnitName(runID string) string { return "vigiahost-run-" + runID + ".service" }
+
+// strictDecode recusa campos desconhecidos: o core e o executor vêm do mesmo pacote.
+func strictDecode(body json.RawMessage, v any) error {
+	dec := json.NewDecoder(strings.NewReader(string(body)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		return &ipc.Error{Code: ipc.CodeBadRequest, Message: "corpo inválido: " + err.Error()}
+	}
+	return nil
+}

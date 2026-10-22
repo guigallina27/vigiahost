@@ -29,11 +29,32 @@ const (
 	defaultRuntimeSec = 12 * 3600
 )
 
+// Tipos de disco, do mais lento ao mais rápido.
+const (
+	DiskHDD  = "hdd"
+	DiskSSD  = "ssd"
+	DiskNVMe = "nvme"
+)
+
 // Hardware é o que importa do servidor para os perfis.
 type Hardware struct {
 	CPUs        int
 	MemoryBytes int64
 	Rotational  bool
+	// DiskType é hdd, ssd ou nvme (vazio: desconhecido, tratado pelo campo Rotational).
+	DiskType string
+}
+
+// Disk devolve o tipo de disco efetivo: o informado ou, sem ele, o deduzido de Rotational.
+func (h Hardware) Disk() string {
+	switch h.DiskType {
+	case DiskHDD, DiskSSD, DiskNVMe:
+		return h.DiskType
+	}
+	if h.Rotational {
+		return DiskHDD
+	}
+	return DiskSSD
 }
 
 // Presets devolve os perfis padrão calculados para o hardware.
@@ -44,24 +65,24 @@ func Presets(hw Hardware) []report.Profile {
 		return max(MinMemoryBytes, min(want, mem*pct/100))
 	}
 	workersIntensive := max(1, cpus-1)
-	if hw.Rotational {
+	if hw.Disk() == DiskHDD {
 		workersIntensive = min(workersIntensive, 2) // disco rotacional: poucas leituras simultâneas
 	}
 	return []report.Profile{
 		{
 			Name: Light, CPUQuotaPercent: max(minCPUQuotaPerc, min(50, cpus*100/4)),
 			MemoryMaxBytes: memMax(1<<30, 25), IOWeight: 10, Workers: 1, ClamdConcurrency: 1,
-			MaxRuntimeSec: 24 * 3600, Nice: 19,
+			MaxRuntimeSec: 24 * 3600, Nice: 19, PressureCPU: 40, PressureIO: 30, PressureMemory: 10,
 		},
 		{
 			Name: Standard, CPUQuotaPercent: reserveCPU(cpus, max(100, cpus*100/2)),
 			MemoryMaxBytes: memMax(2<<30, 40), IOWeight: 50, Workers: min(2, cpus), ClamdConcurrency: 2,
-			MaxRuntimeSec: defaultRuntimeSec, Nice: 10,
+			MaxRuntimeSec: defaultRuntimeSec, Nice: 10, PressureCPU: 60, PressureIO: 40, PressureMemory: 20,
 		},
 		{
 			Name: Intensive, CPUQuotaPercent: reserveCPU(cpus, cpus*100),
 			MemoryMaxBytes: memMax(4<<30, 60), IOWeight: 100, Workers: workersIntensive, ClamdConcurrency: 4,
-			MaxRuntimeSec: defaultRuntimeSec, Nice: 5,
+			MaxRuntimeSec: defaultRuntimeSec, Nice: 5, PressureCPU: 80, PressureIO: 60, PressureMemory: 30,
 		},
 	}
 }
@@ -115,6 +136,8 @@ func Enforce(p report.Profile, hw Hardware, noReserve, allowNoReserve bool) (rep
 		return refuse("CPU abaixo de %d%%", minCPUQuotaPerc)
 	case p.CPUQuotaPercent > cpus*100:
 		return refuse("CPU acima do total de núcleos (%d%%)", cpus*100)
+	case outOfPercent(p.PressureCPU) || outOfPercent(p.PressureIO) || outOfPercent(p.PressureMemory):
+		return refuse("limiares de pressão devem ficar entre 0 (desligado) e 100%%")
 	}
 	if !bypass {
 		if p.CPUQuotaPercent == 0 || p.CPUQuotaPercent > reserveCPU(cpus, cpus*100) {
@@ -130,3 +153,5 @@ func Enforce(p report.Profile, hw Hardware, noReserve, allowNoReserve bool) (rep
 	}
 	return p, nil
 }
+
+func outOfPercent(v int) bool { return v < 0 || v > 100 }

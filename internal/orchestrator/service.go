@@ -214,8 +214,11 @@ func (s *Service) Hardware(ctx context.Context) (ipc.Hardware, error) {
 }
 
 func toProfileHW(hw ipc.Hardware) profile.Hardware {
-	return profile.Hardware{CPUs: hw.CPUs, MemoryBytes: hw.MemoryBytes, Rotational: hw.Rotational}
+	return profile.Hardware{CPUs: hw.CPUs, MemoryBytes: hw.MemoryBytes, Rotational: hw.Rotational, DiskType: hw.DiskType}
 }
+
+// ProfileHardware converte o hardware do executor no usado pelas travas dos perfis.
+func ProfileHardware(hw ipc.Hardware) profile.Hardware { return toProfileHW(hw) }
 
 // Profiles devolve os perfis efetivos: os pré-definidos para o hardware, sobrepostos pelos personalizados.
 func (s *Service) Profiles(ctx context.Context) ([]report.Profile, map[string]bool, error) {
@@ -590,8 +593,8 @@ func (s *Service) SetPaused(ctx context.Context, id string, paused bool) (store.
 	return s.DB.GetRun(ctx, id)
 }
 
-// SetLimits troca o perfil de uma execução em andamento (aplicado na hora pelo cgroup).
-func (s *Service) SetLimits(ctx context.Context, id, profileName string) (store.Run, error) {
+// SetLimits troca os limites de uma execução em andamento pelos de outro perfil (aplicado na hora pelo cgroup).
+func (s *Service) SetLimits(ctx context.Context, id, profileName, actor string) (store.Run, error) {
 	r, err := s.DB.GetRun(ctx, id)
 	if err != nil {
 		return r, err
@@ -607,16 +610,111 @@ func (s *Service) SetLimits(ctx context.Context, id, profileName string) (store.
 	if err := s.Exec.Call(ctx, ipc.OpRunLimits, ipc.RunLimits{RunID: id, Profile: p}, &st); err != nil {
 		return r, err
 	}
-	if _, err := s.DB.ExecContext(ctx, `UPDATE runs SET profile = ? WHERE id = ?`, mustJSON(p), id); err != nil {
-		return r, err
+	eff := withLimits(r.Profile, p)
+	eff.Name = p.Name
+	if st.Limits != nil {
+		eff = withLimits(eff, *st.Limits)
 	}
-	s.publishRun(ctx, id)
-	return s.DB.GetRun(ctx, id)
+	return s.recordAdjustment(ctx, r, eff, actor)
 }
 
-func mustJSON(v any) string {
-	b, _ := json.Marshal(v)
-	return string(b)
+// Adjust muda limites de CPU, memória e E/S da execução em andamento, campo a campo. O executor confere as travas
+// sobre o perfil efetivo que ele guarda; o core só registra o resultado que o executor devolveu.
+func (s *Service) Adjust(ctx context.Context, id string, adj ipc.RunAdjust, actor string) (store.Run, error) {
+	r, err := s.DB.GetRun(ctx, id)
+	if err != nil {
+		return r, err
+	}
+	if r.Status != store.RunRunning {
+		return r, ErrConflict
+	}
+	if adj.Empty() {
+		return r, invalid("informe ao menos um limite para ajustar")
+	}
+	adj.RunID = id
+	var st ipc.RunState
+	if err := s.Exec.Call(ctx, ipc.OpRunAdjust, adj, &st); err != nil {
+		return r, err
+	}
+	eff := r.Profile
+	if st.Limits != nil {
+		eff = withLimits(eff, *st.Limits)
+	} else {
+		// Executor que não devolveu o efetivo: registra o pedido (já aceito pelas travas do executor).
+		if adj.CPUQuotaPercent != nil {
+			eff.CPUQuotaPercent = *adj.CPUQuotaPercent
+		}
+		if adj.MemoryMaxBytes != nil {
+			eff.MemoryMaxBytes = *adj.MemoryMaxBytes
+		}
+		if adj.IOReadBytesPerSec != nil {
+			eff.IOReadBytesPerSec = *adj.IOReadBytesPerSec
+		}
+		if adj.IOWeight != nil {
+			eff.IOWeight = *adj.IOWeight
+		}
+	}
+	return s.recordAdjustment(ctx, r, eff, actor)
+}
+
+// withLimits copia para base os quatro limites ajustáveis de from.
+func withLimits(base, from report.Profile) report.Profile {
+	base.CPUQuotaPercent, base.MemoryMaxBytes = from.CPUQuotaPercent, from.MemoryMaxBytes
+	base.IOReadBytesPerSec, base.IOWeight = from.IOReadBytesPerSec, from.IOWeight
+	return base
+}
+
+func (s *Service) recordAdjustment(ctx context.Context, r store.Run, eff report.Profile, actor string) (store.Run, error) {
+	adj := store.Adjustment{At: s.DB.Now(), Actor: actor, Before: store.LimitsOf(r.Profile), After: store.LimitsOf(eff)}
+	if err := s.DB.RecordAdjustment(ctx, r.ID, eff, adj); err != nil {
+		return r, err
+	}
+	s.publishRun(ctx, r.ID)
+	return s.DB.GetRun(ctx, r.ID)
+}
+
+// HardwareFresh consulta o hardware no executor sem o cache (a pressão muda a todo instante).
+func (s *Service) HardwareFresh(ctx context.Context) (ipc.Hardware, error) {
+	var hw ipc.Hardware
+	if err := s.Exec.Call(ctx, ipc.OpHardware, nil, &hw); err != nil {
+		return hw, err
+	}
+	s.mu.Lock()
+	s.hw, s.hwAt = &hw, time.Now()
+	s.mu.Unlock()
+	return hw, nil
+}
+
+// Suggest calcula o perfil sugerido para o hardware, a pressão típica (média de 5 minutos) e o histórico das
+// últimas execuções de arquivos (fração do tempo limitada por pressão).
+func (s *Service) Suggest(ctx context.Context) (profile.Suggestion, ipc.Hardware, profile.Load, error) {
+	hw, err := s.HardwareFresh(ctx)
+	if err != nil {
+		return profile.Suggestion{}, hw, profile.Load{}, err
+	}
+	load := profile.Load{LoadAvg: hw.LoadAvg}
+	if p := hw.Pressure; p != nil && p.Available {
+		load.PSI, load.CPU, load.IO, load.Memory = true, p.CPU.Avg300, p.IO.Avg300, p.Memory.Avg300
+	}
+	if runs, err := s.DB.RecentFinishedRuns(ctx, report.KindFiles, 10); err == nil {
+		var limited, total float64
+		for _, r := range runs {
+			if r.Summary == nil || r.Summary.Metrics == nil {
+				continue
+			}
+			d := r.Summary.FinishedAt.Sub(r.Summary.StartedAt).Seconds()
+			if d <= 0 {
+				continue
+			}
+			load.Runs++
+			total += d
+			limited += min(d, r.Summary.Metrics.Throttle.LimitedSeconds)
+		}
+		if total > 0 {
+			load.LimitedRatio = limited / total
+		}
+	}
+	return profile.Suggest(toProfileHW(hw), load), hw, load, nil
 }
 
 func (s *Service) fireSchedules(ctx context.Context) {

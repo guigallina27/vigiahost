@@ -22,6 +22,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/controls"
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
 	"github.com/guigallina27/vigiahost/internal/engines/yarax"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
 )
 
@@ -68,6 +69,8 @@ type runner struct {
 	pmu      sync.Mutex
 
 	seen, eligible, processed, bytesElig, bytesDone, cacheHits atomic.Int64
+	bytesRead                                                  atomic.Int64 // lidos de fato (sem os do cache)
+	meter                                                      *perf.Meter
 	smu                                                        sync.Mutex
 	skipped                                                    map[report.SkipReason]int64
 	warnings                                                   []string
@@ -85,6 +88,14 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	r := &runner{cfg: cfg, ctx: ctx, skipped: map[report.SkipReason]int64{}}
 	sum := report.Summary{RunID: cfg.Request.RunID, Kind: report.KindFiles, StartedAt: time.Now().UTC()}
 	r.progress.StartedAt = sum.StartedAt
+	// Medição e limitação por pressão (PSI): os workers esperam antes de cada lote quando a pressão do servidor
+	// passa dos limiares do perfil (escopo, seção 12).
+	r.meter = cfg.Meter
+	if r.meter == nil {
+		r.meter = perf.NewMeter(cfg.Request.Profile, cfg.Request.Profile.Workers, perf.MeterOptions{})
+	}
+	stopMeter := r.meter.Start(ctx, cfg.SampleInterval)
+	defer stopMeter()
 
 	fw, err := NewFindingWriter(filepath.Join(cfg.OutDir, report.FindingsFile))
 	if err != nil {
@@ -124,9 +135,12 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	r.setPhase(report.PhaseScanning)
 	batches := make(chan []*file, cfg.Request.Profile.Workers)
 	var wg sync.WaitGroup
-	for range cfg.Request.Profile.Workers {
+	for i := range cfg.Request.Profile.Workers {
 		wg.Go(func() {
 			for b := range batches {
+				// Com a pressão alta, os workers acima do paralelismo liberado esperam; contexto cancelado faz o
+				// lote fechar os arquivos e sair logo.
+				_ = r.meter.Throttle.Wait(ctx, i)
 				r.processBatch(b)
 			}
 		})
@@ -166,6 +180,7 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 
 	// Fila de arquivos grandes: clamscan com limites maiores.
 	r.setPhase(report.PhaseLarge)
+	_ = r.meter.Throttle.Wait(ctx, 0)
 	r.processLarge()
 
 	if err := r.cache.Save(); err != nil {
@@ -196,7 +211,9 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	if ctx.Err() != nil {
 		sum.Status = report.StatusCanceled
 	}
+	stopMeter()
 	r.setPhase(report.PhaseDone)
+	sum.Metrics = r.meter.Metrics(r.bytesRead.Load())
 	return sum, nil
 }
 
@@ -514,7 +531,9 @@ func (r *runner) readHeadAndHash(fl *file, inCache bool, cached [32]byte) ([32]b
 		return cached, nil
 	}
 	h := sha256.New()
-	if _, err := io.Copy(h, io.NewSectionReader(fl.f, 0, fl.st.Size)); err != nil {
+	n2, err := io.Copy(h, io.NewSectionReader(fl.f, 0, fl.st.Size))
+	r.bytesRead.Add(n2)
+	if err != nil {
 		return sum, err
 	}
 	var after unix.Stat_t
@@ -725,6 +744,9 @@ func raiseNoFile() {
 // --- progresso ---
 
 func (r *runner) setPhase(p report.Phase) {
+	if r.meter != nil {
+		r.meter.Phases.Enter(p)
+	}
 	r.pmu.Lock()
 	r.progress.Phase = p
 	r.pmu.Unlock()
@@ -760,6 +782,9 @@ func (r *runner) writeProgress() {
 	p.BytesProcessed = r.bytesDone.Load()
 	if r.findings != nil {
 		p.Findings = r.findings.count.Load()
+	}
+	if r.meter != nil {
+		p.Throttle = r.meter.Throttle.State()
 	}
 	p.UpdatedAt = time.Now().UTC()
 	_ = WriteJSONAtomic(filepath.Join(r.cfg.OutDir, report.ProgressFile), p)

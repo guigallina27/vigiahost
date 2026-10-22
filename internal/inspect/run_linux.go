@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/controls"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/scan"
 	"github.com/guigallina27/vigiahost/internal/version"
@@ -52,6 +53,7 @@ type inspector struct {
 	fw       *scan.FindingWriter
 	warnings []string
 	progress report.Progress
+	meter    *perf.Meter
 }
 
 func (in *inspector) warn(msg string) {
@@ -62,6 +64,7 @@ func (in *inspector) warn(msg string) {
 }
 
 func (in *inspector) phase(p report.Phase) {
+	in.meter.Phases.Enter(p)
 	in.progress.Phase = p
 	in.progress.UpdatedAt = time.Now().UTC()
 	if in.fw != nil {
@@ -85,7 +88,12 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 		cfg.Logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 	}
 	sum := report.Summary{RunID: cfg.Request.RunID, Kind: report.KindProcesses, StartedAt: time.Now().UTC()}
-	in := &inspector{cfg: cfg, ctx: ctx}
+	// A inspeção é curta e não tem lotes: mede etapas e consumo, sem limitação por pressão.
+	noPressure := cfg.Request.Profile
+	noPressure.PressureCPU, noPressure.PressureIO, noPressure.PressureMemory = 0, 0, 0
+	in := &inspector{cfg: cfg, ctx: ctx, meter: perf.NewMeter(noPressure, 1, perf.MeterOptions{})}
+	stopMeter := in.meter.Start(ctx, time.Second)
+	defer stopMeter()
 	in.progress.StartedAt = sum.StartedAt
 	fw, err := scan.NewFindingWriter(filepath.Join(cfg.OutDir, report.FindingsFile))
 	if err != nil {
@@ -149,7 +157,9 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 		sum.Status = report.StatusPartial
 		sum.Warnings = append(sum.Warnings, "nenhum motor passou no autoteste: os executáveis não foram analisados por assinatura")
 	}
+	stopMeter()
 	in.phase(report.PhaseDone)
+	sum.Metrics = in.meter.Metrics(0)
 	return sum, nil
 }
 

@@ -148,7 +148,7 @@ func (s *Server) SetRunLimits(w http.ResponseWriter, r *http.Request, runID api.
 	if !decode(w, r, &in) {
 		return
 	}
-	run, err := s.Orch.SetLimits(r.Context(), runID, in.Profile)
+	run, err := s.Orch.SetLimits(r.Context(), runID, in.Profile, principalFrom(r.Context()).Actor())
 	if err != nil {
 		s.storeError(w, err)
 		return

@@ -30,6 +30,7 @@ type fakeExec struct {
 	states  map[string]*ipc.RunState
 	started []report.Request
 	calls   []ipc.Op
+	hw      *ipc.Hardware // nil: 4 núcleos e 8 GiB
 }
 
 func newFake(t *testing.T) *fakeExec {
@@ -51,7 +52,11 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 	}
 	switch op {
 	case ipc.OpHardware:
-		set(ipc.Hardware{CPUs: 4, MemoryBytes: 8 << 30})
+		if f.hw != nil {
+			set(*f.hw)
+		} else {
+			set(ipc.Hardware{CPUs: 4, MemoryBytes: 8 << 30})
+		}
 	case ipc.OpRunStart:
 		req := in.(ipc.RunStart).Request
 		if f.refuse != "" {
@@ -80,6 +85,27 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 		set(st)
 	case ipc.OpRunLimits:
 		set(f.states[in.(ipc.RunLimits).RunID])
+	case ipc.OpRunAdjust:
+		adj := in.(ipc.RunAdjust)
+		st, ok := f.states[adj.RunID]
+		if !ok {
+			return &ipc.Error{Code: ipc.CodeNotFound, Message: "execução não está rodando"}
+		}
+		if adj.CPUQuotaPercent != nil && *adj.CPUQuotaPercent > 300 {
+			return &ipc.Error{Code: ipc.CodeLimitRefused, Message: "limite recusado: CPU acima da reserva do sistema"}
+		}
+		lim := report.Profile{Name: "x", CPUQuotaPercent: 100, MemoryMaxBytes: 1 << 30, IOWeight: 50}
+		if st.Limits != nil {
+			lim = *st.Limits
+		}
+		if adj.CPUQuotaPercent != nil {
+			lim.CPUQuotaPercent = *adj.CPUQuotaPercent
+		}
+		if adj.MemoryMaxBytes != nil {
+			lim.MemoryMaxBytes = *adj.MemoryMaxBytes
+		}
+		st.Limits = &lim
+		set(st)
 	case ipc.OpRunList:
 		var l ipc.RunList
 		for _, st := range f.states {
@@ -250,11 +276,11 @@ func TestConcorrenciaUmaPorTipoECancelamento(t *testing.T) {
 	if !fx.state(a.ID).Frozen {
 		t.Fatal("pausa não chegou ao executor")
 	}
-	if _, err := s.SetLimits(ctx, a.ID, "intensivo"); err != nil {
+	if _, err := s.SetLimits(ctx, a.ID, "intensivo", "admin"); err != nil {
 		t.Fatal(err)
 	}
-	if got, _ := s.DB.GetRun(ctx, a.ID); got.Profile.Name != "intensivo" {
-		t.Fatalf("perfil novo não gravado: %+v", got.Profile)
+	if got, _ := s.DB.GetRun(ctx, a.ID); got.Profile.Name != "intensivo" || len(got.Adjustments) != 1 || got.Adjustments[0].Actor != "admin" {
+		t.Fatalf("perfil novo não gravado: %+v %+v", got.Profile, got.Adjustments)
 	}
 	if _, err := s.Cancel(ctx, a.ID); err != nil {
 		t.Fatal(err)

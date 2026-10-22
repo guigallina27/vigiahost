@@ -42,13 +42,51 @@ func nonNil(s []string) []string {
 func toAPIProfile(p report.Profile) api.ResourceProfile {
 	return api.ResourceProfile{Name: p.Name, CpuQuotaPercent: p.CPUQuotaPercent, MemoryMaxBytes: p.MemoryMaxBytes,
 		IoReadBytesPerSec: p.IOReadBytesPerSec, IoWeight: p.IOWeight, Workers: p.Workers,
-		ClamdConcurrency: p.ClamdConcurrency, MaxRuntimeSec: p.MaxRuntimeSec, Nice: p.Nice, MaxFileBytes: p.MaxFileBytes}
+		ClamdConcurrency: p.ClamdConcurrency, MaxRuntimeSec: p.MaxRuntimeSec, Nice: p.Nice, MaxFileBytes: p.MaxFileBytes,
+		PressureCpu: ptr(p.PressureCPU), PressureIo: ptr(p.PressureIO), PressureMemory: ptr(p.PressureMemory)}
 }
 
 func fromAPIProfile(p api.ResourceProfile) report.Profile {
+	deref := func(v *int) int {
+		if v == nil {
+			return 0
+		}
+		return *v
+	}
 	return report.Profile{Name: p.Name, CPUQuotaPercent: p.CpuQuotaPercent, MemoryMaxBytes: p.MemoryMaxBytes,
 		IOReadBytesPerSec: p.IoReadBytesPerSec, IOWeight: p.IoWeight, Workers: p.Workers,
-		ClamdConcurrency: p.ClamdConcurrency, MaxRuntimeSec: p.MaxRuntimeSec, Nice: p.Nice, MaxFileBytes: p.MaxFileBytes}
+		ClamdConcurrency: p.ClamdConcurrency, MaxRuntimeSec: p.MaxRuntimeSec, Nice: p.Nice, MaxFileBytes: p.MaxFileBytes,
+		PressureCPU: deref(p.PressureCpu), PressureIO: deref(p.PressureIo), PressureMemory: deref(p.PressureMemory)}
+}
+
+func toAPILimitSet(l store.Limits) api.RunLimitSet {
+	return api.RunLimitSet{CpuQuotaPercent: l.CPUQuotaPercent, MemoryMaxBytes: l.MemoryMaxBytes,
+		IoReadBytesPerSec: l.IOReadBytesPerSec, IoWeight: l.IOWeight}
+}
+
+func toAPIMetrics(m *report.Metrics) *api.RunMetrics {
+	if m == nil {
+		return nil
+	}
+	out := api.RunMetrics{Phases: make([]api.PhaseTiming, 0, len(m.Phases)), CpuSeconds: float32(m.CPUSeconds),
+		MemoryPeakBytes: m.MemoryPeakBytes, BytesRead: m.BytesRead, Source: api.RunMetricsSource(m.Source),
+		Throttle: api.ThrottleStats{Available: m.Throttle.Available, Enabled: m.Throttle.Enabled,
+			LimitedSeconds: float32(m.Throttle.LimitedSeconds), PausedSeconds: float32(m.Throttle.PausedSeconds),
+			Events: make([]api.ThrottleEvent, 0, len(m.Throttle.Events)), EventsDropped: m.Throttle.EventsDropped}}
+	if m.Source == "" {
+		out.Source = api.RunMetricsSource("none")
+	}
+	for _, ph := range m.Phases {
+		out.Phases = append(out.Phases, api.PhaseTiming{Phase: string(ph.Phase), Seconds: float32(ph.Seconds)})
+	}
+	if m.BytesRead > 0 && m.CPUSeconds > 0 {
+		out.CpuSecondsPerGb = ptr(float32(m.CPUSeconds / (float64(m.BytesRead) / (1 << 30))))
+	}
+	for _, e := range m.Throttle.Events {
+		out.Throttle.Events = append(out.Throttle.Events, api.ThrottleEvent{At: e.At, Action: api.ThrottleEventAction(e.Action),
+			Resource: api.PressureResource(e.Resource), Pressure: float32(e.Pressure), Threshold: e.Threshold, Workers: e.Workers})
+	}
+	return &out
 }
 
 func skips(m map[report.SkipReason]int64) map[string]int64 {
@@ -82,7 +120,19 @@ func toAPIRun(r store.Run) api.Run {
 		if len(sm.Skipped) > 0 {
 			sum.Skipped = ptr(skips(sm.Skipped))
 		}
+		sum.Metrics = toAPIMetrics(sm.Metrics)
 		out.Summary = &sum
+	}
+	if th := r.Throttle; th != nil && r.Status == store.RunRunning {
+		out.Throttle = &api.ThrottleState{State: api.ThrottleStateState(th.State), Workers: th.Workers,
+			Resource: api.PressureResource(th.Resource), Pressure: float32(th.Pressure)}
+	}
+	if len(r.Adjustments) > 0 {
+		adj := make([]api.RunAdjustment, 0, len(r.Adjustments))
+		for _, a := range r.Adjustments {
+			adj = append(adj, api.RunAdjustment{At: a.At, Actor: a.Actor, Before: toAPILimitSet(a.Before), After: toAPILimitSet(a.After)})
+		}
+		out.Adjustments = &adj
 	}
 	return out
 }
@@ -103,10 +153,16 @@ func toAPIEngine(e store.RunEngine) api.EngineCoverage {
 	if er == nil {
 		er = map[string]int64{}
 	}
-	return api.EngineCoverage{Engine: e.Engine, Version: e.Version, RulesVersion: e.RulesVersion, Available: e.Available,
+	out := api.EngineCoverage{Engine: e.Engine, Version: e.Version, RulesVersion: e.RulesVersion, Available: e.Available,
 		SelftestPassed: e.SelfTestPassed, SelftestDetail: e.SelfTestDetail, Eligible: e.Eligible, Analyzed: e.Analyzed,
 		FromCache: e.FromCache, BytesAnalyzed: e.BytesAnalyzed, Seconds: float32(e.Seconds), Skipped: sk, Errors: er,
 		Error: e.Error}
+	// Vazão por segundo de motor: só os arquivos analisados de fato (os do cache não passaram pelo motor).
+	if e.Seconds > 0 {
+		out.FilesPerSecond = ptr(float32(float64(max(e.Analyzed-e.FromCache, 0)) / e.Seconds))
+		out.MbPerSecond = ptr(float32(float64(e.BytesAnalyzed) / (1 << 20) / e.Seconds))
+	}
+	return out
 }
 
 func toAPILocation(l report.Location) api.Location {

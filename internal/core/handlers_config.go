@@ -304,6 +304,15 @@ func (s *Server) resources(ctx context.Context) (api.Resources, error) {
 	if herr == nil {
 		out.Hardware = &api.Hardware{Cpus: hw.CPUs, MemoryBytes: hw.MemoryBytes, Rotational: hw.Rotational,
 			AllowNoReserve: hw.AllowNoReserv, SystemdVersion: hw.Systemd, Freezer: hw.Freezer}
+		if hw.DiskType != "" {
+			out.Hardware.DiskType = ptr(api.DiskType(hw.DiskType))
+		}
+		if p := hw.Pressure; p != nil && p.Available {
+			out.Hardware.Pressure = &api.HostPressure{Cpu: toAPIPressure(p.CPU), Io: toAPIPressure(p.IO), Memory: toAPIPressure(p.Memory)}
+		}
+		if hw.LoadAvg > 0 {
+			out.Hardware.LoadAvg = ptr(float32(hw.LoadAvg))
+		}
 	} else {
 		out.ExecutorError = ptr(herr.Error())
 	}
@@ -341,8 +350,7 @@ func (s *Server) SaveResourceProfile(w http.ResponseWriter, r *http.Request, nam
 		s.storeError(w, err)
 		return
 	}
-	enforced, err := profile.Enforce(p, profile.Hardware{CPUs: hw.CPUs, MemoryBytes: hw.MemoryBytes, Rotational: hw.Rotational},
-		false, false)
+	enforced, err := profile.Enforce(p, orchestrator.ProfileHardware(hw), false, false)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error(), "limit_refused")
 		return
@@ -351,8 +359,9 @@ func (s *Server) SaveResourceProfile(w http.ResponseWriter, r *http.Request, nam
 		s.storeError(w, err)
 		return
 	}
-	s.audit(r, "resource_profile_saved", name, fmt.Sprintf("cpu %d%%, memória %d, workers %d", enforced.CPUQuotaPercent,
-		enforced.MemoryMaxBytes, enforced.Workers))
+	s.audit(r, "resource_profile_saved", name, fmt.Sprintf("cpu %d%%, memória %d, workers %d, pressão cpu/es/mem %d/%d/%d%%",
+		enforced.CPUQuotaPercent, enforced.MemoryMaxBytes, enforced.Workers, enforced.PressureCPU, enforced.PressureIO,
+		enforced.PressureMemory))
 	s.GetResources(w, r)
 }
 

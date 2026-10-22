@@ -3,9 +3,11 @@ package scan
 import (
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
 	"github.com/guigallina27/vigiahost/internal/engines/yarax"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
 )
 
@@ -39,6 +41,10 @@ type Config struct {
 	YARAMaxFile int64
 	// LargeMaxFile: limite da fila de grandes do ClamAV.
 	LargeMaxFile int64
+	// Meter mede a execução e limita o ritmo pela pressão; nil cria um com as fontes reais (/proc e o cgroup).
+	Meter *perf.Meter
+	// SampleInterval é o intervalo de amostragem da pressão e da memória (padrão 1 s).
+	SampleInterval time.Duration
 }
 
 func (c *Config) defaults() {

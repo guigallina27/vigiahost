@@ -41,6 +41,27 @@ func (e BackupInfoOrigin) Valid() bool {
 	}
 }
 
+// Defines values for DiskType.
+const (
+	Hdd  DiskType = "hdd"
+	Nvme DiskType = "nvme"
+	Ssd  DiskType = "ssd"
+)
+
+// Valid indicates whether the value is a known member of the DiskType enum.
+func (e DiskType) Valid() bool {
+	switch e {
+	case Hdd:
+		return true
+	case Nvme:
+		return true
+	case Ssd:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EngineHealthId.
 const (
 	Clamav EngineHealthId = "clamav"
@@ -215,6 +236,27 @@ func (e PersistenceEntryChange) Valid() bool {
 	}
 }
 
+// Defines values for PressureResource.
+const (
+	Cpu    PressureResource = "cpu"
+	Io     PressureResource = "io"
+	Memory PressureResource = "memory"
+)
+
+// Valid indicates whether the value is a known member of the PressureResource enum.
+func (e PressureResource) Valid() bool {
+	switch e {
+	case Cpu:
+		return true
+	case Io:
+		return true
+	case Memory:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	Admin    Role = "admin"
@@ -272,6 +314,27 @@ func (e RunKind) Valid() bool {
 	case Files:
 		return true
 	case Processes:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RunMetricsSource.
+const (
+	Cgroup RunMetricsSource = "cgroup"
+	None   RunMetricsSource = "none"
+	Rusage RunMetricsSource = "rusage"
+)
+
+// Valid indicates whether the value is a known member of the RunMetricsSource enum.
+func (e RunMetricsSource) Valid() bool {
+	switch e {
+	case Cgroup:
+		return true
+	case None:
+		return true
+	case Rusage:
 		return true
 	default:
 		return false
@@ -359,6 +422,105 @@ func (e Severity) Valid() bool {
 	case Low:
 		return true
 	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SuggestionReasonCode.
+const (
+	CpuBusy             SuggestionReasonCode = "cpu_busy"
+	CpuIdle             SuggestionReasonCode = "cpu_idle"
+	CpuNormal           SuggestionReasonCode = "cpu_normal"
+	DiskHdd             SuggestionReasonCode = "disk_hdd"
+	DiskNvme            SuggestionReasonCode = "disk_nvme"
+	DiskSsd             SuggestionReasonCode = "disk_ssd"
+	HistoryLimited      SuggestionReasonCode = "history_limited"
+	IoBusy              SuggestionReasonCode = "io_busy"
+	MemoryNormal        SuggestionReasonCode = "memory_normal"
+	MemoryPressure      SuggestionReasonCode = "memory_pressure"
+	MemorySmall         SuggestionReasonCode = "memory_small"
+	Nice                SuggestionReasonCode = "nice"
+	PressureThresholds  SuggestionReasonCode = "pressure_thresholds"
+	PressureUnavailable SuggestionReasonCode = "pressure_unavailable"
+	WorkersCpu          SuggestionReasonCode = "workers_cpu"
+)
+
+// Valid indicates whether the value is a known member of the SuggestionReasonCode enum.
+func (e SuggestionReasonCode) Valid() bool {
+	switch e {
+	case CpuBusy:
+		return true
+	case CpuIdle:
+		return true
+	case CpuNormal:
+		return true
+	case DiskHdd:
+		return true
+	case DiskNvme:
+		return true
+	case DiskSsd:
+		return true
+	case HistoryLimited:
+		return true
+	case IoBusy:
+		return true
+	case MemoryNormal:
+		return true
+	case MemoryPressure:
+		return true
+	case MemorySmall:
+		return true
+	case Nice:
+		return true
+	case PressureThresholds:
+		return true
+	case PressureUnavailable:
+		return true
+	case WorkersCpu:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThrottleEventAction.
+const (
+	Pause   ThrottleEventAction = "pause"
+	Raise   ThrottleEventAction = "raise"
+	Reduce  ThrottleEventAction = "reduce"
+	Restore ThrottleEventAction = "restore"
+)
+
+// Valid indicates whether the value is a known member of the ThrottleEventAction enum.
+func (e ThrottleEventAction) Valid() bool {
+	switch e {
+	case Pause:
+		return true
+	case Raise:
+		return true
+	case Reduce:
+		return true
+	case Restore:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ThrottleStateState.
+const (
+	Paused  ThrottleStateState = "paused"
+	Reduced ThrottleStateState = "reduced"
+)
+
+// Valid indicates whether the value is a known member of the ThrottleStateState enum.
+func (e ThrottleStateState) Valid() bool {
+	switch e {
+	case Paused:
+		return true
+	case Reduced:
 		return true
 	default:
 		return false
@@ -520,16 +682,25 @@ type CurrentUser struct {
 	Username          string `json:"username"`
 }
 
+// DiskType defines model for DiskType.
+type DiskType string
+
 // EngineCoverage defines model for EngineCoverage.
 type EngineCoverage struct {
-	Analyzed       int64            `json:"analyzed"`
-	Available      bool             `json:"available"`
-	BytesAnalyzed  int64            `json:"bytes_analyzed"`
-	Eligible       int64            `json:"eligible"`
-	Engine         string           `json:"engine"`
-	Error          string           `json:"error"`
-	Errors         map[string]int64 `json:"errors"`
-	FromCache      int64            `json:"from_cache"`
+	Analyzed      int64            `json:"analyzed"`
+	Available     bool             `json:"available"`
+	BytesAnalyzed int64            `json:"bytes_analyzed"`
+	Eligible      int64            `json:"eligible"`
+	Engine        string           `json:"engine"`
+	Error         string           `json:"error"`
+	Errors        map[string]int64 `json:"errors"`
+
+	// FilesPerSecond Arquivos analisados de fato (sem o cache) por segundo de motor
+	FilesPerSecond *float32 `json:"files_per_second,omitempty"`
+	FromCache      int64    `json:"from_cache"`
+
+	// MbPerSecond MiB analisados por segundo de motor
+	MbPerSecond    *float32         `json:"mb_per_second,omitempty"`
 	RulesVersion   string           `json:"rules_version"`
 	Seconds        float32          `json:"seconds"`
 	SelftestDetail string           `json:"selftest_detail"`
@@ -699,14 +870,21 @@ type FindingTransition struct {
 
 // Hardware defines model for Hardware.
 type Hardware struct {
-	AllowNoReserve bool `json:"allow_no_reserve"`
-	Cpus           int  `json:"cpus"`
+	AllowNoReserve bool      `json:"allow_no_reserve"`
+	Cpus           int       `json:"cpus"`
+	DiskType       *DiskType `json:"disk_type,omitempty"`
 
 	// Freezer Pausa disponível (systemd 246+ e cgroup v2)
-	Freezer        bool   `json:"freezer"`
-	MemoryBytes    int64  `json:"memory_bytes"`
-	Rotational     bool   `json:"rotational"`
-	SystemdVersion string `json:"systemd_version"`
+	Freezer bool `json:"freezer"`
+
+	// LoadAvg Carga média de 15 minutos
+	LoadAvg     *float32 `json:"load_avg,omitempty"`
+	MemoryBytes int64    `json:"memory_bytes"`
+
+	// Pressure Pressão (PSI "some") do servidor no momento da consulta, em % do tempo
+	Pressure       *HostPressure `json:"pressure,omitempty"`
+	Rotational     bool          `json:"rotational"`
+	SystemdVersion string        `json:"systemd_version"`
 }
 
 // Health defines model for Health.
@@ -724,6 +902,13 @@ type Health struct {
 
 // HealthStatus ok: executor conectado; degraded: core sem executor.
 type HealthStatus string
+
+// HostPressure Pressão (PSI "some") do servidor no momento da consulta, em % do tempo
+type HostPressure struct {
+	Cpu    PressureStat `json:"cpu"`
+	Io     PressureStat `json:"io"`
+	Memory PressureStat `json:"memory"`
+}
 
 // LastSelfTest defines model for LastSelfTest.
 type LastSelfTest struct {
@@ -824,6 +1009,22 @@ type PersistenceInventory struct {
 	TakenAt  time.Time           `json:"taken_at"`
 }
 
+// PhaseTiming defines model for PhaseTiming.
+type PhaseTiming struct {
+	Phase   string  `json:"phase"`
+	Seconds float32 `json:"seconds"`
+}
+
+// PressureResource defines model for PressureResource.
+type PressureResource string
+
+// PressureStat defines model for PressureStat.
+type PressureStat struct {
+	Avg10  float32 `json:"avg10"`
+	Avg300 float32 `json:"avg300"`
+	Avg60  float32 `json:"avg60"`
+}
+
 // ProcessEvidence defines model for ProcessEvidence.
 type ProcessEvidence struct {
 	Cgroup    *string   `json:"cgroup,omitempty"`
@@ -885,6 +1086,13 @@ type ProfileEntry struct {
 	Profile ResourceProfile `json:"profile"`
 }
 
+// ProfileSuggestion defines model for ProfileSuggestion.
+type ProfileSuggestion struct {
+	Basis   SuggestionBasis    `json:"basis"`
+	Profile ResourceProfile    `json:"profile"`
+	Reasons []SuggestionReason `json:"reasons"`
+}
+
 // ReauthRequest defines model for ReauthRequest.
 type ReauthRequest struct {
 	Code     *string `json:"code,omitempty"`
@@ -914,7 +1122,16 @@ type ResourceProfile struct {
 	MemoryMaxBytes    int64  `json:"memory_max_bytes"`
 	Name              string `json:"name"`
 	Nice              int    `json:"nice"`
-	Workers           int    `json:"workers"`
+
+	// PressureCpu Limiar de pressão de CPU (PSI avg10, %) para reduzir o ritmo; 0 desliga
+	PressureCpu *int `json:"pressure_cpu,omitempty"`
+
+	// PressureIo Limiar de pressão de E/S (PSI avg10, %); 0 desliga
+	PressureIo *int `json:"pressure_io,omitempty"`
+
+	// PressureMemory Limiar de pressão de memória (PSI avg10, %); 0 desliga
+	PressureMemory *int `json:"pressure_memory,omitempty"`
+	Workers        int  `json:"workers"`
 }
 
 // Resources defines model for Resources.
@@ -930,37 +1147,69 @@ type Role string
 // Run defines model for Run.
 type Run struct {
 	// Accounts Contas (UID) cobertas pela execução
-	Accounts       *[]int64        `json:"accounts,omitempty"`
-	Attempts       int             `json:"attempts"`
-	BytesEligible  int64           `json:"bytes_eligible"`
-	BytesProcessed int64           `json:"bytes_processed"`
-	CreatedAt      time.Time       `json:"created_at"`
-	Error          string          `json:"error"`
-	Exclude        []string        `json:"exclude"`
-	FilesEligible  int64           `json:"files_eligible"`
-	FilesProcessed int64           `json:"files_processed"`
-	FilesSeen      int64           `json:"files_seen"`
-	FindingsCount  int64           `json:"findings_count"`
-	FinishedAt     *time.Time      `json:"finished_at,omitempty"`
-	Id             string          `json:"id"`
-	Incremental    bool            `json:"incremental"`
-	Kind           RunKind         `json:"kind"`
-	Origin         RunOrigin       `json:"origin"`
-	Paths          []string        `json:"paths"`
-	Paused         bool            `json:"paused"`
-	Phase          string          `json:"phase"`
-	Priority       int             `json:"priority"`
-	Profile        ResourceProfile `json:"profile"`
-	RequestedBy    string          `json:"requested_by"`
-	ScheduleId     *int64          `json:"schedule_id,omitempty"`
-	ScheduledFor   *time.Time      `json:"scheduled_for,omitempty"`
-	StartedAt      *time.Time      `json:"started_at,omitempty"`
-	Status         RunStatus       `json:"status"`
-	Summary        *RunSummary     `json:"summary,omitempty"`
+	Accounts *[]int64 `json:"accounts,omitempty"`
+
+	// Adjustments Ajustes de limites feitos durante a execução (mais antigos primeiro)
+	Adjustments    *[]RunAdjustment `json:"adjustments,omitempty"`
+	Attempts       int              `json:"attempts"`
+	BytesEligible  int64            `json:"bytes_eligible"`
+	BytesProcessed int64            `json:"bytes_processed"`
+	CreatedAt      time.Time        `json:"created_at"`
+	Error          string           `json:"error"`
+	Exclude        []string         `json:"exclude"`
+	FilesEligible  int64            `json:"files_eligible"`
+	FilesProcessed int64            `json:"files_processed"`
+	FilesSeen      int64            `json:"files_seen"`
+	FindingsCount  int64            `json:"findings_count"`
+	FinishedAt     *time.Time       `json:"finished_at,omitempty"`
+	Id             string           `json:"id"`
+	Incremental    bool             `json:"incremental"`
+	Kind           RunKind          `json:"kind"`
+	Origin         RunOrigin        `json:"origin"`
+	Paths          []string         `json:"paths"`
+	Paused         bool             `json:"paused"`
+	Phase          string           `json:"phase"`
+	Priority       int              `json:"priority"`
+	Profile        ResourceProfile  `json:"profile"`
+	RequestedBy    string           `json:"requested_by"`
+	ScheduleId     *int64           `json:"schedule_id,omitempty"`
+	ScheduledFor   *time.Time       `json:"scheduled_for,omitempty"`
+	StartedAt      *time.Time       `json:"started_at,omitempty"`
+	Status         RunStatus        `json:"status"`
+	Summary        *RunSummary      `json:"summary,omitempty"`
+	Throttle       *ThrottleState   `json:"throttle,omitempty"`
 }
 
 // RunOrigin defines model for Run.Origin.
 type RunOrigin string
+
+// RunAdjustRequest Campo ausente mantém o valor atual; ao menos um precisa vir
+type RunAdjustRequest struct {
+	// CpuQuotaPercent Soma de núcleos em % (0 = sem limite, só com liberação local)
+	CpuQuotaPercent *int `json:"cpu_quota_percent,omitempty"`
+
+	// IoReadBytesPerSec 0 = sem limite de banda
+	IoReadBytesPerSec *int64 `json:"io_read_bytes_per_sec,omitempty"`
+	IoWeight          *int   `json:"io_weight,omitempty"`
+	MemoryMaxBytes    *int64 `json:"memory_max_bytes,omitempty"`
+
+	// NoReserve Pede limites acima da reserva do sistema; só vale se a configuração local do executor permitir
+	NoReserve *bool `json:"no_reserve,omitempty"`
+}
+
+// RunAdjustment defines model for RunAdjustment.
+type RunAdjustment struct {
+	Actor  string      `json:"actor"`
+	After  RunLimitSet `json:"after"`
+	At     time.Time   `json:"at"`
+	Before RunLimitSet `json:"before"`
+}
+
+// RunComparison defines model for RunComparison.
+type RunComparison struct {
+	Kind RunKind          `json:"kind"`
+	Runs []RunPerformance `json:"runs"`
+}
 
 // RunCreate defines model for RunCreate.
 type RunCreate struct {
@@ -985,15 +1234,65 @@ type RunDetail struct {
 // RunKind defines model for RunKind.
 type RunKind string
 
+// RunLimitSet defines model for RunLimitSet.
+type RunLimitSet struct {
+	CpuQuotaPercent   int   `json:"cpu_quota_percent"`
+	IoReadBytesPerSec int64 `json:"io_read_bytes_per_sec"`
+	IoWeight          int   `json:"io_weight"`
+	MemoryMaxBytes    int64 `json:"memory_max_bytes"`
+}
+
 // RunLimitsRequest defines model for RunLimitsRequest.
 type RunLimitsRequest struct {
 	Profile string `json:"profile"`
 }
 
+// RunMetrics defines model for RunMetrics.
+type RunMetrics struct {
+	BytesRead int64 `json:"bytes_read"`
+
+	// CpuSeconds CPU consumida pela unidade (usuário + sistema)
+	CpuSeconds float32 `json:"cpu_seconds"`
+
+	// CpuSecondsPerGb CPU por GiB lido
+	CpuSecondsPerGb *float32      `json:"cpu_seconds_per_gb,omitempty"`
+	MemoryPeakBytes int64         `json:"memory_peak_bytes"`
+	Phases          []PhaseTiming `json:"phases"`
+
+	// Source cgroup = unidade inteira; rusage = só o processo principal (sem cgroup v2)
+	Source   RunMetricsSource `json:"source"`
+	Throttle ThrottleStats    `json:"throttle"`
+}
+
+// RunMetricsSource cgroup = unidade inteira; rusage = só o processo principal (sem cgroup v2)
+type RunMetricsSource string
+
 // RunPage defines model for RunPage.
 type RunPage struct {
 	NextBefore *string `json:"next_before,omitempty"`
 	Runs       []Run   `json:"runs"`
+}
+
+// RunPerformance defines model for RunPerformance.
+type RunPerformance struct {
+	BytesEligible int64     `json:"bytes_eligible"`
+	CacheHits     int64     `json:"cache_hits"`
+	CpuSeconds    *float32  `json:"cpu_seconds,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+
+	// Current É a execução consultada
+	Current         bool       `json:"current"`
+	DurationSeconds float32    `json:"duration_seconds"`
+	FilesEligible   int64      `json:"files_eligible"`
+	FilesPerSecond  float32    `json:"files_per_second"`
+	Findings        int64      `json:"findings"`
+	FinishedAt      *time.Time `json:"finished_at,omitempty"`
+	Id              string     `json:"id"`
+	LimitedSeconds  *float32   `json:"limited_seconds,omitempty"`
+	MbPerSecond     float32    `json:"mb_per_second"`
+	MemoryPeakBytes *int64     `json:"memory_peak_bytes,omitempty"`
+	Profile         string     `json:"profile"`
+	Status          RunStatus  `json:"status"`
 }
 
 // RunStatus defines model for RunStatus.
@@ -1010,6 +1309,7 @@ type RunSummary struct {
 	Findings       int64             `json:"findings"`
 	FinishedAt     *time.Time        `json:"finished_at,omitempty"`
 	MbPerSecond    float32           `json:"mb_per_second"`
+	Metrics        *RunMetrics       `json:"metrics,omitempty"`
 	Objects        int64             `json:"objects"`
 	Skipped        *map[string]int64 `json:"skipped,omitempty"`
 	StartedAt      *time.Time        `json:"started_at,omitempty"`
@@ -1104,6 +1404,37 @@ type SeverityCounts struct {
 	Total    int64 `json:"total"`
 }
 
+// SuggestionBasis defines model for SuggestionBasis.
+type SuggestionBasis struct {
+	// CpuPressure Média de 5 minutos (%)
+	CpuPressure float32  `json:"cpu_pressure"`
+	Cpus        int      `json:"cpus"`
+	DiskType    DiskType `json:"disk_type"`
+
+	// HistoryRuns Execuções recentes com métricas consideradas
+	HistoryRuns int     `json:"history_runs"`
+	IoPressure  float32 `json:"io_pressure"`
+
+	// LimitedRatio Fração do tempo dessas execuções limitada por pressão (0 a 1)
+	LimitedRatio   float32 `json:"limited_ratio"`
+	LoadAvg        float32 `json:"load_avg"`
+	MemoryBytes    int64   `json:"memory_bytes"`
+	MemoryPressure float32 `json:"memory_pressure"`
+
+	// Psi Pressão legível no servidor
+	Psi bool `json:"psi"`
+}
+
+// SuggestionReason defines model for SuggestionReason.
+type SuggestionReason struct {
+	// Code Código da explicação (a interface traduz e preenche os valores)
+	Code   SuggestionReasonCode `json:"code"`
+	Values map[string]float32   `json:"values"`
+}
+
+// SuggestionReasonCode Código da explicação (a interface traduz e preenche os valores)
+type SuggestionReasonCode string
+
 // SystemCapabilities Sistema detectado pelo executor (escopo, seção 5.3).
 type SystemCapabilities struct {
 	// Arch Example: amd64
@@ -1128,6 +1459,49 @@ type SystemCapabilities struct {
 
 	// Systemd systemd é o init em execução.
 	Systemd bool `json:"systemd"`
+}
+
+// ThrottleEvent defines model for ThrottleEvent.
+type ThrottleEvent struct {
+	Action ThrottleEventAction `json:"action"`
+	At     time.Time           `json:"at"`
+
+	// Pressure Pressão medida (avg10, em %)
+	Pressure  float32          `json:"pressure"`
+	Resource  PressureResource `json:"resource"`
+	Threshold int              `json:"threshold"`
+
+	// Workers Workers liberados depois da mudança (0 = pausada)
+	Workers int `json:"workers"`
+}
+
+// ThrottleEventAction defines model for ThrottleEvent.Action.
+type ThrottleEventAction string
+
+// ThrottleState defines model for ThrottleState.
+type ThrottleState struct {
+	Pressure float32            `json:"pressure"`
+	Resource PressureResource   `json:"resource"`
+	State    ThrottleStateState `json:"state"`
+	Workers  int                `json:"workers"`
+}
+
+// ThrottleStateState defines model for ThrottleState.State.
+type ThrottleStateState string
+
+// ThrottleStats defines model for ThrottleStats.
+type ThrottleStats struct {
+	// Available PSI legível no servidor
+	Available bool `json:"available"`
+
+	// Enabled O perfil tinha algum limiar de pressão ligado
+	Enabled       bool            `json:"enabled"`
+	Events        []ThrottleEvent `json:"events"`
+	EventsDropped int             `json:"events_dropped"`
+
+	// LimitedSeconds Tempo com paralelismo reduzido ou pausado
+	LimitedSeconds float32 `json:"limited_seconds"`
+	PausedSeconds  float32 `json:"paused_seconds"`
 }
 
 // User defines model for User.
@@ -1263,6 +1637,11 @@ type CreateRunParams struct {
 	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
 }
 
+// GetRunComparisonParams defines parameters for GetRunComparison.
+type GetRunComparisonParams struct {
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = LoginRequest
 
@@ -1295,6 +1674,9 @@ type SaveResourceProfileJSONRequestBody = ResourceProfile
 
 // CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
 type CreateRunJSONRequestBody = RunCreate
+
+// AdjustRunLimitsJSONRequestBody defines body for AdjustRunLimits for application/json ContentType.
+type AdjustRunLimitsJSONRequestBody = RunAdjustRequest
 
 // SetRunLimitsJSONRequestBody defines body for SetRunLimits for application/json ContentType.
 type SetRunLimitsJSONRequestBody = RunLimitsRequest
@@ -1412,6 +1794,9 @@ type ServerInterface interface {
 	// SaveResourceProfile Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo)
 	// (PUT /api/v1/resources/profiles/{name})
 	SaveResourceProfile(w http.ResponseWriter, r *http.Request, name string)
+	// GetResourceSuggestion Perfil sugerido pelo hardware, pela pressão típica e pelo histórico das execuções, com a explicação
+	// (GET /api/v1/resources/suggestion)
+	GetResourceSuggestion(w http.ResponseWriter, r *http.Request)
 	// ListRuns Lista execuções (mais recentes primeiro)
 	// (GET /api/v1/runs)
 	ListRuns(w http.ResponseWriter, r *http.Request, params ListRunsParams)
@@ -1421,9 +1806,15 @@ type ServerInterface interface {
 	// GetRun Detalhe da execução com a cobertura por motor
 	// (GET /api/v1/runs/{runId})
 	GetRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// AdjustRunLimits Ajusta CPU, memória e E/S da execução em andamento, campo a campo (administrador, com reautenticação). O executor junta o pedido ao perfil efetivo que ele guarda e aplica as mesmas travas do início; a API não consegue contorná-las.
+	// (POST /api/v1/runs/{runId}/adjust)
+	AdjustRunLimits(w http.ResponseWriter, r *http.Request, runId RunId)
 	// CancelRun Cancela (na fila ou em andamento; encerra o cgroup inteiro)
 	// (POST /api/v1/runs/{runId}/cancel)
 	CancelRun(w http.ResponseWriter, r *http.Request, runId RunId)
+	// GetRunComparison Desempenho desta execução ao lado das últimas execuções terminadas do mesmo tipo
+	// (GET /api/v1/runs/{runId}/comparison)
+	GetRunComparison(w http.ResponseWriter, r *http.Request, runId RunId, params GetRunComparisonParams)
 	// SetRunLimits Troca o perfil de recursos da execução em andamento (aplicado na hora pelo cgroup)
 	// (POST /api/v1/runs/{runId}/limits)
 	SetRunLimits(w http.ResponseWriter, r *http.Request, runId RunId)
@@ -2220,6 +2611,20 @@ func (siw *ServerInterfaceWrapper) SaveResourceProfile(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetResourceSuggestion operation middleware
+func (siw *ServerInterfaceWrapper) GetResourceSuggestion(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetResourceSuggestion(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRuns operation middleware
 func (siw *ServerInterfaceWrapper) ListRuns(w http.ResponseWriter, r *http.Request) {
 
@@ -2372,6 +2777,32 @@ func (siw *ServerInterfaceWrapper) GetRun(w http.ResponseWriter, r *http.Request
 	handler.ServeHTTP(w, r)
 }
 
+// AdjustRunLimits operation middleware
+func (siw *ServerInterfaceWrapper) AdjustRunLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AdjustRunLimits(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CancelRun operation middleware
 func (siw *ServerInterfaceWrapper) CancelRun(w http.ResponseWriter, r *http.Request) {
 
@@ -2389,6 +2820,48 @@ func (siw *ServerInterfaceWrapper) CancelRun(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelRun(w, r, runId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRunComparison operation middleware
+func (siw *ServerInterfaceWrapper) GetRunComparison(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "runId" -------------
+	var runId RunId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "runId", r.PathValue("runId"), &runId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "runId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRunComparisonParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRunComparison(w, r, runId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2871,6 +3344,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/pause", wrapper.PauseRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/resume", wrapper.ResumeRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/limits", wrapper.SetRunLimits)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/adjust", wrapper.AdjustRunLimits)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/runs/{runId}/comparison", wrapper.GetRunComparison)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/accounts", wrapper.ListAccounts)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/accounts/{uid}", wrapper.GetAccount)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/findings", wrapper.ListFindings)
@@ -2885,6 +3360,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/schedules/{id}", wrapper.UpdateSchedule)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/schedules/preview", wrapper.PreviewSchedule)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/resources", wrapper.GetResources)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/resources/suggestion", wrapper.GetResourceSuggestion)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.DeleteResourceProfile)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.SaveResourceProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/processes", wrapper.GetProcessInventory)

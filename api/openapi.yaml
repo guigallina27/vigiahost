@@ -382,6 +382,50 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/ExecutorUnavailable" }
 
+  /api/v1/runs/{runId}/adjust:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: adjustRunLimits
+      summary: >
+        Ajusta CPU, memória e E/S da execução em andamento, campo a campo (administrador, com reautenticação). O
+        executor junta o pedido ao perfil efetivo que ele guarda e aplica as mesmas travas do início; a API não
+        consegue contorná-las.
+      tags: [execucoes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunAdjustRequest" }
+      responses:
+        "200":
+          description: Execução com os limites efetivos e o histórico de ajustes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/comparison:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    get:
+      operationId: getRunComparison
+      summary: Desempenho desta execução ao lado das últimas execuções terminadas do mesmo tipo
+      tags: [execucoes]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 2, maximum: 30, default: 10 } }
+      responses:
+        "200":
+          description: Comparativo (mais recentes primeiro)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunComparison" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/accounts:
     get:
       operationId: listAccounts
@@ -615,6 +659,19 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Resources" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/resources/suggestion:
+    get:
+      operationId: getResourceSuggestion
+      summary: Perfil sugerido pelo hardware, pela pressão típica e pelo histórico das execuções, com a explicação
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Sugestão
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
   /api/v1/resources/profiles/{name}:
     parameters:
       - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,31}$" } }
@@ -1186,6 +1243,9 @@ components:
         max_runtime_sec: { type: integer }
         nice: { type: integer }
         max_file_bytes: { type: integer, format: int64 }
+        pressure_cpu: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de CPU (PSI avg10, %) para reduzir o ritmo; 0 desliga" }
+        pressure_io: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de E/S (PSI avg10, %); 0 desliga" }
+        pressure_memory: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de memória (PSI avg10, %); 0 desliga" }
     ProfileEntry:
       type: object
       additionalProperties: false
@@ -1205,6 +1265,66 @@ components:
         allow_no_reserve: { type: boolean }
         systemd_version: { type: string }
         freezer: { type: boolean, description: Pausa disponível (systemd 246+ e cgroup v2) }
+        disk_type: { $ref: "#/components/schemas/DiskType" }
+        pressure: { $ref: "#/components/schemas/HostPressure" }
+        load_avg: { type: number, description: Carga média de 15 minutos }
+    DiskType:
+      type: string
+      enum: [hdd, ssd, nvme]
+    PressureStat:
+      type: object
+      additionalProperties: false
+      required: [avg10, avg60, avg300]
+      properties:
+        avg10: { type: number }
+        avg60: { type: number }
+        avg300: { type: number }
+    HostPressure:
+      type: object
+      additionalProperties: false
+      description: Pressão (PSI "some") do servidor no momento da consulta, em % do tempo
+      required: [cpu, io, memory]
+      properties:
+        cpu: { $ref: "#/components/schemas/PressureStat" }
+        io: { $ref: "#/components/schemas/PressureStat" }
+        memory: { $ref: "#/components/schemas/PressureStat" }
+    SuggestionReason:
+      type: object
+      additionalProperties: false
+      required: [code, values]
+      properties:
+        code:
+          type: string
+          description: Código da explicação (a interface traduz e preenche os valores)
+          enum: [cpu_busy, cpu_idle, cpu_normal, memory_normal, memory_small, memory_pressure, disk_hdd, disk_ssd, disk_nvme, workers_cpu, io_busy, history_limited, nice, pressure_thresholds, pressure_unavailable]
+        values:
+          type: object
+          additionalProperties: { type: number }
+    SuggestionBasis:
+      type: object
+      additionalProperties: false
+      required: [cpus, memory_bytes, disk_type, psi, cpu_pressure, io_pressure, memory_pressure, load_avg, history_runs, limited_ratio]
+      properties:
+        cpus: { type: integer }
+        memory_bytes: { type: integer, format: int64 }
+        disk_type: { $ref: "#/components/schemas/DiskType" }
+        psi: { type: boolean, description: Pressão legível no servidor }
+        cpu_pressure: { type: number, description: Média de 5 minutos (%) }
+        io_pressure: { type: number }
+        memory_pressure: { type: number }
+        load_avg: { type: number }
+        history_runs: { type: integer, description: Execuções recentes com métricas consideradas }
+        limited_ratio: { type: number, description: Fração do tempo dessas execuções limitada por pressão (0 a 1) }
+    ProfileSuggestion:
+      type: object
+      additionalProperties: false
+      required: [profile, reasons, basis]
+      properties:
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/SuggestionReason" }
+        basis: { $ref: "#/components/schemas/SuggestionBasis" }
     Resources:
       type: object
       additionalProperties: false
@@ -1239,6 +1359,85 @@ components:
         warnings:
           type: array
           items: { type: string }
+        metrics: { $ref: "#/components/schemas/RunMetrics" }
+    PhaseTiming:
+      type: object
+      additionalProperties: false
+      required: [phase, seconds]
+      properties:
+        phase: { type: string }
+        seconds: { type: number }
+    ThrottleEvent:
+      type: object
+      additionalProperties: false
+      required: [at, action, resource, pressure, threshold, workers]
+      properties:
+        at: { type: string, format: date-time }
+        action: { type: string, enum: [reduce, pause, raise, restore] }
+        resource: { $ref: "#/components/schemas/PressureResource" }
+        pressure: { type: number, description: "Pressão medida (avg10, em %)" }
+        threshold: { type: integer }
+        workers: { type: integer, description: Workers liberados depois da mudança (0 = pausada) }
+    PressureResource:
+      type: string
+      enum: [cpu, io, memory]
+    ThrottleStats:
+      type: object
+      additionalProperties: false
+      required: [available, enabled, limited_seconds, paused_seconds, events, events_dropped]
+      properties:
+        available: { type: boolean, description: PSI legível no servidor }
+        enabled: { type: boolean, description: O perfil tinha algum limiar de pressão ligado }
+        limited_seconds: { type: number, description: Tempo com paralelismo reduzido ou pausado }
+        paused_seconds: { type: number }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ThrottleEvent" }
+        events_dropped: { type: integer }
+    RunMetrics:
+      type: object
+      additionalProperties: false
+      required: [phases, cpu_seconds, memory_peak_bytes, bytes_read, source, throttle]
+      properties:
+        phases:
+          type: array
+          items: { $ref: "#/components/schemas/PhaseTiming" }
+        cpu_seconds: { type: number, description: CPU consumida pela unidade (usuário + sistema) }
+        cpu_seconds_per_gb: { type: number, description: CPU por GiB lido }
+        memory_peak_bytes: { type: integer, format: int64 }
+        bytes_read: { type: integer, format: int64 }
+        source:
+          type: string
+          enum: [cgroup, rusage, none]
+          description: cgroup = unidade inteira; rusage = só o processo principal (sem cgroup v2)
+        throttle: { $ref: "#/components/schemas/ThrottleStats" }
+    ThrottleState:
+      type: object
+      additionalProperties: false
+      required: [state, workers, resource, pressure]
+      properties:
+        state: { type: string, enum: [reduced, paused] }
+        workers: { type: integer }
+        resource: { $ref: "#/components/schemas/PressureResource" }
+        pressure: { type: number }
+    RunLimitSet:
+      type: object
+      additionalProperties: false
+      required: [cpu_quota_percent, memory_max_bytes, io_read_bytes_per_sec, io_weight]
+      properties:
+        cpu_quota_percent: { type: integer }
+        memory_max_bytes: { type: integer, format: int64 }
+        io_read_bytes_per_sec: { type: integer, format: int64 }
+        io_weight: { type: integer }
+    RunAdjustment:
+      type: object
+      additionalProperties: false
+      required: [at, actor, before, after]
+      properties:
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        before: { $ref: "#/components/schemas/RunLimitSet" }
+        after: { $ref: "#/components/schemas/RunLimitSet" }
     Run:
       type: object
       additionalProperties: false
@@ -1271,6 +1470,11 @@ components:
         findings_count: { type: integer, format: int64 }
         error: { type: string }
         summary: { $ref: "#/components/schemas/RunSummary" }
+        throttle: { $ref: "#/components/schemas/ThrottleState" }
+        adjustments:
+          type: array
+          description: Ajustes de limites feitos durante a execução (mais antigos primeiro)
+          items: { $ref: "#/components/schemas/RunAdjustment" }
     EngineCoverage:
       type: object
       additionalProperties: false
@@ -1294,6 +1498,8 @@ components:
           type: object
           additionalProperties: { type: integer, format: int64 }
         error: { type: string }
+        files_per_second: { type: number, description: Arquivos analisados de fato (sem o cache) por segundo de motor }
+        mb_per_second: { type: number, description: MiB analisados por segundo de motor }
     RunDetail:
       type: object
       additionalProperties: false
@@ -1330,6 +1536,48 @@ components:
       required: [profile]
       properties:
         profile: { type: string }
+    RunAdjustRequest:
+      type: object
+      additionalProperties: false
+      description: Campo ausente mantém o valor atual; ao menos um precisa vir
+      properties:
+        cpu_quota_percent: { type: integer, minimum: 0, description: "Soma de núcleos em % (0 = sem limite, só com liberação local)" }
+        memory_max_bytes: { type: integer, format: int64, minimum: 0 }
+        io_read_bytes_per_sec: { type: integer, format: int64, minimum: 0, description: 0 = sem limite de banda }
+        io_weight: { type: integer, minimum: 1, maximum: 10000 }
+        no_reserve:
+          type: boolean
+          description: Pede limites acima da reserva do sistema; só vale se a configuração local do executor permitir
+    RunPerformance:
+      type: object
+      additionalProperties: false
+      required: [id, status, profile, created_at, duration_seconds, files_eligible, bytes_eligible, files_per_second, mb_per_second, cache_hits, findings, current]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        profile: { type: string }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        duration_seconds: { type: number }
+        files_eligible: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        files_per_second: { type: number }
+        mb_per_second: { type: number }
+        cache_hits: { type: integer, format: int64 }
+        findings: { type: integer, format: int64 }
+        cpu_seconds: { type: number }
+        memory_peak_bytes: { type: integer, format: int64 }
+        limited_seconds: { type: number }
+        current: { type: boolean, description: É a execução consultada }
+    RunComparison:
+      type: object
+      additionalProperties: false
+      required: [kind, runs]
+      properties:
+        kind: { $ref: "#/components/schemas/RunKind" }
+        runs:
+          type: array
+          items: { $ref: "#/components/schemas/RunPerformance" }
 
     Location:
       type: object

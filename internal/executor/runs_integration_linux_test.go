@@ -84,6 +84,13 @@ func TestExecucaoEmUnidadeTransitoria(t *testing.T) {
 	if st.Summary.Status != report.StatusCompleted {
 		t.Fatalf("estado %s: %+v", st.Summary.Status, st.Summary)
 	}
+	// Métricas da unidade: CPU e pico de memória do cgroup, etapas e disponibilidade do PSI.
+	if m := st.Summary.Metrics; m == nil || m.Source != "cgroup" || m.CPUSeconds <= 0 || m.MemoryPeakBytes <= 0 ||
+		len(m.Phases) < 3 || m.BytesRead <= 0 || !m.Throttle.Enabled {
+		t.Fatalf("métricas da execução: %+v", st.Summary.Metrics)
+	} else if _, err := os.Stat("/proc/pressure/cpu"); err == nil && !m.Throttle.Available {
+		t.Fatal("PSI existe no servidor mas a unidade não conseguiu ler")
+	}
 	f, err := os.Open(filepath.Join(st.Dir, report.FindingsFile))
 	if err != nil {
 		t.Fatal(err)

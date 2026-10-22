@@ -73,18 +73,47 @@ type Run struct {
 	// arquivos desses donos.
 	Accounts []uint32
 	Owners   map[string][]uint32
+	// Throttle é a limitação por pressão em andamento (nil sem limitação).
+	Throttle *report.ThrottleState
+	// Adjustments são os ajustes de limites feitos durante a execução, do mais antigo ao mais novo.
+	Adjustments []Adjustment
 }
+
+// Limits são os limites de uma execução que podem mudar em tempo real.
+type Limits struct {
+	CPUQuotaPercent   int   `json:"cpu_quota_percent"`
+	MemoryMaxBytes    int64 `json:"memory_max_bytes"`
+	IOReadBytesPerSec int64 `json:"io_read_bytes_per_sec"`
+	IOWeight          int   `json:"io_weight"`
+}
+
+// LimitsOf extrai os limites ajustáveis do perfil.
+func LimitsOf(p report.Profile) Limits {
+	return Limits{CPUQuotaPercent: p.CPUQuotaPercent, MemoryMaxBytes: p.MemoryMaxBytes,
+		IOReadBytesPerSec: p.IOReadBytesPerSec, IOWeight: p.IOWeight}
+}
+
+// Adjustment é um ajuste de limites durante a execução.
+type Adjustment struct {
+	At     time.Time `json:"at"`
+	Actor  string    `json:"actor"`
+	Before Limits    `json:"before"`
+	After  Limits    `json:"after"`
+}
+
+// maxAdjustments limita o histórico guardado por execução (os mais recentes ficam).
+const maxAdjustments = 50
 
 const runColumns = `id, kind, status, origin, requested_by, schedule_id, scheduled_for, COALESCE(idempotency_key, ''),
 	paths, exclude, incremental, profile, priority, attempts, lease_until, heartbeat_at, created_at, started_at,
 	finished_at, phase, paused, files_seen, files_eligible, files_processed, bytes_eligible, bytes_processed,
-	findings_count, findings_offset, summary, error, accounts, owners`
+	findings_count, findings_offset, summary, error, accounts, owners, throttle, adjustments`
 
 type scanner interface{ Scan(...any) error }
 
 func scanRun(s scanner) (Run, error) {
 	var r Run
-	var kind, paths, exclude, prof, accounts, owners string
+	var kind, paths, exclude, prof, accounts, owners, throttle, adjustments string
 	var schedID sql.NullInt64
 	var schedFor, lease, hb, started, finished, summary sql.NullString
 	var created string
@@ -92,7 +121,8 @@ func scanRun(s scanner) (Run, error) {
 	err := s.Scan(&r.ID, &kind, &r.Status, &r.Origin, &r.RequestedBy, &schedID, &schedFor, &r.IdempotencyKey,
 		&paths, &exclude, &incr, &prof, &r.Priority, &r.Attempts, &lease, &hb, &created, &started,
 		&finished, &r.Phase, &paused, &r.FilesSeen, &r.FilesEligible, &r.FilesProcessed, &r.BytesEligible,
-		&r.BytesProcessed, &r.FindingsCount, &r.FindingsOffset, &summary, &r.Error, &accounts, &owners)
+		&r.BytesProcessed, &r.FindingsCount, &r.FindingsOffset, &summary, &r.Error, &accounts, &owners, &throttle,
+		&adjustments)
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -111,6 +141,13 @@ func scanRun(s scanner) (Run, error) {
 	r.Profile = fromJSON[report.Profile](prof)
 	r.Accounts, r.Owners = fromJSON[[]uint32](accounts), fromJSON[map[string][]uint32](owners)
 	r.Incremental, r.Paused = incr == 1, paused == 1
+	if throttle != "" {
+		th := fromJSON[report.ThrottleState](throttle)
+		if th.State != "" {
+			r.Throttle = &th
+		}
+	}
+	r.Adjustments = fromJSON[[]Adjustment](adjustments)
 	if summary.Valid && summary.String != "" {
 		s := fromJSON[report.Summary](summary.String)
 		r.Summary = &s
@@ -268,12 +305,64 @@ func (d *DB) Requeue(ctx context.Context, id, reason string) error {
 // UpdateProgress grava progresso e renova o lease (heartbeat).
 func (d *DB) UpdateProgress(ctx context.Context, id string, p report.Progress, paused bool, lease time.Duration) error {
 	now := d.now()
+	throttle := ""
+	if p.Throttle != nil {
+		throttle = toJSON(p.Throttle)
+	}
 	_, err := d.ExecContext(ctx, `UPDATE runs SET phase = ?, paused = ?, files_seen = ?, files_eligible = ?,
-		files_processed = ?, bytes_eligible = ?, bytes_processed = ?, heartbeat_at = ?, lease_until = ?
+		files_processed = ?, bytes_eligible = ?, bytes_processed = ?, heartbeat_at = ?, lease_until = ?, throttle = ?
 		WHERE id = ? AND status = 'running'`,
 		string(p.Phase), boolInt(paused), p.FilesSeen, p.FilesEligible, p.FilesProcessed, p.BytesEligible,
-		p.BytesProcessed, ts(now), ts(now.Add(lease)), id)
+		p.BytesProcessed, ts(now), ts(now.Add(lease)), throttle, id)
 	return err
+}
+
+// RecordAdjustment grava o perfil efetivo depois de um ajuste em tempo real e acrescenta o ajuste ao histórico.
+// Só vale para execução em andamento (ErrConflict nas outras).
+func (d *DB) RecordAdjustment(ctx context.Context, id string, effective report.Profile, adj Adjustment) error {
+	return d.tx(ctx, func(tx *sql.Tx) error {
+		var status, raw string
+		err := tx.QueryRowContext(ctx, `SELECT status, adjustments FROM runs WHERE id = ?`, id).Scan(&status, &raw)
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		if status != RunRunning {
+			return ErrConflict
+		}
+		list := append(fromJSON[[]Adjustment](raw), adj)
+		if len(list) > maxAdjustments {
+			list = list[len(list)-maxAdjustments:]
+		}
+		_, err = tx.ExecContext(ctx, `UPDATE runs SET profile = ?, adjustments = ? WHERE id = ?`, toJSON(effective),
+			toJSON(list), id)
+		return err
+	})
+}
+
+// RecentFinishedRuns devolve as últimas execuções terminadas de um tipo (mais recentes primeiro), para o comparativo
+// de desempenho.
+func (d *DB) RecentFinishedRuns(ctx context.Context, kind report.Kind, limit int) ([]Run, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	rows, err := d.QueryContext(ctx, `SELECT `+runColumns+` FROM runs WHERE kind = ? AND finished_at IS NOT NULL
+		ORDER BY finished_at DESC LIMIT ?`, string(kind), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []Run
+	for rows.Next() {
+		r, err := scanRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // FinishRun grava o estado final, o resumo e a cobertura por motor.
@@ -288,7 +377,7 @@ func (d *DB) FinishRun(ctx context.Context, id, status string, sum *report.Summa
 			summary = toJSON(sum)
 		}
 		res, err := tx.ExecContext(ctx, `UPDATE runs SET status = ?, finished_at = ?, summary = COALESCE(?, summary),
-			error = ?, lease_until = NULL, paused = 0, phase = 'done' WHERE id = ? AND status NOT IN `+finalStatusList,
+			error = ?, lease_until = NULL, paused = 0, phase = 'done', throttle = '' WHERE id = ? AND status NOT IN `+finalStatusList,
 			status, ts(now), summary, errMsg, id)
 		if err != nil {
 			return err

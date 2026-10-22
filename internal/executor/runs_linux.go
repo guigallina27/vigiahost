@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
 )
@@ -279,6 +282,10 @@ func (r *Runs) state(ctx context.Context, id string) (ipc.RunState, error) {
 	if readJSON(filepath.Join(dir, report.SummaryFile), &sum) == nil {
 		st.Summary = &sum
 	}
+	var lim report.Profile
+	if readJSON(filepath.Join(dir, report.LimitsFile), &lim) == nil {
+		st.Limits = &lim
+	}
 	return st, nil
 }
 
@@ -344,31 +351,119 @@ func (r *Runs) freeze(ctx context.Context, body json.RawMessage, freeze bool) (a
 	return r.state(ctx, id)
 }
 
-// Limits ajusta CPU, memória e E/S da execução em andamento, com as mesmas travas do início.
+// Limits troca os limites de CPU, memória e E/S da execução em andamento pelos de outro perfil (protocolo 1.0). Só
+// esses quatro campos valem; o resto do perfil continua o do pedido original.
 func (r *Runs) Limits(ctx context.Context, body json.RawMessage) (any, error) {
 	var in ipc.RunLimits
 	if err := strictDecode(body, &in); err != nil {
 		return nil, err
 	}
+	p := in.Profile
+	adj := ipc.RunAdjust{RunID: in.RunID, CPUQuotaPercent: &p.CPUQuotaPercent, MemoryMaxBytes: &p.MemoryMaxBytes,
+		IOReadBytesPerSec: &p.IOReadBytesPerSec, NoReserve: in.NoReserve}
+	if p.IOWeight > 0 {
+		adj.IOWeight = &p.IOWeight
+	}
+	return r.adjust(ctx, adj, p.Name)
+}
+
+// Adjust muda, campo a campo, os limites de CPU, memória e E/S da execução em andamento (protocolo 1.2). O executor
+// junta o pedido ao perfil efetivo que ele mesmo gravou, aplica as travas e só então altera a unidade.
+func (r *Runs) Adjust(ctx context.Context, body json.RawMessage) (any, error) {
+	var in ipc.RunAdjust
+	if err := strictDecode(body, &in); err != nil {
+		return nil, err
+	}
+	return r.adjust(ctx, in, "")
+}
+
+func (r *Runs) adjust(ctx context.Context, in ipc.RunAdjust, name string) (any, error) {
 	if !runIDPattern.MatchString(in.RunID) {
 		return nil, &ipc.Error{Code: ipc.CodeBadRequest, Message: "identificador de execução inválido"}
 	}
-	p, err := profile.Enforce(in.Profile, r.Hardware, in.NoReserve, r.Local.AllowNoReserve)
+	dir := r.runDir(in.RunID)
+	var req report.Request
+	if err := readJSON(filepath.Join(dir, report.RequestFile), &req); err != nil || req.RunID != in.RunID {
+		return nil, &ipc.Error{Code: ipc.CodeNotFound, Message: "execução desconhecida"}
+	}
+	current := req.Profile
+	var eff report.Profile
+	if readJSON(filepath.Join(dir, report.LimitsFile), &eff) == nil {
+		current = eff
+	}
+	p, err := MergeAdjust(current, in, r.Hardware, r.Local.AllowNoReserve)
 	if err != nil {
-		return nil, &ipc.Error{Code: ipc.CodeLimitRefused, Message: err.Error()}
+		return nil, err
+	}
+	if name != "" {
+		p.Name = name
 	}
 	conn, err := r.dbus(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := conn.SetUnitPropertiesContext(ctx, UnitName(in.RunID), true, limitProps(p)...); err != nil {
+	unit := UnitName(in.RunID)
+	props, err := conn.GetUnitPropertiesContext(ctx, unit)
+	if err != nil || props["LoadState"] != "loaded" || (props["ActiveState"] != "active" && props["ActiveState"] != "activating") {
+		return nil, &ipc.Error{Code: ipc.CodeNotFound, Message: "execução não está rodando"}
+	}
+	if err := conn.SetUnitPropertiesContext(ctx, unit, true, adjustProps(current, p, req.Paths)...); err != nil {
 		if isNoSuchUnit(err) {
 			return nil, &ipc.Error{Code: ipc.CodeNotFound, Message: "execução não está rodando"}
 		}
 		return nil, err
 	}
-	r.Logger.Info("limites da execução ajustados", "execucao", in.RunID, "cpu_pct", p.CPUQuotaPercent, "memoria", p.MemoryMaxBytes)
+	data, _ := json.MarshalIndent(p, "", "  ")
+	if err := writeFileAtomic(filepath.Join(dir, report.LimitsFile), data, 0o640); err != nil {
+		r.Logger.Error("limites aplicados mas não gravados", "execucao", in.RunID, "erro", err)
+	}
+	if in.NoReserve && r.Local.AllowNoReserve {
+		r.Logger.Warn("ajuste sem reserva do sistema autorizado", "execucao", in.RunID)
+	}
+	r.Logger.Info("limites da execução ajustados", "execucao", in.RunID, "cpu_pct", p.CPUQuotaPercent,
+		"memoria", p.MemoryMaxBytes, "leitura_bps", p.IOReadBytesPerSec, "peso_es", p.IOWeight)
 	return r.state(ctx, in.RunID)
+}
+
+// adjustProps devolve só as propriedades que mudaram entre o perfil atual e o novo. Zero vira "sem limite"
+// (infinity), o que só passa pelas travas com a liberação local.
+func adjustProps(cur, next report.Profile, paths []string) []sddbus.Property {
+	var props []sddbus.Property
+	if next.CPUQuotaPercent != cur.CPUQuotaPercent {
+		v := uint64(math.MaxUint64)
+		if next.CPUQuotaPercent > 0 {
+			v = uint64(next.CPUQuotaPercent) * 10_000 //nolint:gosec // validado por Enforce
+		}
+		props = append(props, prop("CPUQuotaPerSecUSec", v))
+	}
+	if next.MemoryMaxBytes != cur.MemoryMaxBytes {
+		maxB, high := uint64(math.MaxUint64), uint64(math.MaxUint64)
+		if next.MemoryMaxBytes > 0 {
+			maxB, high = uint64(next.MemoryMaxBytes), uint64(next.MemoryMaxBytes)*3/4 //nolint:gosec // validado por Enforce
+		}
+		props = append(props, prop("MemoryMax", maxB), prop("MemoryHigh", high))
+	}
+	if next.IOWeight != cur.IOWeight {
+		props = append(props, prop("IOWeight", uint64(max(next.IOWeight, 1)))) //nolint:gosec // validado por Enforce
+	}
+	if next.IOReadBytesPerSec != cur.IOReadBytesPerSec {
+		limits := []ioLimit{}
+		if next.IOReadBytesPerSec > 0 {
+			limits = ioDevices(paths, uint64(next.IOReadBytesPerSec)) //nolint:gosec // validado por Enforce
+		}
+		// Lista vazia remove os limites de banda da unidade.
+		props = append(props, prop("IOReadBandwidthMax", limits))
+	}
+	return props
+}
+
+// writeFileAtomic grava num temporário e renomeia (quem lê nunca vê o arquivo pela metade).
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, mode); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }
 
 // List devolve todas as execuções com diretório no executor (para o core reconciliar depois de reiniciar).
@@ -415,7 +510,14 @@ func (r *Runs) Cleanup(ctx context.Context, body json.RawMessage) (any, error) {
 // HardwareInfo devolve o hardware e as capacidades para a tela de recursos.
 func (r *Runs) HardwareInfo(ctx context.Context, _ json.RawMessage) (any, error) {
 	h := ipc.Hardware{CPUs: r.Hardware.CPUs, MemoryBytes: r.Hardware.MemoryBytes, Rotational: r.Hardware.Rotational,
-		AllowNoReserv: r.Local.AllowNoReserve}
+		AllowNoReserv: r.Local.AllowNoReserve, DiskType: r.Hardware.Disk()}
+	root := os.DirFS("/")
+	if p := perf.ReadPressure(root); p.Available {
+		h.Pressure = &p
+	}
+	if data, err := fs.ReadFile(root, "proc/loadavg"); err == nil {
+		h.LoadAvg, _ = perf.ParseLoadAvg(data)
+	}
 	if conn, err := r.dbus(ctx); err == nil {
 		if v, err := conn.GetManagerProperty("Version"); err == nil {
 			h.Systemd = strings.Trim(v, `"`)
@@ -435,16 +537,6 @@ func isNoSuchUnit(err error) bool {
 	return strings.Contains(err.Error(), "not loaded") || strings.Contains(err.Error(), "NoSuchUnit")
 }
 
-// strictDecode recusa campos desconhecidos: o core e o executor vêm do mesmo pacote.
-func strictDecode(body json.RawMessage, v any) error {
-	dec := json.NewDecoder(strings.NewReader(string(body)))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(v); err != nil {
-		return &ipc.Error{Code: ipc.CodeBadRequest, Message: "corpo inválido: " + err.Error()}
-	}
-	return nil
-}
-
 // Register acrescenta as operações de execução aos handlers do executor.
 func (r *Runs) Register(h map[ipc.Op]Handler) {
 	h[ipc.OpRunStart] = r.Start
@@ -453,6 +545,7 @@ func (r *Runs) Register(h map[ipc.Op]Handler) {
 	h[ipc.OpRunPause] = r.Pause
 	h[ipc.OpRunResume] = r.Resume
 	h[ipc.OpRunLimits] = r.Limits
+	h[ipc.OpRunAdjust] = r.Adjust
 	h[ipc.OpRunList] = r.List
 	h[ipc.OpRunCleanup] = r.Cleanup
 	h[ipc.OpHardware] = r.HardwareInfo

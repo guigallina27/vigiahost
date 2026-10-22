@@ -361,6 +361,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/runs/{runId}/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ajusta CPU, memória e E/S da execução em andamento, campo a campo (administrador, com reautenticação). O executor junta o pedido ao perfil efetivo que ele guarda e aplica as mesmas travas do início; a API não consegue contorná-las. */
+        post: operations["adjustRunLimits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/runs/{runId}/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        /** Desempenho desta execução ao lado das últimas execuções terminadas do mesmo tipo */
+        get: operations["getRunComparison"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/accounts": {
         parameters: {
             query?: never;
@@ -553,6 +591,23 @@ export interface paths {
         };
         /** Hardware e perfis de recursos efetivos */
         get: operations["getResources"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/resources/suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Perfil sugerido pelo hardware, pela pressão típica e pelo histórico das execuções, com a explicação */
+        get: operations["getResourceSuggestion"];
         put?: never;
         post?: never;
         delete?: never;
@@ -953,6 +1008,12 @@ export interface components {
             nice: number;
             /** Format: int64 */
             max_file_bytes: number;
+            /** @description Limiar de pressão de CPU (PSI avg10, %) para reduzir o ritmo; 0 desliga */
+            pressure_cpu?: number;
+            /** @description Limiar de pressão de E/S (PSI avg10, %); 0 desliga */
+            pressure_io?: number;
+            /** @description Limiar de pressão de memória (PSI avg10, %); 0 desliga */
+            pressure_memory?: number;
         };
         ProfileEntry: {
             profile: components["schemas"]["ResourceProfile"];
@@ -970,6 +1031,55 @@ export interface components {
             systemd_version: string;
             /** @description Pausa disponível (systemd 246+ e cgroup v2) */
             freezer: boolean;
+            disk_type?: components["schemas"]["DiskType"];
+            pressure?: components["schemas"]["HostPressure"];
+            /** @description Carga média de 15 minutos */
+            load_avg?: number;
+        };
+        /** @enum {string} */
+        DiskType: "hdd" | "ssd" | "nvme";
+        PressureStat: {
+            avg10: number;
+            avg60: number;
+            avg300: number;
+        };
+        /** @description Pressão (PSI "some") do servidor no momento da consulta, em % do tempo */
+        HostPressure: {
+            cpu: components["schemas"]["PressureStat"];
+            io: components["schemas"]["PressureStat"];
+            memory: components["schemas"]["PressureStat"];
+        };
+        SuggestionReason: {
+            /**
+             * @description Código da explicação (a interface traduz e preenche os valores)
+             * @enum {string}
+             */
+            code: "cpu_busy" | "cpu_idle" | "cpu_normal" | "memory_normal" | "memory_small" | "memory_pressure" | "disk_hdd" | "disk_ssd" | "disk_nvme" | "workers_cpu" | "io_busy" | "history_limited" | "nice" | "pressure_thresholds" | "pressure_unavailable";
+            values: {
+                [key: string]: number;
+            };
+        };
+        SuggestionBasis: {
+            cpus: number;
+            /** Format: int64 */
+            memory_bytes: number;
+            disk_type: components["schemas"]["DiskType"];
+            /** @description Pressão legível no servidor */
+            psi: boolean;
+            /** @description Média de 5 minutos (%) */
+            cpu_pressure: number;
+            io_pressure: number;
+            memory_pressure: number;
+            load_avg: number;
+            /** @description Execuções recentes com métricas consideradas */
+            history_runs: number;
+            /** @description Fração do tempo dessas execuções limitada por pressão (0 a 1) */
+            limited_ratio: number;
+        };
+        ProfileSuggestion: {
+            profile: components["schemas"]["ResourceProfile"];
+            reasons: components["schemas"]["SuggestionReason"][];
+            basis: components["schemas"]["SuggestionBasis"];
         };
         Resources: {
             hardware?: components["schemas"]["Hardware"];
@@ -1001,6 +1111,75 @@ export interface components {
             files_per_second: number;
             mb_per_second: number;
             warnings?: string[];
+            metrics?: components["schemas"]["RunMetrics"];
+        };
+        PhaseTiming: {
+            phase: string;
+            seconds: number;
+        };
+        ThrottleEvent: {
+            /** Format: date-time */
+            at: string;
+            /** @enum {string} */
+            action: "reduce" | "pause" | "raise" | "restore";
+            resource: components["schemas"]["PressureResource"];
+            /** @description Pressão medida (avg10, em %) */
+            pressure: number;
+            threshold: number;
+            /** @description Workers liberados depois da mudança (0 = pausada) */
+            workers: number;
+        };
+        /** @enum {string} */
+        PressureResource: "cpu" | "io" | "memory";
+        ThrottleStats: {
+            /** @description PSI legível no servidor */
+            available: boolean;
+            /** @description O perfil tinha algum limiar de pressão ligado */
+            enabled: boolean;
+            /** @description Tempo com paralelismo reduzido ou pausado */
+            limited_seconds: number;
+            paused_seconds: number;
+            events: components["schemas"]["ThrottleEvent"][];
+            events_dropped: number;
+        };
+        RunMetrics: {
+            phases: components["schemas"]["PhaseTiming"][];
+            /** @description CPU consumida pela unidade (usuário + sistema) */
+            cpu_seconds: number;
+            /** @description CPU por GiB lido */
+            cpu_seconds_per_gb?: number;
+            /** Format: int64 */
+            memory_peak_bytes: number;
+            /** Format: int64 */
+            bytes_read: number;
+            /**
+             * @description cgroup = unidade inteira; rusage = só o processo principal (sem cgroup v2)
+             * @enum {string}
+             */
+            source: "cgroup" | "rusage" | "none";
+            throttle: components["schemas"]["ThrottleStats"];
+        };
+        ThrottleState: {
+            /** @enum {string} */
+            state: "reduced" | "paused";
+            workers: number;
+            resource: components["schemas"]["PressureResource"];
+            pressure: number;
+        };
+        RunLimitSet: {
+            cpu_quota_percent: number;
+            /** Format: int64 */
+            memory_max_bytes: number;
+            /** Format: int64 */
+            io_read_bytes_per_sec: number;
+            io_weight: number;
+        };
+        RunAdjustment: {
+            /** Format: date-time */
+            at: string;
+            actor: string;
+            before: components["schemas"]["RunLimitSet"];
+            after: components["schemas"]["RunLimitSet"];
         };
         Run: {
             id: string;
@@ -1043,6 +1222,9 @@ export interface components {
             findings_count: number;
             error: string;
             summary?: components["schemas"]["RunSummary"];
+            throttle?: components["schemas"]["ThrottleState"];
+            /** @description Ajustes de limites feitos durante a execução (mais antigos primeiro) */
+            adjustments?: components["schemas"]["RunAdjustment"][];
         };
         EngineCoverage: {
             engine: string;
@@ -1067,6 +1249,10 @@ export interface components {
                 [key: string]: number;
             };
             error: string;
+            /** @description Arquivos analisados de fato (sem o cache) por segundo de motor */
+            files_per_second?: number;
+            /** @description MiB analisados por segundo de motor */
+            mb_per_second?: number;
         };
         RunDetail: {
             run: components["schemas"]["Run"];
@@ -1089,6 +1275,51 @@ export interface components {
         };
         RunLimitsRequest: {
             profile: string;
+        };
+        /** @description Campo ausente mantém o valor atual; ao menos um precisa vir */
+        RunAdjustRequest: {
+            /** @description Soma de núcleos em % (0 = sem limite, só com liberação local) */
+            cpu_quota_percent?: number;
+            /** Format: int64 */
+            memory_max_bytes?: number;
+            /**
+             * Format: int64
+             * @description 0 = sem limite de banda
+             */
+            io_read_bytes_per_sec?: number;
+            io_weight?: number;
+            /** @description Pede limites acima da reserva do sistema; só vale se a configuração local do executor permitir */
+            no_reserve?: boolean;
+        };
+        RunPerformance: {
+            id: string;
+            status: components["schemas"]["RunStatus"];
+            profile: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            duration_seconds: number;
+            /** Format: int64 */
+            files_eligible: number;
+            /** Format: int64 */
+            bytes_eligible: number;
+            files_per_second: number;
+            mb_per_second: number;
+            /** Format: int64 */
+            cache_hits: number;
+            /** Format: int64 */
+            findings: number;
+            cpu_seconds?: number;
+            /** Format: int64 */
+            memory_peak_bytes?: number;
+            limited_seconds?: number;
+            /** @description É a execução consultada */
+            current: boolean;
+        };
+        RunComparison: {
+            kind: components["schemas"]["RunKind"];
+            runs: components["schemas"]["RunPerformance"][];
         };
         Location: {
             /** @description Caminho para exibição (bytes inválidos substituídos) */
@@ -2107,6 +2338,64 @@ export interface operations {
             503: components["responses"]["ExecutorUnavailable"];
         };
     };
+    adjustRunLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RunAdjustRequest"];
+            };
+        };
+        responses: {
+            /** @description Execução com os limites efetivos e o histórico de ajustes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Run"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    getRunComparison: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                runId: components["parameters"]["RunId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Comparativo (mais recentes primeiro) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunComparison"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listAccounts: {
         parameters: {
             query?: {
@@ -2467,6 +2756,28 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getResourceSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sugestão */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSuggestion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["ExecutorUnavailable"];
         };
     };
     saveResourceProfile: {
