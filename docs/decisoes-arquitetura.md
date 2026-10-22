@@ -23,3 +23,4 @@
 | [016](adr/0016-autenticacao-do-painel.md) | Autenticação do painel web (**proposto**) | 13 |
 | [017](adr/0017-base-da-interface.md) | Base da interface: contrato gerado, design system e cadeia de suprimentos do front-end | 6.3, 14, 19 |
 | [018](adr/0018-arquivos-aos-motores-por-descritor.md) | Arquivos entregues aos motores por descritor, nunca por nome | 7, 13 |
+| [021](adr/0021-verificacoes-do-sistema.md) | Verificações do sistema (integridade dos pacotes, atualizações, ocultos) como tipos de execução próprios | 7.5, 8, 13 |

@@ -150,6 +150,13 @@ O critério das 500 contas está cumprido. Faltam E1.10, E1.12 e o restante do E
 
 **Critério de saída**: quarentena aprovada nos testes de corrida; triagem do AIDE explica alterações de pacotes atualizados; candidata à versão 1.0 estável.
 
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E2.2 Verificação contra pacote assinado | Implementado: pacote `internal/pkgverify` (`rpm -Va`, `dpkg --verify` + `debsums` quando instalado, dono do arquivo com cache, resumo esperado no pacote, assinatura dos pacotes RPM e dos índices APT, repositórios sem verificação), classificação por tipo de arquivo e gravidade, tipo de execução `integrity` em unidade própria ([ADR-021](adr/0021-verificacoes-do-sistema.md)), executável de processo diferente do pacote na inspeção, tela Integridade. Validado no laboratório (AlmaLinux 9) e em contêineres Debian 12, Ubuntu 24.04, AlmaLinux 8 e 9 e Rocky 10 | Triagem do AIDE e do Chkrootkit (E2.1 e E2.3) passam a consultar o `pkgverify` |
+| E2.4 Correções pendentes, serviços a reiniciar, processos e portas ocultos | Implementado: tipo `updates` (dnf `updateinfo`/`check-update` só com o cache, `apt-get -s` sem trava, idade da lista, atualização da lista só com `refresh_package_metadata` no `executor.json`), serviços e processos com biblioteca apagada em uso (próprio por `/proc/PID/maps`, `needs-restarting` e `needrestart` quando instalados), reinício pendente; processos ocultos (sinal 0, `getpgid`, `getsid` contra `/proc` e as threads) e portas ocultas (`/proc/net`, netlink e `bind` nas portas não listadas), confirmados duas vezes; tela Atualizações e painel na tela de processos | Teste positivo de oculto exige rootkit de laboratório (as regras foram cobertas por simulação e sem falso positivo em 131 mil portas reais) |
+
 ### Fase 3 — Hospedagem e tempo real
 
 | Épico | Tamanho | Observação |
