@@ -13,6 +13,7 @@ const NOW = "2026-10-22T12:00:00Z";
 const SHA = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 const FILES_RUN = "r-20261021-files";
 const PROC_RUN = "r-20261021-proc";
+const RUNNING_RUN = "r-20261022-running";
 
 // --- Sessão ---
 
@@ -138,8 +139,69 @@ const filesRun: S["Run"] = {
     files_per_second: 5.6,
     mb_per_second: 0.85,
     warnings: ["3 arquivos mudaram durante a leitura e serão verificados de novo."],
+    metrics: {
+      phases: [
+        { phase: "selftest", seconds: 4 },
+        { phase: "listing", seconds: 31 },
+        { phase: "scanning", seconds: 2410 },
+        { phase: "large_files", seconds: 80 },
+      ],
+      cpu_seconds: 3120,
+      cpu_seconds_per_gb: 1560,
+      memory_peak_bytes: 734_003_200,
+      bytes_read: 2_000_000_000,
+      source: "cgroup",
+      throttle: {
+        available: true,
+        enabled: true,
+        limited_seconds: 312,
+        paused_seconds: 40,
+        events: [
+          { at: "2026-10-21T03:10:00Z", action: "reduce", resource: "io", pressure: 52.4, threshold: 40, workers: 1 },
+          { at: "2026-10-21T03:11:00Z", action: "pause", resource: "io", pressure: 71, threshold: 40, workers: 0 },
+          { at: "2026-10-21T03:11:40Z", action: "restore", resource: "io", pressure: 12, threshold: 40, workers: 2 },
+        ],
+        events_dropped: 0,
+      },
+    },
   },
+  adjustments: [
+    {
+      at: "2026-10-21T03:12:00Z",
+      actor: "admin",
+      before: { cpu_quota_percent: 200, memory_max_bytes: 2_147_483_648, io_read_bytes_per_sec: 0, io_weight: 50 },
+      after: { cpu_quota_percent: 100, memory_max_bytes: 2_147_483_648, io_read_bytes_per_sec: 52_428_800, io_weight: 25 },
+    },
+  ],
 };
+
+// Execução em andamento, com o ritmo reduzido pela pressão de E/S: o administrador vê o ajuste em tempo real.
+const runningRun: S["Run"] = {
+  ...filesRun,
+  id: RUNNING_RUN,
+  status: "running",
+  origin: "manual",
+  requested_by: "admin",
+  created_at: "2026-10-22T10:00:00Z",
+  started_at: "2026-10-22T10:00:03Z",
+  phase: "scanning",
+  files_processed: 6_000,
+  bytes_processed: 900_000_000,
+  findings_count: 0,
+  adjustments: [],
+  throttle: { state: "reduced", workers: 1, resource: "io", pressure: 48.2 },
+};
+delete runningRun.finished_at;
+delete runningRun.summary;
+
+const comparison = (id: string): S["RunComparison"] => ({
+  kind: "files",
+  runs: [
+    { id: FILES_RUN, status: "completed", profile: "padrao", created_at: "2026-10-21T03:00:00Z", finished_at: "2026-10-21T03:42:10Z", duration_seconds: 2525, files_eligible: 14_108, bytes_eligible: 2_147_483_648, files_per_second: 5.6, mb_per_second: 0.85, cache_hits: 900, findings: 2, cpu_seconds: 3120, memory_peak_bytes: 734_003_200, limited_seconds: 312, current: id === FILES_RUN },
+    { id: "20261020-030000-0b1c2d3e", status: "partial", profile: "leve", created_at: "2026-10-20T03:00:00Z", finished_at: "2026-10-20T04:30:00Z", duration_seconds: 5400, files_eligible: 14_000, bytes_eligible: 2_100_000_000, files_per_second: 2.6, mb_per_second: 0.37, cache_hits: 0, findings: 0, current: false },
+    ...(id === RUNNING_RUN ? [{ id: RUNNING_RUN, status: "running" as const, profile: "padrao", created_at: "2026-10-22T10:00:00Z", duration_seconds: 0, files_eligible: 14_108, bytes_eligible: 2_147_483_648, files_per_second: 0, mb_per_second: 0, cache_hits: 0, findings: 0, current: true }] : []),
+  ],
+});
 
 const processesRun: S["Run"] = {
   ...filesRun,
@@ -269,6 +331,7 @@ const accountList = (system: boolean): S["AccountList"] => ({
 const runDetails: Record<string, S["RunDetail"]> = {
   [FILES_RUN]: { run: filesRun, engines: coverage },
   [PROC_RUN]: { run: processesRun, engines: [] },
+  [RUNNING_RUN]: { run: runningRun, engines: [] },
 };
 
 // --- Achados ---
@@ -402,6 +465,13 @@ const resources: S["Resources"] = {
     cpus: 8,
     memory_bytes: 17_179_869_184,
     rotational: false,
+    disk_type: "ssd",
+    pressure: {
+      cpu: { avg10: 4.2, avg60: 3.1, avg300: 2.5 },
+      io: { avg10: 12.8, avg60: 9.4, avg300: 6.1 },
+      memory: { avg10: 0, avg60: 0, avg300: 0 },
+    },
+    load_avg: 2.4,
     allow_no_reserve: false,
     systemd_version: "252",
     freezer: true,
@@ -411,6 +481,17 @@ const resources: S["Resources"] = {
     { profile, custom: false, preset: true },
     { profile: { ...profile, name: "noturno", cpu_quota_percent: 200, workers: 4 }, custom: true, preset: false },
   ],
+};
+
+const suggestion: S["ProfileSuggestion"] = {
+  profile: { ...profile, name: "sugerido", cpu_quota_percent: 300, workers: 3, clamd_concurrency: 3, pressure_cpu: 50, pressure_io: 40, pressure_memory: 20 },
+  reasons: [
+    { code: "cpu_normal", values: { cpus: 8, quota: 300, share: 50, pressure: 2.5, load_per_core: 0.3 } },
+    { code: "memory_normal", values: { total: 17_179_869_184, max: 2_147_483_648, percent: 12.5, pressure: 0 } },
+    { code: "disk_ssd", values: { workers: 3, io_weight: 50 } },
+    { code: "pressure_thresholds", values: { cpu: 50, io: 40, memory: 20 } },
+  ],
+  basis: { cpus: 8, memory_bytes: 17_179_869_184, disk_type: "ssd", psi: true, cpu_pressure: 2.5, io_pressure: 6.1, memory_pressure: 0, load_avg: 2.4, history_runs: 1, limited_ratio: 0.12 },
 };
 
 const engines: S["EngineStatus"] = {
@@ -630,6 +711,8 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
       const runs = [processesRun, filesRun].filter((r) => !kind || r.kind === kind);
       return route.fulfill({ json: { runs } satisfies S["RunPage"] });
     }
+    const cmp = /^\/runs\/([^/]+)\/comparison$/.exec(path);
+    if (cmp) return route.fulfill({ json: comparison(decodeURIComponent(cmp[1] ?? "")) });
     const run = /^\/runs\/([^/]+)$/.exec(path);
     if (run) {
       const detail = runDetails[decodeURIComponent(run[1] ?? "")];
@@ -646,6 +729,7 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
     if (path === "/exceptions") return route.fulfill({ json: exceptions });
     if (path === "/schedules") return route.fulfill({ json: schedules });
     if (path === "/resources") return route.fulfill({ json: resources });
+    if (path === "/resources/suggestion") return route.fulfill({ json: suggestion });
     if (path === "/engines") return route.fulfill({ json: engines });
     if (path === "/inventory/processes") return route.fulfill({ json: processInventory });
     if (path === "/inventory/persistence") return route.fulfill({ json: persistenceInventory });
@@ -680,12 +764,13 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "detalhe da conta", path: "/contas/1001", ready: "Persistência da conta" },
   { name: "achados da conta", path: "/achados?account=1001", ready: "loja (1001)" },
   { name: "execuções", path: "/execucoes", ready: FILES_RUN },
-  { name: "detalhe da execução", path: `/execucoes/${FILES_RUN}`, ready: "clamav" },
+  { name: "detalhe da execução", path: `/execucoes/${FILES_RUN}`, ready: "Comparativo com execuções anteriores" },
+  { name: "execução em andamento", path: `/execucoes/${RUNNING_RUN}`, ready: "Ajustar limites agora" },
   { name: "cobertura", path: "/cobertura", ready: "Última verificação de arquivos" },
   { name: "processos", path: "/processos", ready: "kworkerd" },
   { name: "persistência", path: "/processos?aba=persistencia", ready: "/var/spool/cron/loja" },
   { name: "agendamentos", path: "/agendamentos", ready: "Varredura noturna" },
-  { name: "recursos", path: "/recursos", ready: "noturno" },
+  { name: "recursos", path: "/recursos", ready: "Por que esses valores" },
   { name: "motores", path: "/motores", ready: "Assinaturas com mais de 3 dias" },
   { name: "usuários", path: "/usuarios", ready: "Equipe de suporte" },
   { name: "tokens", path: "/tokens", ready: "Monitoramento Zabbix" },
@@ -728,6 +813,24 @@ for (const scheme of ["light", "dark"] as const) {
       await expect(page.getByText("Contas de hospedagem: UID")).toBeVisible();
       await page.getByRole("button", { name: "Verificar todas as contas" }).click();
       await expect(page.getByRole("dialog", { name: "Verificar todas as contas?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de ajuste de limites em tempo real sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto(`/execucoes/${RUNNING_RUN}`);
+      const cpu = page.getByLabel("CPU (%)");
+      await cpu.fill("50");
+      await page.getByRole("button", { name: "Ajustar limites" }).click();
+      await expect(page.getByRole("dialog", { name: "Ajustar os limites desta execução?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de aplicar a sugestão sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/recursos");
+      await page.getByRole("button", { name: "Aplicar sugestão" }).click();
+      await expect(page.getByRole("dialog", { name: "Aplicar a sugestão como perfil próprio?" })).toBeVisible();
       await expectNoViolations(page);
     });
   });
@@ -798,6 +901,8 @@ const reflow: { path: string; mock?: Mock }[] = [
   { path: "/contas/1001" },
   { path: "/execucoes" },
   { path: `/execucoes/${FILES_RUN}` },
+  { path: `/execucoes/${RUNNING_RUN}` },
+  { path: "/recursos" },
   { path: "/processos" },
   { path: "/auditoria" },
   { path: "/catalogo" },

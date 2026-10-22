@@ -6,6 +6,7 @@ import { CoverageBar } from "../../components/CoverageBar";
 import { formatNumber } from "../../lib/format";
 import { formatBytes, formatDuration, isKnownSkipReason, SKIP_REASONS, skipEntries, skippedTotal } from "./runFormat";
 import { TableScroll } from "../../components/TableScroll";
+import { formatBytes as formatBinary, formatDecimal } from "../config/units";
 
 type EngineCoverage = Schemas["EngineCoverage"];
 
@@ -125,6 +126,17 @@ export function EngineCoverageCard({ engine }: { engine: EngineCoverage }) {
         <dd className="m-0 tabular-nums">{formatBytes(engine.bytes_analyzed, lng)}</dd>
         <dt className="text-ink-muted">{t("runs.engine.time")}</dt>
         <dd className="m-0 tabular-nums">{formatDuration(engine.seconds, lng)}</dd>
+        {engine.files_per_second !== undefined && engine.mb_per_second !== undefined && (
+          <>
+            <dt className="text-ink-muted">{t("runs.engine.throughput")}</dt>
+            <dd className="m-0 tabular-nums">
+              {t("runs.engine.throughputValue", {
+                files: formatDecimal(engine.files_per_second, lng),
+                volume: formatBinary(engine.mb_per_second * (1 << 20), lng),
+              })}
+            </dd>
+          </>
+        )}
       </dl>
       <CoverageBar analyzed={engine.analyzed} eligible={engine.eligible} skipped={skippedTotal(engine.skipped)} />
       {engine.from_cache > 0 && (

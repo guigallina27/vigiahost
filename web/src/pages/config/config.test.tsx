@@ -100,6 +100,9 @@ describe("perfil de recursos", () => {
     max_runtime_sec: 12 * 3600,
     nice: 10,
     max_file_bytes: 0,
+    pressure_cpu: 60,
+    pressure_io: 40,
+    pressure_memory: 0,
   };
 
   it("converte ida e volta entre bytes/segundos e MiB/minutos", () => {
@@ -112,6 +115,7 @@ describe("perfil de recursos", () => {
   it("aponta o campo que não é número", () => {
     expect(buildProfileBody({ ...valuesFromProfile(profile), workers: "dois" })).toEqual({ ok: false, field: "workers" });
     expect(buildProfileBody({ ...valuesFromProfile(profile), nice: "-1" })).toEqual({ ok: false, field: "nice" });
+    expect(buildProfileBody({ ...valuesFromProfile(profile), pressureIo: "alto" })).toEqual({ ok: false, field: "pressureIo" });
   });
 
   it("formata tamanhos e durações", () => {

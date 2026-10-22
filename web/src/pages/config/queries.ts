@@ -15,6 +15,13 @@ export const resourcesQuery = queryOptions({
   queryFn: ({ signal }) => unwrap(api.GET("/api/v1/resources", { signal })),
 });
 
+// Calculada na hora pelo servidor (pressão do momento e histórico); não fica velha por muito tempo.
+export const suggestionQuery = queryOptions({
+  queryKey: ["resources", "suggestion"],
+  queryFn: ({ signal }) => unwrap(api.GET("/api/v1/resources/suggestion", { signal })),
+  staleTime: 30_000,
+});
+
 export const enginesQuery = queryOptions({
   queryKey: ["engines"],
   queryFn: ({ signal }) => unwrap(api.GET("/api/v1/engines", { signal })),
@@ -47,6 +54,8 @@ export function profileLabel(name: string, t: TFunction): string {
       return t("config.profiles.padrao");
     case "intensivo":
       return t("config.profiles.intensivo");
+    case "sugerido":
+      return t("config.profiles.sugerido");
     default:
       return name;
   }

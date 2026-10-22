@@ -36,7 +36,8 @@
       "cores_one": "{{formatted}} núcleo",
       "cores_other": "{{formatted}} núcleos",
       "summary": "CPU até {{cpu}} · memória até {{memory}} · {{workers}} em paralelo",
-      "cores_zero": "{{formatted}} núcleos"
+      "cores_zero": "{{formatted}} núcleos",
+      "sugerido": "Sugerido"
     },
     "filters": {
       "legend": "Filtrar execuções",
@@ -159,7 +160,10 @@
       "cancelTitle": "Cancelar esta execução?",
       "cancelImpact": "A análise para agora e os processos da execução são encerrados. O que já foi analisado e os achados encontrados continuam registrados.",
       "cancelQueuedImpact": "A execução sai da fila e não chega a rodar.",
-      "cancelConfirm": "Cancelar execução"
+      "cancelConfirm": "Cancelar execução",
+      "throttleReduced_one": "Ritmo reduzido pela pressão de {{resource}} do servidor ({{pressure}}): {{count}} leitura em paralelo agora. Volta ao normal sozinho quando a pressão cair.",
+      "throttleReduced_other": "Ritmo reduzido pela pressão de {{resource}} do servidor ({{pressure}}): {{count}} leituras em paralelo agora. Volta ao normal sozinho quando a pressão cair.",
+      "throttlePaused": "Lotes suspensos pela pressão de {{resource}} do servidor ({{pressure}}): a execução retoma sozinha quando a pressão cair."
     },
     "engine": {
       "version": "Versão",
@@ -181,7 +185,9 @@
       "skipCaption": "Motivos de itens fora da análise e quantidade de cada um",
       "reason": "Motivo",
       "count": "Quantidade",
-      "meaning": "O que significa"
+      "meaning": "O que significa",
+      "throughput": "Vazão",
+      "throughputValue": "{{files}} arquivos/s · {{volume}}/s"
     },
     "skip": {
       "excluded": {
@@ -281,6 +287,108 @@
       "processedTargets": "{{processed}} de {{eligible}} alvos analisados",
       "openTotal_zero": "{{formatted}} achados abertos",
       "findings_zero": "{{formatted}} achados"
+    },
+    "resource": {
+      "cpu": "CPU",
+      "io": "E/S",
+      "memory": "memória"
+    },
+    "adjust": {
+      "title": "Ajustar limites agora",
+      "hint": "Vale na hora para esta execução, sem reiniciar. Leituras em paralelo e prioridade valem a partir da próxima execução.",
+      "cpu": "CPU (%)",
+      "cpuHint": "100 = um núcleo inteiro.",
+      "memory": "Memória máxima (MiB)",
+      "memoryHint": "Abaixo do uso atual, o sistema libera cache e, no limite, encerra a execução.",
+      "ioRead": "Leitura de disco (MiB/s)",
+      "ioReadHint": "0 = sem teto de banda.",
+      "ioWeight": "Peso de E/S",
+      "ioWeightHint": "De 1 a 10000.",
+      "noReserve": "Pedir limites acima da reserva do sistema",
+      "noReserveHint": "Disponível porque a configuração local do executor permite. O pedido fica na auditoria.",
+      "submit": "Ajustar limites",
+      "nothing": "Nenhum valor mudou em relação aos limites atuais.",
+      "notNumber": "Informe um número inteiro igual ou maior que zero.",
+      "confirmTitle": "Ajustar os limites desta execução?",
+      "confirmImpact": "Os novos limites valem na hora, sem reiniciar a execução. O executor confere as travas de segurança antes de aplicar.",
+      "changeLine": "{{label}}: {{value}}",
+      "applied": "Limites ajustados.",
+      "refused": "O ajuste foi recusado: {{reason}}"
+    },
+    "adjustments": {
+      "title": "Ajustes de limites",
+      "caption": "Ajustes de limites feitos durante a execução, do mais recente ao mais antigo",
+      "at": "Quando",
+      "actor": "Quem",
+      "cpu": "CPU",
+      "memory": "Memória",
+      "ioRead": "Leitura",
+      "ioWeight": "Peso de E/S",
+      "change": "{{before}} → {{after}}",
+      "noBandwidth": "sem teto"
+    },
+    "performance": {
+      "title": "Desempenho",
+      "empty": "As medidas aparecem quando a execução termina.",
+      "emptyOld": "Sem medidas de desempenho: a execução terminou sem resumo ou antes de o produto medir.",
+      "filesPerSecond": "Arquivos por segundo",
+      "mbPerSecond": "Leitura por segundo",
+      "perSecond": "{{value}}/s",
+      "bytesRead": "Lido do disco",
+      "bytesReadHint": "Arquivos sem mudança, reaproveitados do cache, não são relidos.",
+      "cpu": "CPU consumida",
+      "cpuPerGb": "CPU por GiB lido",
+      "secondsValue": "{{value}} s",
+      "memoryPeak": "Pico de memória",
+      "limited": "Tempo limitado por pressão",
+      "limitedValue": "{{limited}} (pausada {{paused}})",
+      "sourceCgroup": "CPU e memória da unidade inteira (cgroup), incluindo os motores.",
+      "sourceRusage": "Sem cgroup v2: CPU e memória só do processo principal da execução.",
+      "sourceNone": "Consumo de CPU e memória indisponível neste sistema.",
+      "phasesTitle": "Duração por etapa",
+      "phasesCaption": "Duração de cada etapa da execução e parcela do total",
+      "phase": "Etapa",
+      "time": "Duração",
+      "share": "Parcela",
+      "throttleTitle": "Limitação por pressão",
+      "throttle": {
+        "off": "Limitação por pressão desligada no perfil desta execução.",
+        "unavailable": "O kernel não expõe a pressão (PSI): a execução não pôde se limitar.",
+        "none": "A pressão do servidor ficou abaixo dos limiares: o ritmo não precisou mudar."
+      },
+      "eventsCaption": "Mudanças de ritmo por pressão durante a execução",
+      "eventAt": "Quando",
+      "eventAction": "Mudança",
+      "eventResource": "Recurso",
+      "eventPressure": "Pressão",
+      "eventThreshold": "Limiar",
+      "eventWorkers": "Leituras liberadas",
+      "action": {
+        "reduce": "Reduziu o ritmo",
+        "pause": "Pausou os lotes",
+        "raise": "Aumentou o ritmo",
+        "restore": "Voltou ao normal"
+      },
+      "eventsDropped_one": "Mais {{formatted}} mudança não listada.",
+      "eventsDropped_other": "Mais {{formatted}} mudanças não listadas."
+    },
+    "comparison": {
+      "title": "Comparativo com execuções anteriores",
+      "intro": "Esta execução e as últimas terminadas do mesmo tipo, da mais recente para a mais antiga.",
+      "caption": "Desempenho desta execução e das últimas do mesmo tipo",
+      "run": "Execução",
+      "status": "Estado",
+      "profile": "Perfil",
+      "duration": "Duração",
+      "filesPerSecond": "Arquivos/s",
+      "mbPerSecond": "Leitura/s",
+      "cpu": "CPU",
+      "memory": "Pico de memória",
+      "limited": "Limitada",
+      "findings": "Achados",
+      "current": "Esta",
+      "empty": "Ainda não há outras execuções terminadas deste tipo para comparar.",
+      "loadError": "Não foi possível carregar o comparativo: {{cause}}"
     }
   }
 }

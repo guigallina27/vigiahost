@@ -7,7 +7,8 @@
     "profiles": {
       "leve": "Leve",
       "padrao": "Padrão",
-      "intensivo": "Intensivo"
+      "intensivo": "Intensivo",
+      "sugerido": "Sugerido"
     },
     "kinds": {
       "files": "Varredura de arquivos",
@@ -131,7 +132,11 @@
         "runtime": "Tempo máximo",
         "runtimeMin": "Tempo máximo (minutos)",
         "maxFile": "Tamanho máximo por arquivo",
-        "maxFileMiB": "Tamanho máximo por arquivo (MiB)"
+        "maxFileMiB": "Tamanho máximo por arquivo (MiB)",
+        "pressure": "Limitação por pressão",
+        "pressureCpu": "Pressão de CPU (%)",
+        "pressureIo": "Pressão de E/S (%)",
+        "pressureMemory": "Pressão de memória (%)"
       },
       "explain": {
         "cpu": "Soma de núcleos: equivale a até {{cores}} núcleo(s) ocupado(s).",
@@ -142,7 +147,8 @@
         "clamd": "Arquivos enviados ao ClamAV ao mesmo tempo.",
         "nice": "De 0 a 19: quanto maior, mais a execução cede CPU aos outros processos.",
         "runtime": "Passado esse tempo, a execução é encerrada.",
-        "maxFile": "Arquivos maiores ficam fora da análise e aparecem na cobertura."
+        "maxFile": "Arquivos maiores ficam fora da análise e aparecem na cobertura.",
+        "pressure": "Acima desses limiares a execução reduz as leituras em paralelo e, se a pressão continuar, pausa entre lotes até ela cair."
       },
       "noLimit": "Sem limite",
       "perSecond": "{{value}}/s",
@@ -182,7 +188,73 @@
         "confirmNewTitle": "Criar este perfil de recursos?",
         "confirmEditTitle": "Salvar as alterações do perfil?",
         "confirmImpact": "As próximas execuções com este perfil usam os novos limites. Execuções em andamento não mudam.",
-        "cpuHintHw_zero": "Em % de um núcleo: 100 = um núcleo. Este servidor tem {{count}} núcleos ({{max}}%)."
+        "cpuHintHw_zero": "Em % de um núcleo: 100 = um núcleo. Este servidor tem {{count}} núcleos ({{max}}%).",
+        "pressureIntro": "Quando a pressão do servidor passa destes limiares, a varredura diminui o ritmo e retoma sozinha quando ela cai.",
+        "pressureHint": "De 0 a 100. 0 desliga a limitação por este recurso."
+      },
+      "diskHdd": "Rotacional (HDD)",
+      "diskSsd": "SSD",
+      "diskNvme": "NVMe",
+      "pressureNow": "Pressão agora",
+      "pressureNowValue": "CPU {{cpu}} · E/S {{io}} · memória {{memory}}",
+      "pressureNowHint": "Parte do tempo em que algum processo esperou pelo recurso, média dos últimos 10 s.",
+      "pressureUnavailable": "Indisponível: o kernel não expõe a pressão (PSI)",
+      "loadAvg": "Carga média (15 min)",
+      "loadAvgHint": "{{perCore}} por núcleo.",
+      "pressureOff": "Desligada",
+      "pressurePart": "{{resource}} {{value}}%",
+      "resource": {
+        "cpu": "CPU",
+        "io": "E/S",
+        "memory": "memória"
+      },
+      "suggestion": {
+        "title": "Sugestão pelo hardware",
+        "intro": "Calculada a partir dos núcleos, da memória, do tipo de disco, da pressão média dos últimos 5 minutos e das últimas execuções.",
+        "loading": "Calculando a sugestão…",
+        "loadError": "Não foi possível calcular a sugestão: {{cause}}",
+        "refresh": "Recalcular sugestão",
+        "basis": "Base: {{cpus}} núcleos, {{memory}} de memória, disco {{disk}}, carga média de {{load}}.",
+        "basisPsi": "Pressão média de 5 min: CPU {{cpu}}%, E/S {{io}}%, memória {{memory}}%.",
+        "basisNoPsi": "Este kernel não expõe a pressão (PSI).",
+        "history_one": "{{formatted}} execução recente considerada, {{percent}}% do tempo limitada por pressão.",
+        "history_other": "{{formatted}} execuções recentes consideradas, {{percent}}% do tempo limitadas por pressão.",
+        "historyNone": "Ainda não há execuções com medidas de desempenho.",
+        "disk": {
+          "hdd": "rotacional (HDD)",
+          "ssd": "SSD",
+          "nvme": "NVMe"
+        },
+        "limitsTitle": "Limites sugeridos",
+        "reasonsTitle": "Por que esses valores",
+        "pressureValue": "CPU {{cpu}}% · E/S {{io}}% · memória {{memory}}%",
+        "apply": "Aplicar sugestão",
+        "applyHintNew": "Cria o perfil próprio Sugerido.",
+        "applyHintUpdate": "Atualiza o perfil próprio Sugerido.",
+        "applyTitle": "Aplicar a sugestão como perfil próprio?",
+        "applyImpactNew": "Cria o perfil Sugerido com estes limites. Agendamentos e verificações passam a poder usá-lo; nenhum outro perfil muda.",
+        "applyImpactUpdate": "Substitui os limites do perfil Sugerido por estes. As próximas execuções com ele usam os novos valores; as em andamento não mudam.",
+        "applied": "Sugestão aplicada: perfil {{name}} salvo.",
+        "adminOnly": "Só administradores aplicam a sugestão.",
+        "refused": "O servidor recusou a sugestão: {{reason}}. Recalcule e tente de novo.",
+        "reasons": {
+          "cpu_busy": "Servidor ocupado (pressão de CPU de {{pressure}}% e carga de {{load_per_core}} por núcleo): {{share}}% dos {{cpus}} núcleos, até {{quota}}% de CPU.",
+          "cpu_idle": "Servidor folgado (pressão de CPU de {{pressure}}% e carga de {{load_per_core}} por núcleo): {{share}}% dos {{cpus}} núcleos, até {{quota}}% de CPU, sempre com um núcleo livre.",
+          "cpu_normal": "Ocupação moderada (carga de {{load_per_core}} por núcleo): metade dos {{cpus}} núcleos, até {{quota}}% de CPU, com um núcleo livre para o sistema.",
+          "memory_normal": "Memória máxima de {{max}}: {{percent}}% de {{total}}, no máximo 4 GiB.",
+          "memory_small": "Servidor com pouca memória ({{total}}): só {{percent}}%, {{max}}.",
+          "memory_pressure": "Pressão de memória de {{pressure}}%: {{max}} ({{percent}}% da RAM, no máximo 2 GiB).",
+          "disk_hdd": "Disco rotacional: {{workers}} leituras em paralelo, peso de E/S {{io_weight}} e leitura limitada a {{io_read}}/s para não atrasar os sites.",
+          "disk_ssd": "SSD: {{workers}} leituras em paralelo e peso de E/S {{io_weight}}.",
+          "disk_nvme": "NVMe: {{workers}} leituras em paralelo e peso de E/S {{io_weight}}.",
+          "workers_cpu": "Leituras em paralelo limitadas a {{workers}}: mais que isso só disputaria a mesma cota de {{quota}}% de CPU.",
+          "io_busy": "Pressão de E/S de {{pressure}}%: metade das leituras em paralelo ({{workers}}) e peso de E/S {{io_weight}}.",
+          "history_limited": "As últimas execuções ({{runs}}) passaram {{percent}}% do tempo limitadas por pressão: {{workers}} leituras em paralelo.",
+          "nice": "Prioridade (nice) {{nice}}: a varredura cede CPU aos sites quando eles precisam.",
+          "pressure_thresholds": "Limitação por pressão a partir de CPU {{cpu}}%, E/S {{io}}% e memória {{memory}}%, acima da pressão típica do servidor.",
+          "pressure_unavailable": "O kernel não expõe a pressão (PSI): os limiares ficam gravados (CPU {{cpu}}%, E/S {{io}}%, memória {{memory}}%), mas a limitação não age neste servidor.",
+          "unknown": "Critério {{code}} (versão mais nova do servidor)."
+        }
       }
     },
     "engines": {

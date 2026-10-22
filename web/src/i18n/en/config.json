@@ -7,7 +7,8 @@
     "profiles": {
       "leve": "Light",
       "padrao": "Standard",
-      "intensivo": "Intensive"
+      "intensivo": "Intensive",
+      "sugerido": "Suggested"
     },
     "kinds": {
       "files": "File scan",
@@ -131,7 +132,11 @@
         "runtime": "Maximum time",
         "runtimeMin": "Maximum time (minutes)",
         "maxFile": "Maximum file size",
-        "maxFileMiB": "Maximum file size (MiB)"
+        "maxFileMiB": "Maximum file size (MiB)",
+        "pressure": "Pressure throttling",
+        "pressureCpu": "CPU pressure (%)",
+        "pressureIo": "I/O pressure (%)",
+        "pressureMemory": "Memory pressure (%)"
       },
       "explain": {
         "cpu": "Sum of cores: equals up to {{cores}} busy core(s).",
@@ -142,7 +147,8 @@
         "clamd": "Files sent to ClamAV at the same time.",
         "nice": "From 0 to 19: higher means the run yields more CPU to other processes.",
         "runtime": "After this time, the run is stopped.",
-        "maxFile": "Larger files are left out of the analysis and show up in coverage."
+        "maxFile": "Larger files are left out of the analysis and show up in coverage.",
+        "pressure": "Above these thresholds the run reduces parallel reads and, if pressure persists, pauses between batches until it drops."
       },
       "noLimit": "No limit",
       "perSecond": "{{value}}/s",
@@ -182,7 +188,73 @@
         "confirmNewTitle": "Create this resource profile?",
         "confirmEditTitle": "Save the profile changes?",
         "confirmImpact": "Upcoming runs with this profile use the new limits. Runs in progress do not change.",
-        "cpuHintHw_zero": "In % of one core: 100 = one core. This server has {{count}} cores ({{max}}%)."
+        "cpuHintHw_zero": "In % of one core: 100 = one core. This server has {{count}} cores ({{max}}%).",
+        "pressureIntro": "When server pressure goes above these thresholds, the scan slows down and resumes on its own when it drops.",
+        "pressureHint": "From 0 to 100. 0 turns off throttling for this resource."
+      },
+      "diskHdd": "Rotational (HDD)",
+      "diskSsd": "SSD",
+      "diskNvme": "NVMe",
+      "pressureNow": "Pressure now",
+      "pressureNowValue": "CPU {{cpu}} · I/O {{io}} · memory {{memory}}",
+      "pressureNowHint": "Share of time some process waited for the resource, average of the last 10 s.",
+      "pressureUnavailable": "Unavailable: the kernel does not expose pressure (PSI)",
+      "loadAvg": "Load average (15 min)",
+      "loadAvgHint": "{{perCore}} per core.",
+      "pressureOff": "Off",
+      "pressurePart": "{{resource}} {{value}}%",
+      "resource": {
+        "cpu": "CPU",
+        "io": "I/O",
+        "memory": "memory"
+      },
+      "suggestion": {
+        "title": "Hardware-based suggestion",
+        "intro": "Calculated from the cores, memory, disk type, average pressure over the last 5 minutes and the latest runs.",
+        "loading": "Calculating the suggestion…",
+        "loadError": "Could not calculate the suggestion: {{cause}}",
+        "refresh": "Recalculate suggestion",
+        "basis": "Basis: {{cpus}} cores, {{memory}} of memory, {{disk}} disk, load average of {{load}}.",
+        "basisPsi": "5-minute average pressure: CPU {{cpu}}%, I/O {{io}}%, memory {{memory}}%.",
+        "basisNoPsi": "This kernel does not expose pressure (PSI).",
+        "history_one": "{{formatted}} recent run considered, {{percent}}% of the time throttled by pressure.",
+        "history_other": "{{formatted}} recent runs considered, {{percent}}% of the time throttled by pressure.",
+        "historyNone": "There are no runs with performance measurements yet.",
+        "disk": {
+          "hdd": "rotational (HDD)",
+          "ssd": "SSD",
+          "nvme": "NVMe"
+        },
+        "limitsTitle": "Suggested limits",
+        "reasonsTitle": "Why these values",
+        "pressureValue": "CPU {{cpu}}% · I/O {{io}}% · memory {{memory}}%",
+        "apply": "Apply suggestion",
+        "applyHintNew": "Creates the custom Suggested profile.",
+        "applyHintUpdate": "Updates the custom Suggested profile.",
+        "applyTitle": "Apply the suggestion as a custom profile?",
+        "applyImpactNew": "Creates the Suggested profile with these limits. Schedules and scans can use it; no other profile changes.",
+        "applyImpactUpdate": "Replaces the limits of the Suggested profile with these. The next runs with it use the new values; runs in progress do not change.",
+        "applied": "Suggestion applied: profile {{name}} saved.",
+        "adminOnly": "Only administrators apply the suggestion.",
+        "refused": "The server refused the suggestion: {{reason}}. Recalculate and try again.",
+        "reasons": {
+          "cpu_busy": "Busy server (CPU pressure of {{pressure}}% and load of {{load_per_core}} per core): {{share}}% of the {{cpus}} cores, up to {{quota}}% CPU.",
+          "cpu_idle": "Idle server (CPU pressure of {{pressure}}% and load of {{load_per_core}} per core): {{share}}% of the {{cpus}} cores, up to {{quota}}% CPU, always leaving one core free.",
+          "cpu_normal": "Moderate load ({{load_per_core}} per core): half of the {{cpus}} cores, up to {{quota}}% CPU, leaving one core free for the system.",
+          "memory_normal": "Maximum memory of {{max}}: {{percent}}% of {{total}}, at most 4 GiB.",
+          "memory_small": "Server with little memory ({{total}}): only {{percent}}%, {{max}}.",
+          "memory_pressure": "Memory pressure of {{pressure}}%: {{max}} ({{percent}}% of RAM, at most 2 GiB).",
+          "disk_hdd": "Rotational disk: {{workers}} parallel reads, I/O weight {{io_weight}} and reads capped at {{io_read}}/s so sites are not delayed.",
+          "disk_ssd": "SSD: {{workers}} parallel reads and I/O weight {{io_weight}}.",
+          "disk_nvme": "NVMe: {{workers}} parallel reads and I/O weight {{io_weight}}.",
+          "workers_cpu": "Parallel reads capped at {{workers}}: more would only compete for the same {{quota}}% CPU quota.",
+          "io_busy": "I/O pressure of {{pressure}}%: half the parallel reads ({{workers}}) and I/O weight {{io_weight}}.",
+          "history_limited": "The latest runs ({{runs}}) spent {{percent}}% of the time throttled by pressure: {{workers}} parallel reads.",
+          "nice": "Priority (nice) {{nice}}: the scan yields CPU to the sites when they need it.",
+          "pressure_thresholds": "Pressure throttling from CPU {{cpu}}%, I/O {{io}}% and memory {{memory}}%, above the server's typical pressure.",
+          "pressure_unavailable": "The kernel does not expose pressure (PSI): the thresholds are saved (CPU {{cpu}}%, I/O {{io}}%, memory {{memory}}%), but throttling does not act on this server.",
+          "unknown": "Criterion {{code}} (newer server version)."
+        }
       }
     },
     "engines": {

@@ -8,7 +8,7 @@ import { durationSeconds, formatBytes, formatDuration, type Run, type RunKind } 
 
 type ResourceProfile = Schemas["ResourceProfile"];
 
-const PRESETS = ["leve", "padrao", "intensivo"] as const;
+const PRESETS = ["leve", "padrao", "intensivo", "sugerido"] as const;
 
 /** Nome do perfil para exibição: os pré-definidos traduzidos, os personalizados como foram gravados. */
 export function useProfileLabel() {

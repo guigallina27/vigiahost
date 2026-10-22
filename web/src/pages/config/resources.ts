@@ -19,6 +19,9 @@ export type ProfileFormValues = {
   maxRuntimeMin: string;
   nice: string;
   maxFileMiB: string;
+  pressureCpu: string;
+  pressureIo: string;
+  pressureMemory: string;
 };
 
 export function valuesFromProfile(p: ResourceProfile): ProfileFormValues {
@@ -33,6 +36,9 @@ export function valuesFromProfile(p: ResourceProfile): ProfileFormValues {
     maxRuntimeMin: String(Math.round(p.max_runtime_sec / 60)),
     nice: String(p.nice),
     maxFileMiB: String(bytesToMiB(p.max_file_bytes)),
+    pressureCpu: String(p.pressure_cpu ?? 0),
+    pressureIo: String(p.pressure_io ?? 0),
+    pressureMemory: String(p.pressure_memory ?? 0),
   };
 }
 
@@ -51,6 +57,9 @@ export function newProfileValues(base: ResourceProfile | undefined): ProfileForm
         maxRuntimeMin: "720",
         nice: "10",
         maxFileMiB: "0",
+        pressureCpu: "60",
+        pressureIo: "40",
+        pressureMemory: "20",
       };
   return { ...values, name: "" };
 }
@@ -78,6 +87,9 @@ export function buildProfileBody(v: ProfileFormValues): ProfileBuild {
     "maxRuntimeMin",
     "nice",
     "maxFileMiB",
+    "pressureCpu",
+    "pressureIo",
+    "pressureMemory",
   ];
   const n: Partial<Record<keyof ProfileFormValues, number>> = {};
   for (const f of fields) {
@@ -99,6 +111,20 @@ export function buildProfileBody(v: ProfileFormValues): ProfileBuild {
       max_runtime_sec: Math.round(num("maxRuntimeMin") * 60),
       nice: Math.round(num("nice")),
       max_file_bytes: mibToBytes(num("maxFileMiB")),
+      pressure_cpu: Math.round(num("pressureCpu")),
+      pressure_io: Math.round(num("pressureIo")),
+      pressure_memory: Math.round(num("pressureMemory")),
     },
   };
+}
+
+export type PressureLimits = Pick<ResourceProfile, "pressure_cpu" | "pressure_io" | "pressure_memory">;
+
+/** Limiares de pressão ligados, na ordem CPU, E/S, memória (zero ou ausente = desligado). */
+export function pressureParts(p: PressureLimits): { resource: "cpu" | "io" | "memory"; value: number }[] {
+  const parts: { resource: "cpu" | "io" | "memory"; value: number }[] = [];
+  if (p.pressure_cpu) parts.push({ resource: "cpu", value: p.pressure_cpu });
+  if (p.pressure_io) parts.push({ resource: "io", value: p.pressure_io });
+  if (p.pressure_memory) parts.push({ resource: "memory", value: p.pressure_memory });
+  return parts;
 }

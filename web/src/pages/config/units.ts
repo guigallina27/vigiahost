@@ -33,3 +33,13 @@ export function splitDuration(seconds: number): { hours: number; minutes: number
   const total = Math.max(0, Math.round(seconds / 60));
   return { hours: Math.floor(total / 60), minutes: total % 60 };
 }
+
+/** Número com até `digits` casas decimais no idioma ativo ("1,25"). */
+export function formatDecimal(value: number, locale: string, digits = 1): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(value);
+}
+
+/** Valor que já está em porcentagem (pressão PSI: 12.5 → "12,5%"). */
+export function formatPercentValue(value: number, locale: string): string {
+  return `${formatDecimal(value, locale, 1)}%`;
+}

@@ -13,6 +13,19 @@ export function runQuery(runId: string) {
   });
 }
 
+/**
+ * Comparativo com as últimas execuções do mesmo tipo. Fora da chave ["run", id] de propósito: o progresso ao vivo
+ * não precisa refazer o comparativo; o estado na chave faz a consulta voltar quando a execução termina.
+ */
+export function comparisonQuery(runId: string, status: string) {
+  return queryOptions({
+    queryKey: ["run-comparison", runId, status],
+    queryFn: ({ signal }) =>
+      unwrap(api.GET("/api/v1/runs/{runId}/comparison", { params: { path: { runId }, query: { limit: 10 } }, signal })),
+    staleTime: 60_000,
+  });
+}
+
 export const overviewQuery = queryOptions({
   queryKey: ["overview"],
   queryFn: ({ signal }) => unwrap(api.GET("/api/v1/overview", { signal })),

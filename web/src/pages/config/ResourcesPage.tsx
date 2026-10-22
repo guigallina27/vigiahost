@@ -13,8 +13,9 @@ import { formatNumber } from "../../lib/format";
 import { PageHeader } from "../../layout/PageHeader";
 import { ProfileForm } from "./ProfileForm";
 import { profileLabel, resourcesQuery, retryTransient } from "./queries";
-import { newProfileValues, valuesFromProfile, type ProfileEntry, type ResourceProfile } from "./resources";
-import { formatBytes, splitDuration } from "./units";
+import { newProfileValues, pressureParts, valuesFromProfile, type PressureLimits, type ProfileEntry, type ResourceProfile } from "./resources";
+import { SuggestionPanel } from "./SuggestionPanel";
+import { formatBytes, formatDecimal, formatPercentValue, splitDuration } from "./units";
 import { useGuardedAction } from "./useGuardedAction";
 
 type Editing = { mode: "new" } | { mode: "edit"; profile: ResourceProfile } | null;
@@ -70,6 +71,16 @@ export function ResourcesPage() {
             {notice}
           </p>
           <HardwarePanel hardware={q.data.hardware} executorError={q.data.executor_error} />
+          {q.data.hardware && (
+            <SuggestionPanel
+              isAdmin={isAdmin}
+              hasSuggested={names.includes("sugerido")}
+              onApplied={(name) => {
+                setEditing(null);
+                setNotice(t("config.resources.suggestion.applied", { name: profileLabel(name, t) }));
+              }}
+            />
+          )}
 
           {editing && (
             <ProfileForm
@@ -161,7 +172,7 @@ function HardwarePanel({ hardware: hw, executorError }: { hardware: Schemas["Har
         <dl className="m-0 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Item label={t("config.resources.cpus")}>{formatNumber(hw.cpus, lng)}</Item>
           <Item label={t("config.resources.memory")}>{formatBytes(hw.memory_bytes, lng)}</Item>
-          <Item label={t("config.resources.disk")}>{t(hw.rotational ? "config.resources.diskRotational" : "config.resources.diskSolid")}</Item>
+          <Item label={t("config.resources.disk")}>{t(diskKey(hw))}</Item>
           <Item label={t("config.resources.systemd")}>
             <span className="font-mono">{hw.systemd_version || "—"}</span>
           </Item>
@@ -171,9 +182,54 @@ function HardwarePanel({ hardware: hw, executorError }: { hardware: Schemas["Har
           <Item label={t("config.resources.noReserve")} hint={t("config.resources.noReserveHint")}>
             {t(hw.allow_no_reserve ? "config.resources.noReserveAllowed" : "config.resources.noReserveDenied")}
           </Item>
+          <Item label={t("config.resources.pressureNow")} hint={t("config.resources.pressureNowHint")}>
+            {hw.pressure
+              ? t("config.resources.pressureNowValue", {
+                  cpu: formatPercentValue(hw.pressure.cpu.avg10, lng),
+                  io: formatPercentValue(hw.pressure.io.avg10, lng),
+                  memory: formatPercentValue(hw.pressure.memory.avg10, lng),
+                })
+              : t("config.resources.pressureUnavailable")}
+          </Item>
+          {hw.load_avg !== undefined && (
+            <Item
+              label={t("config.resources.loadAvg")}
+              hint={t("config.resources.loadAvgHint", { perCore: formatDecimal(hw.load_avg / Math.max(hw.cpus, 1), lng, 2) })}
+            >
+              {formatDecimal(hw.load_avg, lng, 2)}
+            </Item>
+          )}
         </dl>
       )}
     </Panel>
+  );
+}
+
+/** Chave do tipo de disco: o informado pelo executor ou, em executores antigos, o deduzido de "rotacional". */
+export function diskKey(hw: Pick<Schemas["Hardware"], "disk_type" | "rotational">) {
+  switch (hw.disk_type) {
+    case "hdd":
+      return "config.resources.diskHdd" as const;
+    case "nvme":
+      return "config.resources.diskNvme" as const;
+    case "ssd":
+      return "config.resources.diskSsd" as const;
+    default:
+      return hw.rotational ? ("config.resources.diskRotational" as const) : ("config.resources.diskSolid" as const);
+  }
+}
+
+/** Limiares de pressão do perfil em texto ("CPU 60% · E/S 40%") ou "Desligada". */
+export function PressureText({ profile }: { profile: PressureLimits }) {
+  const { t, i18n } = useTranslation();
+  const parts = pressureParts(profile);
+  if (parts.length === 0) return <>{t("config.resources.pressureOff")}</>;
+  return (
+    <>
+      {parts
+        .map((p) => t("config.resources.pressurePart", { resource: t(`config.resources.resource.${p.resource}`), value: formatNumber(p.value, i18n.language) }))
+        .join(" · ")}
+    </>
   );
 }
 
@@ -243,6 +299,9 @@ function ProfileCard({
         </Item>
         <Item label={t("config.resources.limits.maxFile")} hint={t("config.resources.explain.maxFile")}>
           {p.max_file_bytes > 0 ? formatBytes(p.max_file_bytes, lng) : t("config.resources.noLimit")}
+        </Item>
+        <Item label={t("config.resources.limits.pressure")} hint={t("config.resources.explain.pressure")}>
+          <PressureText profile={p} />
         </Item>
       </dl>
       {isAdmin && (

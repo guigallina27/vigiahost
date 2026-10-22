@@ -18,7 +18,9 @@ import { accountHref } from "../accounts/accounts";
 import { accountsQuery } from "../accounts/queries";
 import { SafeText } from "../inventory/SafeText";
 import { DurationText, KindLabel, OriginText, PhaseText, RunStatus, useProfileLabel, useProfileSummary } from "./RunBits";
+import { AdjustLimitsForm } from "./AdjustLimitsForm";
 import { EngineCoverageCard, SkipReasonTable } from "./RunCoverage";
+import { AdjustmentsPanel, ComparisonPanel, PerformancePanel, ThrottleNote } from "./RunPerformance";
 import { resourcesQuery, runQuery } from "./queries";
 import { formatBytes, isActive, runActions, skipEntries, toDate, type Run } from "./runFormat";
 
@@ -116,6 +118,7 @@ function RunDetailView({ detail }: { detail: RunDetail }) {
             {t("runs.detail.pausedNote")}
           </p>
         )}
+        <ThrottleNote run={run} />
         {errorText && (
           <div className="flex gap-2 rounded-control border border-(--vh-critical-fg) bg-(--vh-critical-bg) p-3 text-(--vh-critical-fg)">
             <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
@@ -163,6 +166,10 @@ function RunDetailView({ detail }: { detail: RunDetail }) {
             <SkipReasonTable skipped={run.summary?.skipped} />
           </Panel>
         )}
+
+        {!active && <PerformancePanel run={run} />}
+        <AdjustmentsPanel run={run} />
+        {run.status !== "queued" && run.status !== "reserved" && <ComparisonPanel run={run} />}
 
         {run.kind === "files" && run.accounts && run.accounts.length > 0 && <AccountsPanel uids={run.accounts} />}
         {run.kind === "files" && <PathsPanel run={run} />}
@@ -357,6 +364,7 @@ function callAction(runId: string, input: ActionInput) {
 function ActionsPanel({ run }: { run: Run }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const { isAdmin } = useCurrentUser();
   const profileLabel = useProfileLabel();
   const resources = useQuery(resourcesQuery);
   const [busy, setBusy] = useState(false);
@@ -438,6 +446,18 @@ function ActionsPanel({ run }: { run: Run }) {
             {t("runs.detail.applyLimits")}
           </Button>
         </form>
+      )}
+
+      {isAdmin && actions.includes("limits") && (
+        <AdjustLimitsForm
+          key={`${run.profile.cpu_quota_percent}-${run.profile.memory_max_bytes}-${run.profile.io_read_bytes_per_sec}-${run.profile.io_weight}`}
+          run={run}
+          allowNoReserve={resources.data?.hardware?.allow_no_reserve ?? false}
+          onDone={(msg) => {
+            setError(null);
+            setNotice(msg);
+          }}
+        />
       )}
 
       <FormError message={error} />

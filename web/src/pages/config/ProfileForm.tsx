@@ -134,6 +134,15 @@ export function ProfileForm({ editingName, initial, hardware, existingNames, onD
           <Field {...numeric} label={t("config.resources.limits.runtimeMin")} hint={t("config.resources.form.runtimeHint")} value={values.maxRuntimeMin} onChange={(e) => set("maxRuntimeMin", e.target.value)} error={err("maxRuntimeMin")} />
           <Field {...numeric} label={t("config.resources.limits.maxFileMiB")} hint={t("config.resources.form.maxFileHint")} value={values.maxFileMiB} onChange={(e) => set("maxFileMiB", e.target.value)} error={err("maxFileMiB")} />
         </div>
+        <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0">
+          <legend className="mb-1 p-0 text-base font-semibold">{t("config.resources.limits.pressure")}</legend>
+          <p className="m-0 text-sm text-ink-muted">{t("config.resources.form.pressureIntro")}</p>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field {...numeric} label={t("config.resources.limits.pressureCpu")} hint={t("config.resources.form.pressureHint")} value={values.pressureCpu} onChange={(e) => set("pressureCpu", e.target.value)} error={err("pressureCpu")} />
+            <Field {...numeric} label={t("config.resources.limits.pressureIo")} hint={t("config.resources.form.pressureHint")} value={values.pressureIo} onChange={(e) => set("pressureIo", e.target.value)} error={err("pressureIo")} />
+            <Field {...numeric} label={t("config.resources.limits.pressureMemory")} hint={t("config.resources.form.pressureHint")} value={values.pressureMemory} onChange={(e) => set("pressureMemory", e.target.value)} error={err("pressureMemory")} />
+          </div>
+        </fieldset>
         <div className="flex flex-wrap justify-end gap-2">
           <Button variant="secondary" onClick={onCancel}>
             {t("config.resources.form.cancel")}
