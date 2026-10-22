@@ -1,0 +1,62 @@
+# Pacotes DEB e RPM do VigiaHost. Variáveis vindas do Makefile: VERSION, GOARCH, MAINTAINER.
+name: vigiahost
+arch: ${GOARCH}
+platform: linux
+version: ${VERSION}
+version_schema: semver
+section: admin
+priority: optional
+maintainer: ${MAINTAINER}
+vendor: VigiaHost
+homepage: https://github.com/guigallina27/vigiahost
+license: GPL-3.0-only
+description: |
+  Plataforma de segurança para servidores Linux.
+  Reúne varredura de malware, integridade, inspeção de processos e persistência,
+  agendamentos e alertas em uma interface web própria.
+
+contents:
+  - src: dist/stage/vigiahost
+    dst: /usr/bin/vigiahost
+    file_info:
+      mode: 0755
+  - src: dist/stage/vigiahost-executor
+    dst: /usr/libexec/vigiahost/vigiahost-executor
+    file_info:
+      mode: 0755
+  - src: packaging/systemd/vigiahost-core.service
+    dst: /usr/lib/systemd/system/vigiahost-core.service
+    file_info:
+      mode: 0644
+  - src: packaging/systemd/vigiahost-executor.service
+    dst: /usr/lib/systemd/system/vigiahost-executor.service
+    file_info:
+      mode: 0644
+  - src: packaging/sysusers/vigiahost.conf
+    dst: /usr/lib/sysusers.d/vigiahost.conf
+    file_info:
+      mode: 0644
+  - src: LICENSE
+    dst: /usr/share/doc/vigiahost/copyright
+    packager: deb
+    file_info:
+      mode: 0644
+  - src: LICENSE
+    dst: /usr/share/licenses/vigiahost/LICENSE
+    packager: rpm
+    file_info:
+      mode: 0644
+    type: license
+
+scripts:
+  postinstall: packaging/scripts/postinstall.sh
+  preremove: packaging/scripts/preremove.sh
+  postremove: packaging/scripts/postremove.sh
+
+rpm:
+  summary: Plataforma de segurança para servidores Linux
+  group: System Environment/Daemons
+  compression: zstd
+
+deb:
+  compression: zstd

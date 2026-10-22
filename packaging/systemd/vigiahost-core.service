@@ -1,0 +1,47 @@
+[Unit]
+Description=VigiaHost - serviço web e API
+Documentation=https://github.com/guigallina27/vigiahost
+After=network.target vigiahost-executor.service
+Wants=vigiahost-executor.service
+
+[Service]
+Type=notify
+User=vigiahost
+Group=vigiahost
+ExecStart=/usr/bin/vigiahost serve
+StateDirectory=vigiahost
+StateDirectoryMode=0700
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+# Sem privilégios: tudo que exige root passa pelo executor.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+# Chamada bloqueada devolve erro em vez de matar o processo (o runtime do Go tenta ajustar limites ao iniciar).
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

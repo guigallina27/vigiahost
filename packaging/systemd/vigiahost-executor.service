@@ -1,0 +1,39 @@
+[Unit]
+Description=VigiaHost - executor privilegiado
+Documentation=https://github.com/guigallina27/vigiahost
+After=local-fs.target
+
+[Service]
+Type=notify
+ExecStart=/usr/libexec/vigiahost/vigiahost-executor --socket /run/vigiahost-executor/executor.sock --allow-user vigiahost --socket-group vigiahost
+RuntimeDirectory=vigiahost-executor
+RuntimeDirectoryMode=0755
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+# Roda como root porque precisará ler arquivos de todas as contas e agir sobre eles (Fase 1A em diante).
+# Por isso não usa PrivateTmp nem ProtectHome. As restrições abaixo valem desde já e serão revistas
+# operação a operação, sempre registradas em ADR. Fase 0: só precisa entregar o socket ao grupo do core.
+CapabilityBoundingSet=CAP_CHOWN
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target
