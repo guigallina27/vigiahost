@@ -2,7 +2,7 @@
 // (core em http://127.0.0.1:8743, executor root, ClamAV e YARA-X reais). Percorre a API como a interface faria:
 // primeiro acesso com o token do terminal e a caixa "não sou um robô" (ALTCHA), segundo fator TOTP, varreduras de
 // arquivos (completa e incremental) sobre os corpus, inspeção de processos com um processo sem arquivo (memfd),
-// ciclo de vida do achado, exceção com reautenticação, agendamento, cópia do banco, token de API e auditoria.
+// ciclo de vida do achado, verificação por conta, exceção com reautenticação, agendamento, cópia do banco, token de API e auditoria.
 //
 // Repetível: na primeira execução cria o administrador e2e-admin e grava usuário, senha, segredo TOTP e códigos de
 // recuperação em /root/.vigiahost-e2e.json (0600); nas seguintes, com o banco já tendo usuários, reusa esse arquivo.
@@ -10,7 +10,7 @@
 //
 // Use por test/lab/test-e2e.sh, que compila este programa, sobe o processo de teste memfd e chama:
 //
-//	e2e -memfd-pid PID [-base URL] [-creds ARQUIVO] [-corpus DIR] [-run-timeout 15m] [-mode auto|setup|reuse] [-essential-only]
+//	e2e -memfd-pid PID [-scale-count 500] [-base URL] [-creds ARQUIVO] [-corpus DIR] [-run-timeout 15m] [-mode auto|setup|reuse] [-essential-only]
 package main
 
 import (
@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/user"
 	"path"
 	"path/filepath"
 	"sort"
@@ -69,6 +70,10 @@ type config struct {
 	corpus          string
 	runTimeout      time.Duration
 	memfdPID        int
+	account         string
+	newAccount      string
+	scalePrefix     string
+	scaleCount      int
 	essentialOnly   bool
 	mode            string
 }
@@ -139,6 +144,10 @@ func main() {
 	flag.StringVar(&cfg.corpus, "corpus", "/var/tmp/corpus", "diretório com positivos/ e benigno/")
 	flag.DurationVar(&cfg.runTimeout, "run-timeout", 15*time.Minute, "prazo de cada execução (varredura ou inspeção)")
 	flag.IntVar(&cfg.memfdPID, "memfd-pid", 0, "PID do processo de teste que roda de memfd (test/lab/memfdrun)")
+	flag.StringVar(&cfg.account, "account", "vh-e2e-conta", "conta de hospedagem de teste para a verificação por conta")
+	flag.StringVar(&cfg.newAccount, "new-account", "vh-e2e-nova", "conta criada pelo roteiro nesta execução (cópias do skel não viram achado)")
+	flag.StringVar(&cfg.scalePrefix, "scale-prefix", "vh-carga-", "prefixo das contas de carga (nome = prefixo + número de 3 dígitos)")
+	flag.IntVar(&cfg.scaleCount, "scale-count", 0, "quantas contas de carga conferir (0 pula a etapa; test-e2e.sh repassa VH_E2E_ACCOUNTS)")
 	flag.BoolVar(&cfg.essentialOnly, "essential-only", false,
 		"exige só o EICAR e o marcador.txt; as demais detecções do manifesto viram aviso")
 	flag.StringVar(&cfg.mode, "mode", "auto",
@@ -169,6 +178,10 @@ func main() {
 	t.stepIncremental(sr)
 	t.stepProcesses()
 	t.stepFindingLifecycle(sr)
+	t.stepAccount()
+	if cfg.scaleCount > 0 {
+		t.stepAccountScale()
+	}
 	t.stepSchedule(ben)
 	t.stepBackup()
 	t.stepAPIToken()
@@ -214,7 +227,8 @@ func (t *tester) send(method, p string, body any, o reqOpts) response {
 	if o.bearer != "" {
 		req.Header.Set("Authorization", "Bearer "+o.bearer)
 	} else if t.cookie != "" {
-		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: t.cookie})
+		// Cookie de pedido: Secure, HttpOnly e SameSite são atributos da resposta do servidor, não do cliente.
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: t.cookie}) //nolint:gosec // G124 não se aplica ao cliente
 	}
 	if o.idem != "" {
 		req.Header.Set("Idempotency-Key", o.idem)
@@ -306,7 +320,7 @@ func (t *tester) get(p string, out any) {
 // Credenciais, TOTP e ALTCHA
 
 func (t *tester) saveCreds() {
-	b, err := json.MarshalIndent(t.creds, "", "  ")
+	b, err := json.MarshalIndent(t.creds, "", "  ") //nolint:gosec // G117: credenciais do teste gravadas de propósito em arquivo 0600 do root
 	if err != nil {
 		fatalf("credenciais não serializadas: %v", err)
 	}
@@ -1117,6 +1131,32 @@ func (t *tester) stepProcesses() {
 		fatalf("a inspeção %s não acusou %s para o processo de teste PID %d (%d achados na execução)", run.Id, sigMemfd,
 			pid, len(findings))
 	}
+
+	// Conta recém-criada (test-e2e.sh recria a cada execução): os arquivos de shell copiados de /etc/skel entram no
+	// inventário como novos, mas não viram achado.
+	if u, err := user.Lookup(t.cfg.newAccount); err == nil {
+		home := u.HomeDir + "/"
+		var added int
+		for _, it := range pers.Items {
+			if it.Kind == "shell-init" && strings.HasPrefix(it.Path, home) && it.Change != nil && *it.Change == "added" {
+				added++
+			}
+		}
+		for _, f := range findings {
+			if f.Persistence != nil && strings.HasPrefix(f.Persistence.Path, home) {
+				fatalf("a cópia de /etc/skel na conta nova %s virou achado %d (%s em %s)", t.cfg.newAccount, f.Id, f.Signature,
+					f.Persistence.Path)
+			}
+		}
+		if pers.Baseline {
+			info("inventário de persistência é a linha de base: a conta nova %s não aparece como adicionada", t.cfg.newAccount)
+		} else if added == 0 {
+			fatalf("os arquivos de shell da conta nova %s não aparecem como adicionados no inventário", t.cfg.newAccount)
+		} else {
+			info("conta nova %s: %d arquivo(s) de shell idêntico(s) a /etc/skel no inventário como adicionados, sem achado",
+				t.cfg.newAccount, added)
+		}
+	}
 	ok("inspeção de processos %s concluída: %d processos, %d itens de persistência em %d tipos (linha de base=%v); "+
 		"execução sem arquivo acusada (%s, severidade %s, achado %d)", run.Id, len(inv.Processes), len(pers.Items),
 		len(kinds), pers.Baseline, sigMemfd, memfdFinding.Severity, memfdFinding.Id)
@@ -1235,6 +1275,246 @@ func (t *tester) stepFindingLifecycle(sr scanResult) {
 	t.transition(id, "new", e2eTag+": fim do teste da exceção")
 	ok("exceção por hash %d com reautenticação: achado %d do EICAR virou excepted; exceção revogada e achado devolvido a new",
 		exc.Id, id)
+}
+
+// stepAccount verifica uma conta de teste: o escopo é o diretório pessoal mais os arquivos do UID em /tmp, /var/tmp e
+// /dev/shm. Planta o marcador inerte (com um sufixo novo a cada execução, para virar achado novo) no diretório pessoal
+// e em /var/tmp com o dono da conta, e um terceiro em /var/tmp com dono root, que não pode entrar na verificação.
+func (t *tester) stepAccount() {
+	name := t.cfg.account
+	u, err := user.Lookup(name)
+	if err != nil {
+		fatalf("conta de teste %s não existe (test/lab/test-e2e.sh cria): %v", name, err)
+	}
+	uid64, _ := strconv.ParseInt(u.Uid, 10, 64)
+	uid, gid := int(uid64), 0
+	if g, err := strconv.Atoi(u.Gid); err == nil {
+		gid = g
+	}
+
+	// A lista de contas do core fica em cache por até 1 minuto: espera a conta aparecer.
+	var acc *api.Account
+	for deadline := time.Now().Add(90 * time.Second); acc == nil; {
+		var list api.AccountList
+		t.get("/api/v1/accounts", &list)
+		for i := range list.Accounts {
+			if list.Accounts[i].Uid == uid64 {
+				acc = &list.Accounts[i]
+			}
+		}
+		if acc == nil {
+			if time.Now().After(deadline) {
+				fatalf("conta %s (UID %d) não aparece em /api/v1/accounts (faixa %d..%d)", name, uid64, list.UidMin, list.UidMax)
+			}
+			time.Sleep(5 * time.Second)
+		}
+	}
+	if acc.Name != name || acc.System || !acc.HomeOk || acc.Home != u.HomeDir {
+		fatalf("conta %s listada com dados inesperados: %+v", name, *acc)
+	}
+
+	plant := func(p string, owner, group int) {
+		data := fmt.Sprintf("VIGIAHOST-CONTROLE-POSITIVO-INERTE-7f3c9a1e %s %s\n", e2eTag, randHex(8))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			fatalf("criar %s: %v", filepath.Dir(p), err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o640); err != nil {
+			fatalf("criar %s: %v", p, err)
+		}
+		if err := os.Chown(p, owner, group); err != nil {
+			fatalf("dono de %s: %v", p, err)
+		}
+	}
+	webDir := filepath.Join(u.HomeDir, "public_html")
+	nonce := randHex(4)
+	homeFile := filepath.Join(webDir, "vh-e2e-"+nonce+".txt")
+	tmpFile := "/var/tmp/vh-e2e-conta-" + nonce + ".txt"
+	rootFile := "/var/tmp/vh-e2e-root-" + nonce + ".txt"
+	defer func() {
+		for _, p := range []string{homeFile, tmpFile, rootFile} {
+			_ = os.Remove(p)
+		}
+	}()
+	plant(homeFile, uid, gid)
+	_ = os.Chown(webDir, uid, gid)
+	plant(tmpFile, uid, gid)
+	plant(rootFile, 0, 0)
+
+	body := api.RunCreate{Kind: "files", Accounts: &api.AccountSelection{Uids: &[]int64{uid64}}, Profile: ptrTo(profileName),
+		Incremental: ptrTo(false)}
+	run := t.createRun(body, "verificação da conta")
+	if run.Accounts == nil || len(*run.Accounts) != 1 || (*run.Accounts)[0] != uid64 {
+		fatalf("verificação da conta %s criada sem a conta (%v)", name, run.Accounts)
+	}
+	wantPaths := map[string]bool{u.HomeDir: false, "/tmp": false, "/var/tmp": false, "/dev/shm": false}
+	for _, p := range run.Paths {
+		if _, ok := wantPaths[p]; ok {
+			wantPaths[p] = true
+		}
+	}
+	for p, seen := range wantPaths {
+		if !seen {
+			fatalf("verificação da conta %s sem o caminho %s no escopo (%v)", name, p, run.Paths)
+		}
+	}
+	d := t.waitRun(run.Id, "verificação da conta")
+	requireCompleted(d, "verificação da conta")
+	checkFilesCoverage(d, "verificação da conta")
+
+	// Os dois arquivos da conta precisam aparecer; o de root e o corpus (root, em /var/tmp) não.
+	found := map[string]int64{}
+	var outside []string
+	for _, f := range t.runFindings(run.Id) {
+		for _, l := range t.finding(f.Id).Locations {
+			p := locPath(l)
+			switch {
+			case p == homeFile || p == tmpFile:
+				found[p] = f.Id
+			case strings.HasPrefix(p, u.HomeDir+"/"):
+			default:
+				outside = append(outside, fmt.Sprintf("%q (achado %d, %s %s)", p, f.Id, f.Engine, f.Signature))
+			}
+		}
+	}
+	if len(outside) > 0 {
+		sort.Strings(outside)
+		fatalf("verificação da conta %s pegou arquivos de outro dono:\n  %s", name, strings.Join(outside, "\n  "))
+	}
+	for _, p := range []string{homeFile, tmpFile} {
+		if found[p] == 0 {
+			fatalf("verificação da conta %s não detectou o marcador em %s", name, p)
+		}
+	}
+
+	// Atribuição: a conta passa a ter achados abertos, a última verificação e os filtros por conta.
+	var after api.Account
+	t.get("/api/v1/accounts/"+u.Uid, &after)
+	if after.OpenFindings.Total < 2 || after.LastRun == nil || after.LastRun.Id != run.Id {
+		fatalf("conta %s depois da verificação: %d achados abertos, última verificação %v", name, after.OpenFindings.Total,
+			after.LastRun)
+	}
+	var fp api.FindingPage
+	t.get("/api/v1/findings?limit=500&account="+u.Uid, &fp)
+	inFilter := map[int64]bool{}
+	for _, f := range fp.Findings {
+		inFilter[f.Id] = true
+	}
+	var rp api.RunPage
+	t.get("/api/v1/runs?account="+u.Uid, &rp)
+	if !inFilter[found[homeFile]] || !inFilter[found[tmpFile]] || len(rp.Runs) == 0 || rp.Runs[0].Id != run.Id {
+		fatalf("filtros por conta incompletos: achados %v, execuções %d", inFilter, len(rp.Runs))
+	}
+
+	note := e2eTag + ": marcador da verificação por conta removido"
+	for _, id := range found {
+		t.transition(id, "resolved", note)
+	}
+	ok("verificação da conta %s (UID %d) %s: marcador detectado no diretório pessoal e no arquivo da conta em /var/tmp; "+
+		"arquivo de root em /var/tmp e corpus fora do escopo; achados e execução atribuídos à conta e resolvidos no fim",
+		name, uid64, run.Id)
+}
+
+// stepAccountScale cobre o critério de saída da Fase 1B (escopo por conta correto com 500 contas): lista as contas de
+// carga criadas por test/lab/test-e2e.sh (prefixo + número), planta o marcador no diretório pessoal de algumas, roda
+// "verificar todas as contas" e confere que cada achado foi atribuído só à conta dona do arquivo.
+func (t *tester) stepAccountScale() {
+	prefix, n := t.cfg.scalePrefix, t.cfg.scaleCount
+	start := time.Now()
+	var list api.AccountList
+	t.get("/api/v1/accounts", &list)
+	listTime := time.Since(start)
+	byName := map[string]api.Account{}
+	for _, a := range list.Accounts {
+		byName[a.Name] = a
+	}
+	var load []api.Account
+	for i := 1; i <= n; i++ {
+		a, found := byName[fmt.Sprintf("%s%03d", prefix, i)]
+		if !found {
+			fatalf("conta de carga %s%03d não aparece em /api/v1/accounts (%d contas listadas)", prefix, i, len(list.Accounts))
+		}
+		load = append(load, a)
+	}
+	if listTime > 2*time.Second {
+		fatalf("lista de %d contas levou %s (meta: até 2 s)", len(list.Accounts), listTime.Round(time.Millisecond))
+	}
+
+	// Marcador em 5 contas espalhadas pela faixa; as demais ficam limpas.
+	marked := map[int64]string{}
+	for _, i := range []int{0, n / 4, n / 2, 3 * n / 4, n - 1} {
+		a := load[i]
+		p := filepath.Join(a.Home, "public_html", "vh-carga-"+randHex(4)+".php")
+		data := fmt.Sprintf("<?php // VIGIAHOST-CONTROLE-POSITIVO-INERTE-7f3c9a1e %s %s\n", e2eTag, randHex(8))
+		if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
+			fatalf("criar %s: %v", filepath.Dir(p), err)
+		}
+		if err := os.WriteFile(p, []byte(data), 0o640); err != nil {
+			fatalf("criar %s: %v", p, err)
+		}
+		_ = os.Chown(filepath.Dir(p), int(a.Uid), -1)
+		_ = os.Chown(p, int(a.Uid), -1)
+		marked[a.Uid] = p
+	}
+	defer func() {
+		for _, p := range marked {
+			_ = os.Remove(p)
+		}
+	}()
+
+	body := api.RunCreate{Kind: "files", Accounts: &api.AccountSelection{All: ptrTo(true)}, Profile: ptrTo(profileName),
+		Incremental: ptrTo(false)}
+	run := t.createRun(body, "verificação de todas as contas")
+	if run.Accounts == nil || len(*run.Accounts) < n {
+		fatalf("verificação de todas as contas cobriu %v contas (esperado ao menos %d)", run.Accounts, n)
+	}
+	d := t.waitRun(run.Id, "verificação de todas as contas")
+	requireCompleted(d, "verificação de todas as contas")
+	checkFilesCoverage(d, "verificação de todas as contas")
+
+	ids := map[int64]int64{} // UID → achado do marcador
+	for _, f := range t.runFindings(run.Id) {
+		for _, l := range t.finding(f.Id).Locations {
+			for uid, p := range marked {
+				if locPath(l) == p {
+					ids[uid] = f.Id
+				}
+			}
+		}
+	}
+	for uid, p := range marked {
+		if ids[uid] == 0 {
+			fatalf("verificação de todas as contas não detectou o marcador em %s", p)
+		}
+	}
+	// Atribuição: cada conta marcada vê só o próprio achado; uma conta limpa não vê nenhum deles.
+	clean := load[1]
+	for _, a := range []api.Account{load[0], load[n/2], clean} {
+		var fp api.FindingPage
+		t.get(fmt.Sprintf("/api/v1/findings?limit=500&account=%d", a.Uid), &fp)
+		for _, f := range fp.Findings {
+			for uid, id := range ids {
+				if f.Id == id && uid != a.Uid {
+					fatalf("achado %d do marcador da conta UID %d atribuído também à conta %s", id, uid, a.Name)
+				}
+			}
+		}
+		if _, isMarked := marked[a.Uid]; isMarked {
+			var own bool
+			for _, f := range fp.Findings {
+				own = own || f.Id == ids[a.Uid]
+			}
+			if !own {
+				fatalf("conta %s sem o próprio achado %d no filtro por conta", a.Name, ids[a.Uid])
+			}
+		}
+	}
+	note := e2eTag + ": marcador da verificação de carga removido"
+	for _, id := range ids {
+		t.transition(id, "resolved", note)
+	}
+	ok("%d contas de carga listadas em %s; verificação de todas as contas %s (%d contas, %d arquivos vistos): marcador "+
+		"detectado nas %d contas marcadas e atribuído só a cada dona; achados resolvidos no fim", len(load),
+		listTime.Round(time.Millisecond), run.Id, len(*run.Accounts), d.Run.FilesSeen, len(marked))
 }
 
 func (t *tester) stepSchedule(ben string) {

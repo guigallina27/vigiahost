@@ -42,7 +42,7 @@
 | Processo qualquer falando com o executor | Socket `0660 root:vigiahost` | Implementado e testado |
 | Usuário incluído no grupo indevidamente | Política por UID via `SO_PEERCRED`, recusa registrada no journal | Implementado e testado |
 | Core comprometido pedindo operação arbitrária | Só operações tipadas registradas; desconhecidas recusadas | Implementado e testado |
-| Mensagem gigante ou malformada | Limite de 64 KiB, conexão encerrada, *fuzzing* do decodificador | Implementado e testado |
+| Mensagem gigante ou malformada | Limite de 2 MiB por pedido lido pelo executor (as respostas, lidas pelo core, vão até 16 MiB), conexão encerrada, *fuzzing* do decodificador | Implementado e testado |
 | Versões incompatíveis após atualização parcial | *Handshake* com versão do protocolo | Implementado e testado |
 | Vazamento de detalhes internos ao core | Erro interno sem detalhes; detalhes só no journal | Implementado e testado |
 | Caminhos fora do escopo nas operações | Política de caminhos com `openat2`/`os.Root` no executor | Planejado (1A) |

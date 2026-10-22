@@ -100,7 +100,7 @@ func (s *Server) ServeConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 	log := s.Logger.With("pid", cred.PID, "uid", cred.UID)
-	codec := ipc.NewCodec(conn)
+	codec := ipc.NewServerCodec(conn)
 
 	if err := s.Policy.Authorize(cred); err != nil {
 		log.Warn("conexão recusada pela política", "motivo", err.Error())

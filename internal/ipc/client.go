@@ -35,7 +35,7 @@ func Dial(ctx context.Context, socketPath string, local Hello) (*Client, error) 
 
 // NewClient usa uma conexão já aberta; o handshake ainda precisa ser feito.
 func NewClient(conn net.Conn) *Client {
-	return &Client{conn: conn, codec: NewCodec(conn)}
+	return &Client{conn: conn, codec: NewClientCodec(conn)}
 }
 
 func (c *Client) Handshake(ctx context.Context, local Hello) error {

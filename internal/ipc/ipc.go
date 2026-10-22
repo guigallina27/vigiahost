@@ -11,8 +11,13 @@ import (
 	"io"
 )
 
-// MaxMessageSize limita cada mensagem para que um cliente comprometido não esgote a memória do executor.
-const MaxMessageSize = 64 << 10
+// Limites por sentido. MaxRequestSize protege a memória do executor contra um cliente comprometido e cabe um
+// run.start com milhares de contas (um caminho e um UID por conta). MaxResponseSize vale para o que o core lê do
+// executor, que é root e confiável, e cabe a lista de contas de um servidor grande (dezenas de milhares).
+const (
+	MaxRequestSize  = 2 << 20
+	MaxResponseSize = 16 << 20
+)
 
 // Op identifica uma operação tipada aceita pelo executor.
 type Op string
@@ -32,7 +37,7 @@ const (
 	CodeInternal             = "internal"
 )
 
-// ErrMessageTooLarge indica mensagem acima de MaxMessageSize; a conexão deve ser encerrada.
+// ErrMessageTooLarge indica mensagem acima do limite do sentido; a conexão deve ser encerrada.
 var ErrMessageTooLarge = errors.New("mensagem acima do limite do protocolo")
 
 type Request struct {
@@ -77,12 +82,23 @@ func Compatible(local, remote Hello) error {
 
 // Codec lê e escreve mensagens delimitadas por nova linha.
 type Codec struct {
-	r *bufio.Reader
-	w io.Writer
+	r        *bufio.Reader
+	w        io.Writer
+	readMax  int
+	writeMax int
 }
 
-func NewCodec(rw io.ReadWriter) *Codec {
-	return &Codec{r: bufio.NewReaderSize(rw, 4096), w: rw}
+// NewCodec usa MaxRequestSize nos dois sentidos.
+func NewCodec(rw io.ReadWriter) *Codec { return newCodec(rw, MaxRequestSize, MaxRequestSize) }
+
+// NewServerCodec é o lado do executor: lê pedidos e escreve respostas.
+func NewServerCodec(rw io.ReadWriter) *Codec { return newCodec(rw, MaxRequestSize, MaxResponseSize) }
+
+// NewClientCodec é o lado do core: escreve pedidos e lê respostas.
+func NewClientCodec(rw io.ReadWriter) *Codec { return newCodec(rw, MaxResponseSize, MaxRequestSize) }
+
+func newCodec(rw io.ReadWriter, readMax, writeMax int) *Codec {
+	return &Codec{r: bufio.NewReaderSize(rw, 64<<10), w: rw, readMax: readMax, writeMax: writeMax}
 }
 
 // Read decodifica a próxima mensagem em v. Depois de ErrMessageTooLarge o fluxo fica dessincronizado.
@@ -103,7 +119,7 @@ func (c *Codec) Write(v any) error {
 	if err != nil {
 		return err
 	}
-	if len(data) > MaxMessageSize {
+	if len(data) > c.writeMax {
 		return ErrMessageTooLarge
 	}
 	_, err = c.w.Write(append(data, '\n'))
@@ -114,7 +130,7 @@ func (c *Codec) readLine() ([]byte, error) {
 	var line []byte
 	for {
 		chunk, err := c.r.ReadSlice('\n')
-		if len(line)+len(chunk) > MaxMessageSize+1 {
+		if len(line)+len(chunk) > c.readMax+1 {
 			return nil, ErrMessageTooLarge
 		}
 		line = append(line, chunk...)

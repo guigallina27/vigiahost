@@ -96,7 +96,7 @@ func ValidateRequest(req *report.Request, extraDenied []string) error {
 		}
 		allowed := slices.ContainsFunc(allowedUnderDenied, func(a string) bool { return under(p, a) })
 		for _, d := range denied {
-			if under(p, d) && !(allowed && slices.Contains(deniedRoots, d)) {
+			if under(p, d) && (!allowed || !slices.Contains(deniedRoots, d)) {
 				return bad(ipc.CodePathRefused, "caminho %q recusado: área que não é varrida", p)
 			}
 		}

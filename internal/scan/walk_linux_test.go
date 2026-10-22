@@ -109,3 +109,22 @@ func TestWalkSemPermissaoContaComoIgnorado(t *testing.T) {
 		t.Fatalf("%v %v", files, skips)
 	}
 }
+
+func TestWalkArquivoApagadoDuranteAVarreduraNaoContaComoIgnorado(t *testing.T) {
+	root := t.TempDir()
+	skips := map[report.SkipReason]int{}
+	seen := 0
+	w := &walker{maxDepth: 64, visited: map[[2]uint64]bool{}, seen: func() { seen++ },
+		skip: func(r report.SkipReason, _ string) { skips[r]++ }, warn: func(string) {}, stop: func() bool { return false },
+		emit: func(fl *file) { _ = fl.f.Close() }}
+	fd, err := syscall.Open(root, syscall.O_RDONLY|syscall.O_DIRECTORY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = syscall.Close(fd) }()
+	// Entrada listada que sumiu antes do fstatat (outro processo apagou o arquivo temporário).
+	w.entry(fd, root, "apagado.tmp", 0, 0)
+	if seen != 0 || len(skips) != 0 {
+		t.Fatalf("arquivo apagado contou como visto (%d) ou ignorado (%v)", seen, skips)
+	}
+}

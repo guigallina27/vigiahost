@@ -78,7 +78,7 @@ func TestRecusaUIDNaoAutorizado(t *testing.T) {
 	// O executor responde e encerra sem ler nada do cliente não autorizado.
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
 	var resp ipc.Response
-	if err := ipc.NewCodec(conn).Read(&resp); err != nil {
+	if err := ipc.NewClientCodec(conn).Read(&resp); err != nil {
 		t.Fatalf("esperava resposta de recusa: %v", err)
 	}
 	if resp.OK || resp.Error == nil || resp.Error.Code != ipc.CodeUnauthorized {
@@ -128,7 +128,7 @@ func TestErroInternoNaoVazaDetalhes(t *testing.T) {
 func TestMensagemGrandeEncerraConexao(t *testing.T) {
 	conn := startConn(t, Cred{UID: 990}, nil)
 	conn.SetDeadline(time.Now().Add(5 * time.Second))
-	go conn.Write([]byte(strings.Repeat("a", ipc.MaxMessageSize+10) + "\n"))
+	go conn.Write([]byte(strings.Repeat("a", ipc.MaxRequestSize+10) + "\n"))
 	buf := make([]byte, 1)
 	if _, err := conn.Read(buf); err == nil {
 		t.Fatal("esperava conexão encerrada após mensagem acima do limite")

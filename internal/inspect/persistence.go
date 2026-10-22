@@ -27,6 +27,9 @@ const maxConfigBytes = 1 << 20
 type Item struct {
 	Entry   report.PersistenceEntry
 	Content []byte
+	// FromSkel marca o arquivo de shell de uma conta idêntico ao modelo de /etc/skel: é a cópia que o useradd (e os
+	// painéis de hospedagem) fazem ao criar a conta, então aparecer não vira achado; alteração depois, sim.
+	FromSkel bool
 }
 
 // Hit é uma regra de persistência que casou.
@@ -202,11 +205,12 @@ func (c *Collector) Collect() []Item {
 		for _, f := range []string{".ssh/authorized_keys", ".ssh/authorized_keys2"} {
 			c.add("authorized-keys", path.Join(h, f), "")
 		}
-		for _, f := range []string{".bashrc", ".bash_profile", ".bash_login", ".profile", ".zshrc", ".bash_logout"} {
+		for _, f := range shellInitFiles {
 			c.add("shell-init", path.Join(h, f), "")
 		}
 		c.addDir("systemd-user-unit", path.Join(h, ".config/systemd/user"), true, isUnitFile)
 	}
+	c.markSkel()
 	sort.Slice(c.items, func(i, j int) bool {
 		if c.items[i].Entry.Kind != c.items[j].Entry.Kind {
 			return c.items[i].Entry.Kind < c.items[j].Entry.Kind
@@ -217,6 +221,28 @@ func (c *Collector) Collect() []Item {
 		c.items[i].Entry.Detail = describe(c.items[i])
 	}
 	return c.items
+}
+
+// shellInitFiles são os arquivos de inicialização de shell inspecionados em cada diretório pessoal.
+var shellInitFiles = []string{".bashrc", ".bash_profile", ".bash_login", ".profile", ".zshrc", ".bash_logout"}
+
+// markSkel marca os arquivos de shell das contas idênticos ao modelo correspondente de /etc/skel.
+func (c *Collector) markSkel() {
+	skel := map[string]string{}
+	for _, f := range shellInitFiles {
+		if b, ok := c.readFile(path.Join("/etc/skel", f)); ok {
+			sum := sha256.Sum256(b)
+			skel[f] = hex.EncodeToString(sum[:])
+		}
+	}
+	for i := range c.items {
+		e := &c.items[i].Entry
+		if e.Kind == "shell-init" && !strings.HasPrefix(e.Path, "/etc/") {
+			if sum, ok := skel[path.Base(e.Path)]; ok && sum == e.SHA256 {
+				c.items[i].FromSkel = true
+			}
+		}
+	}
 }
 
 // describe resume o item para a tela (ExecStart da unidade, número de chaves...).
@@ -429,7 +455,7 @@ func ChangeHits(items []Item, removed []report.PersistenceEntry) []Hit {
 	var hits []Hit
 	for _, it := range items {
 		sev, ok := changeSeverity[it.Entry.Kind]
-		if !ok || it.Entry.Change == "" {
+		if !ok || it.Entry.Change == "" || (it.FromSkel && it.Entry.Change == "added") {
 			continue
 		}
 		verb := map[string]string{"added": "adicionado", "changed": "alterado"}[it.Entry.Change]
@@ -440,6 +466,9 @@ func ChangeHits(items []Item, removed []report.PersistenceEntry) []Hit {
 	for _, r := range removed {
 		if r.Kind == "authorized-keys" || r.Kind == "ld-so-preload" {
 			continue // remoção de chave ou de preload não é indício de ataque
+		}
+		if r.Kind == "shell-init" && !strings.HasPrefix(r.Path, "/etc/") {
+			continue // some com a conta apagada (rotina em hospedagem); não é indício de ataque
 		}
 		if _, ok := changeSeverity[r.Kind]; ok {
 			hits = append(hits, Hit{Signature: "persistencia." + strings.ReplaceAll(r.Kind, "-", "_") + "_removed",

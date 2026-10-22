@@ -174,6 +174,9 @@ func (w *walker) entry(dirfd int, dirPath, name string, rootDev uint64, depth in
 	}
 	var st unix.Stat_t
 	if err := unix.Fstatat(dirfd, name, &st, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		if errors.Is(err, unix.ENOENT) {
+			return // apagado depois da listagem (comum em /tmp): não há o que analisar nem é falta de permissão
+		}
 		w.seen()
 		w.skip(report.SkipPermission, full)
 		return
@@ -194,6 +197,9 @@ func (w *walker) entry(dirfd int, dirPath, name string, rootDev uint64, depth in
 			return
 		}
 		fd, err := unix.Openat(dirfd, name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+		if errors.Is(err, unix.ENOENT) {
+			return
+		}
 		if err != nil {
 			w.skip(report.SkipPermission, full)
 			return
@@ -211,6 +217,9 @@ func (w *walker) openFile(dirfd int, name, full string, st unix.Stat_t) {
 	fd, err := unix.Openat(dirfd, name, flags|unix.O_NOATIME, 0)
 	if errors.Is(err, unix.EPERM) {
 		fd, err = unix.Openat(dirfd, name, flags, 0) // O_NOATIME exige ser dono ou CAP_FOWNER
+	}
+	if errors.Is(err, unix.ENOENT) {
+		return
 	}
 	if err != nil {
 		w.skip(report.SkipPermission, full)

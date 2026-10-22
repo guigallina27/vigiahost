@@ -4,7 +4,7 @@
 
 **Contexto.** O ADR-002 separou o core sem privilégios do executor root, mas não definiu o formato da conversa entre eles. O executor deve assumir que o core pode estar comprometido, então o protocolo precisa ser pequeno, fácil de auditar e de submeter a *fuzzing*.
 
-**Decisão.** Mensagens JSON, uma por linha, com no máximo 64 KiB, em socket Unix `0660 root:vigiahost`. A identidade do cliente vem do kernel (`SO_PEERCRED`), nunca da mensagem. A primeira mensagem é obrigatoriamente `hello`, com a versão do protocolo (`major.minor`); versões principais diferentes encerram a conexão. Só operações tipadas e registradas são aceitas; operação desconhecida é recusada e registrada. Erros internos chegam ao core sem detalhes; os detalhes ficam no journal.
+**Decisão.** Mensagens JSON, uma por linha, com limite por sentido (pedidos do core ao executor até 2 MiB, o que cabe um `run.start` com milhares de contas; respostas do executor ao core até 16 MiB, o que cabe a lista de contas de um servidor grande; até a versão 1.0 do protocolo o limite era 64 KiB nos dois sentidos), em socket Unix `0660 root:vigiahost`. A identidade do cliente vem do kernel (`SO_PEERCRED`), nunca da mensagem. A primeira mensagem é obrigatoriamente `hello`, com a versão do protocolo (`major.minor`); versões principais diferentes encerram a conexão. Só operações tipadas e registradas são aceitas; operação desconhecida é recusada e registrada. Erros internos chegam ao core sem detalhes; os detalhes ficam no journal.
 
 | Opção | Complexidade | Custo no servidor | Escala | Risco |
 |---|---|---|---|---|

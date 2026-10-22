@@ -30,7 +30,7 @@ func TestCodecIdaEVolta(t *testing.T) {
 }
 
 func TestCodecLimiteDeTamanho(t *testing.T) {
-	line := strings.Repeat("x", MaxMessageSize+1) + "\n"
+	line := strings.Repeat("x", MaxRequestSize+1) + "\n"
 	c := NewCodec(rw{strings.NewReader(line), io.Discard})
 	var v any
 	if err := c.Read(&v); !errors.Is(err, ErrMessageTooLarge) {
@@ -39,7 +39,7 @@ func TestCodecLimiteDeTamanho(t *testing.T) {
 }
 
 func TestCodecMensagemNoLimiteExato(t *testing.T) {
-	payload := `"` + strings.Repeat("y", MaxMessageSize-2) + `"`
+	payload := `"` + strings.Repeat("y", MaxRequestSize-2) + `"`
 	c := NewCodec(rw{strings.NewReader(payload + "\n"), io.Discard})
 	var v string
 	if err := c.Read(&v); err != nil {
@@ -88,4 +88,23 @@ func FuzzCodecRead(f *testing.F) {
 			}
 		}
 	})
+}
+
+func TestCodecLimitesPorSentido(t *testing.T) {
+	// Resposta grande (ex.: lista de contas) passa no lado do core e é recusada se chegasse como pedido ao executor.
+	payload := `"` + strings.Repeat("z", MaxRequestSize+10) + `"` + "\n"
+	var v string
+	if err := NewClientCodec(rw{strings.NewReader(payload), io.Discard}).Read(&v); err != nil {
+		t.Fatalf("o core deveria aceitar resposta de %d bytes: %v", len(payload), err)
+	}
+	if err := NewServerCodec(rw{strings.NewReader(payload), io.Discard}).Read(&v); !errors.Is(err, ErrMessageTooLarge) {
+		t.Fatalf("o executor deveria recusar pedido de %d bytes, veio %v", len(payload), err)
+	}
+	big := strings.Repeat("w", MaxRequestSize+10)
+	if err := NewServerCodec(rw{strings.NewReader(""), io.Discard}).Write(big); err != nil {
+		t.Fatalf("o executor deveria conseguir responder %d bytes: %v", len(big), err)
+	}
+	if err := NewClientCodec(rw{strings.NewReader(""), io.Discard}).Write(big); !errors.Is(err, ErrMessageTooLarge) {
+		t.Fatalf("o core não deveria enviar pedido de %d bytes, veio %v", len(big), err)
+	}
 }
