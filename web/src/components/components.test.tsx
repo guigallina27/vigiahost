@@ -27,12 +27,12 @@ describe("badges", () => {
       <>
         <SeverityBadge severity="critical" />
         <StatusBadge kind="finding" state="false_positive" />
-        <StatusBadge kind="run" state="recovered" />
+        <StatusBadge kind="run" state="interrupted" />
       </>,
     );
     expect(screen.getByText("Crítico")).toBeInTheDocument();
     expect(screen.getByText("Falso positivo")).toBeInTheDocument();
-    expect(screen.getByText("Interrompida e recuperada")).toBeInTheDocument();
+    expect(screen.getByText("Interrompida")).toBeInTheDocument();
   });
 });
 

@@ -156,6 +156,38 @@
     background-size: 14px 14px;
   }
 
+  /* Tabela de dados: rola na horizontal dentro do próprio contêiner (.vh-table-wrap), nunca a página (1.4.10). */
+  .vh-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--vh-line);
+    border-radius: var(--radius-panel);
+    background: var(--vh-surface);
+  }
+  .vh-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    & th {
+      text-align: start;
+      font-weight: 600;
+      color: var(--vh-ink-muted);
+      background: var(--vh-sunken);
+      white-space: nowrap;
+    }
+    & th,
+    & td {
+      padding: 0.625rem 0.75rem;
+      border-block-end: 1px solid var(--vh-line);
+      vertical-align: top;
+    }
+    & tbody tr:last-child td {
+      border-block-end: 0;
+    }
+    & tbody tr:hover {
+      background: color-mix(in oklab, var(--vh-accent-soft) 45%, transparent);
+    }
+  }
+
   .vh-dialog {
     &::backdrop {
       background: oklch(15% 0.02 175 / 0.55);

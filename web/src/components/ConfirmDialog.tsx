@@ -6,8 +6,8 @@ import { Button } from "./Button";
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Recebe a senha quando requireReauth; lança erro para manter o diálogo aberto com a mensagem. */
-  onConfirm: (input: { password?: string }) => Promise<void> | void;
+  /** Recebe senha (e código) quando requireReauth; lança erro para manter o diálogo aberto com a mensagem. */
+  onConfirm: (input: { password?: string; code?: string }) => Promise<void> | void;
   title: string;
   /** O objeto exato da ação (ex.: o caminho do arquivo). */
   object: ReactNode;
@@ -17,6 +17,8 @@ type Props = {
   confirmLabel: string;
   destructive?: boolean;
   requireReauth?: boolean;
+  /** Com segundo fator ativo, a reautenticação pede também o código. */
+  requireCode?: boolean;
   /** Ações em lote: a pessoa digita a quantidade para confirmar. */
   requireCount?: number;
 };
@@ -27,7 +29,7 @@ type Props = {
  */
 export function ConfirmDialog(props: Props) {
   const { open, onClose, onConfirm, title, object, impact, reversible, confirmLabel } = props;
-  const { destructive = true, requireReauth = false, requireCount } = props;
+  const { destructive = true, requireReauth = false, requireCode = false, requireCount } = props;
   const { t } = useTranslation();
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -35,6 +37,7 @@ export function ConfirmDialog(props: Props) {
   const countId = useId();
   const countHintId = useId();
   const passwordId = useId();
+  const codeId = useId();
   const errorId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +63,10 @@ export function ConfirmDialog(props: Props) {
     setBusy(true);
     setError(null);
     try {
-      const password = requireReauth ? String(data.get("password") ?? "") : undefined;
-      await onConfirm(password === undefined ? {} : { password });
+      const input: { password?: string; code?: string } = {};
+      if (requireReauth) input.password = String(data.get("password") ?? "");
+      if (requireReauth && requireCode) input.code = String(data.get("code") ?? "").trim();
+      await onConfirm(input);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -142,6 +147,22 @@ export function ConfirmDialog(props: Props) {
                 required
                 className="min-h-11 rounded-control border border-line-strong bg-bg px-3"
               />
+              {requireCode && (
+                <>
+                  <label htmlFor={codeId} className="mt-2 font-semibold">
+                    {t("dialog.reauthCode")}
+                  </label>
+                  <input
+                    id={codeId}
+                    name="code"
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    required
+                    maxLength={32}
+                    className="min-h-11 rounded-control border border-line-strong bg-bg px-3 font-mono"
+                  />
+                </>
+              )}
             </div>
           )}
 

@@ -10,17 +10,47 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 });
 
-export type Health = components["schemas"]["Health"];
+export type Schemas = components["schemas"];
+export type Health = Schemas["Health"];
+export type Session = Schemas["Session"];
 
-/** Falha de transporte (sem resposta ou resposta fora do contrato), com a causa para a tela de erro. */
+/** Falha da API: mensagem do servidor (já em linguagem do operador) e código estável para decidir o que fazer. */
 export class ApiError extends Error {
   readonly status: number | undefined;
-  constructor(message: string, status?: number) {
+  readonly code: string | undefined;
+  constructor(message: string, status?: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
+
+type FetchResult<T> = { data?: T; error?: unknown; response: Response };
+
+/**
+ * Converte o resultado do openapi-fetch em dado ou ApiError. Respostas sem corpo (204) devolvem undefined.
+ * Falha de rede vira ApiError sem status, com a causa.
+ */
+export async function unwrap<T>(call: Promise<FetchResult<T>>): Promise<T> {
+  let result: FetchResult<T>;
+  try {
+    result = await call;
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
+    throw new ApiError(err instanceof Error ? err.message : String(err));
+  }
+  const { data, error, response } = result;
+  if (response.ok) return data as T;
+  const body = (error ?? {}) as { error?: string; code?: string };
+  throw new ApiError(body.error ?? `HTTP ${response.status}`, response.status, body.code);
+}
+
+export const sessionQuery = queryOptions({
+  queryKey: ["session"],
+  queryFn: ({ signal }) => unwrap(api.GET("/api/v1/auth/session", { signal })),
+  staleTime: 60_000,
+});
 
 /** A saúde responde 503 com o mesmo corpo quando o executor está fora: isso é um estado, não um erro. */
 export async function fetchHealth(signal?: AbortSignal): Promise<Health> {

@@ -1,7 +1,10 @@
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, Radio, X } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useLocation } from "react-router";
+import { useCurrentUser } from "../auth/session";
+import { useLogout } from "../auth/useLogout";
+import { useLiveEvents, type LiveState } from "../lib/useLiveEvents";
 import { visibleNavigation } from "./navigation";
 
 function Brand() {
@@ -17,6 +20,35 @@ function Brand() {
   );
 }
 
+/** Usuário da sessão, estado das atualizações ao vivo e saída. */
+function UserBox({ live }: { live: LiveState }) {
+  const { t } = useTranslation();
+  const { user } = useCurrentUser();
+  const logout = useLogout();
+  const liveLabel = live === "live" ? t("auth.live") : live === "offline" ? t("auth.liveOffline") : t("auth.liveConnecting");
+  return (
+    <div className="mx-3 mt-2 mb-6 flex flex-col gap-2 rounded-control border border-nav-muted/50 p-3">
+      <span className="vh-label text-nav-muted">{t("auth.account")}</span>
+      <span className="min-w-0 font-semibold break-words">{user?.display_name || user?.username}</span>
+      <span className="text-sm text-nav-muted">
+        {user?.username} · {user ? t(`roles.${user.role}`) : ""}
+      </span>
+      <span role="status" className="flex items-center gap-1.5 text-sm text-nav-muted">
+        <Radio aria-hidden="true" className={`size-3.5 ${live === "live" ? "text-signal" : ""}`} />
+        {liveLabel}
+      </span>
+      <button
+        type="button"
+        onClick={() => logout.mutate()}
+        className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-control border border-nav-muted px-3 text-nav-ink hover:bg-nav-active"
+      >
+        <LogOut aria-hidden="true" className="size-4" />
+        {t("auth.logout")}
+      </button>
+    </div>
+  );
+}
+
 export function AppShell() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
@@ -25,6 +57,7 @@ export function AppShell() {
   const menuOpen = openAt === pathname;
   const navId = useId();
   const groups = visibleNavigation(import.meta.env.DEV);
+  const live = useLiveEvents();
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -87,6 +120,9 @@ export function AppShell() {
             ))}
           </ul>
         </nav>
+        <div className={`${menuOpen ? "block" : "hidden"} lg:block`}>
+          <UserBox live={live} />
+        </div>
       </div>
 
       <main id="conteudo" tabIndex={-1} className="min-w-0 px-4 pb-12 focus:outline-none sm:px-8">

@@ -20,13 +20,14 @@ import { Badge, type Tone } from "./Badge";
 export type FindingState = "new" | "in_review" | "confirmed" | "resolved" | "false_positive" | "excepted";
 export type RunState =
   | "queued"
+  | "reserved"
   | "running"
   | "completed"
   | "partial"
   | "failed"
-  | "engine_failed"
-  | "cancelled"
-  | "recovered";
+  | "engine_failure"
+  | "canceled"
+  | "interrupted";
 
 type Entry = { tone: Tone; icon: LucideIcon; spinning?: boolean };
 
@@ -41,13 +42,14 @@ const finding: Record<FindingState, Entry> = {
 
 const run: Record<RunState, Entry> = {
   queued: { tone: "neutral", icon: Clock },
+  reserved: { tone: "neutral", icon: Clock },
   running: { tone: "low", icon: LoaderCircle, spinning: true },
   completed: { tone: "ok", icon: CircleCheck },
   partial: { tone: "medium", icon: CircleDotDashed },
   failed: { tone: "critical", icon: CircleX },
-  engine_failed: { tone: "critical", icon: ServerCrash },
-  cancelled: { tone: "neutral", icon: Ban },
-  recovered: { tone: "medium", icon: RotateCcw },
+  engine_failure: { tone: "critical", icon: ServerCrash },
+  canceled: { tone: "neutral", icon: Ban },
+  interrupted: { tone: "medium", icon: RotateCcw },
 };
 
 export const findingStates = Object.keys(finding) as FindingState[];

@@ -1,13 +1,27 @@
 import "./styles/index.css";
 import "./i18n";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router";
+import { ApiError, sessionQuery } from "./api/client";
 import { router } from "./router";
 
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, staleTime: 10_000 } },
+// 401 em qualquer chamada (sessão vencida por inatividade, por exemplo): reconsulta a sessão e o portão volta ao login.
+function onApiError(err: unknown) {
+  if (err instanceof ApiError && err.status === 401) void queryClient.invalidateQueries({ queryKey: sessionQuery.queryKey });
+}
+
+const queryClient: QueryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: onApiError }),
+  mutationCache: new MutationCache({ onError: onApiError }),
+  defaultOptions: {
+    queries: {
+      staleTime: 10_000,
+      // Erro do servidor com resposta (4xx) não melhora repetindo.
+      retry: (count, err) => count < 1 && !(err instanceof ApiError && err.status !== undefined && err.status < 500),
+    },
+  },
 });
 
 const root = document.getElementById("root");

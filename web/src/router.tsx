@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router";
-import { AppShell } from "./layout/AppShell";
+import { AuthGate } from "./auth/AuthGate";
+import { RecoverPage } from "./auth/RecoverPage";
 import { plannedItems } from "./layout/navigation";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -21,9 +22,11 @@ const devRoutes: RouteObject[] = import.meta.env.DEV
   : [];
 
 export const routes: RouteObject[] = [
+  // Recuperação de senha fica fora do portão: quem a usa não tem sessão.
+  { path: "/recuperar", element: <RecoverPage /> },
   {
     path: "/",
-    element: <AppShell />,
+    element: <AuthGate />,
     children: [
       { index: true, element: <OverviewPage /> },
       { path: "configuracoes", element: <SettingsPage /> },
