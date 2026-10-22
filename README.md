@@ -60,8 +60,23 @@ Os testes de sistema rodam em uma máquina isolada. No Windows, uma distribuiç�
 | [`test/lab/sync.sh`](test/lab/sync.sh) | Git Bash no Windows | Copia a árvore de trabalho para o laboratório |
 | [`test/lab/test-lifecycle.sh`](test/lab/test-lifecycle.sh) | Laboratório com systemd | Instala, inicia, confere saúde, interface embarcada (CSP, compressão, cache) e política do executor, atualiza, volta de versão, remove e reinstala |
 | [`test/lab/test-distros.sh`](test/lab/test-distros.sh) | Laboratório com podman | Ciclo de vida em contêineres das 10 distribuições |
+| [`test/lab/install-engines.sh`](test/lab/install-engines.sh) | Laboratório (dnf ou apt) | Instala ClamAV 1.4 LTS e YARA-X oficiais conferidos por SHA-256 e baixa as assinaturas |
+| [`test/lab/check-corpus.sh`](test/lab/check-corpus.sh) | Laboratório com os motores | Confere cada corpus gerado contra o manifesto, com os arquivos entregues por descritor ([ADR-018](docs/adr/0018-arquivos-aos-motores-por-descritor.md)) |
+| [`test/lab/scenario-memfd.sh`](test/lab/scenario-memfd.sh) | Laboratório com systemd | Sobe dois `sleep` inofensivos rodando de `memfd` e de arquivo apagado, com o marcador do controle positivo, e confere o que a análise de processos verá |
+| [`test/lab/test-arm64.sh`](test/lab/test-arm64.sh) | Laboratório x86_64 | Testes Go em arm64 sob qemu de modo usuário (sem registrar binfmt), pacotes arm64 e arquitetura conferida |
 
-O CI roda os mesmos scripts em um runner Ubuntu 24.04.
+Os corpus de teste saem do gerador [`test/corpus/gencorpus`](test/corpus/gencorpus) (no laboratório, em `/var/tmp`, fora do repositório):
+
+```bash
+go run ./test/corpus/gencorpus positivos -out /var/tmp/corpus/positivos
+go run ./test/corpus/gencorpus sintetico -files 20000 -out /var/tmp/corpus/sintetico
+go run ./test/corpus/gencorpus benigno -out /var/tmp/corpus/benigno
+bash test/lab/check-corpus.sh /var/tmp/corpus
+```
+
+Nada nos corpus é malware: os positivos são o arquivo de teste EICAR e um marcador inerte ([`internal/controls`](internal/controls)); o benigno são pacotes oficiais de CMS conferidos por SHA-256 ([`test/corpus/benign.json`](test/corpus/benign.json)).
+
+O CI roda os mesmos scripts em runners Ubuntu 24.04 x86_64 e arm64.
 
 ## Segurança
 

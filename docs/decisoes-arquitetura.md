@@ -1,7 +1,7 @@
 # Decisões de arquitetura (ADRs)
 
 > **VigiaHost · Projeto sob GPL-3.0.** Cada decisão fica em um arquivo em [`adr/`](adr/), no formato: contexto, decisão, opções consideradas (complexidade, custo no servidor do cliente, escala e risco), trade-offs, consequências e ações.
-> ADRs 001 a 013 vieram do [escopo v2.3](escopo-v2.md) e foram aceitos com o início da Fase 0 em 22/10/2026; 014, 015 e 017 foram decididos na implementação; 016 é uma proposta que aguarda aceite. Uma decisão nova ou revista vira um ADR novo, que substitui o anterior.
+> ADRs 001 a 013 vieram do [escopo v2.3](escopo-v2.md) e foram aceitos com o início da Fase 0 em 22/10/2026; 014, 015, 017 e 018 foram decididos na implementação; 016 é uma proposta que aguarda aceite. Uma decisão nova ou revista vira um ADR novo, que substitui o anterior.
 
 | ADR | Decisão | Seção do escopo |
 |---|---|---|
@@ -22,3 +22,4 @@
 | [015](adr/0015-instalacao-sem-iniciar-servicos.md) | A instalação do pacote não habilita nem inicia os serviços | 15 |
 | [016](adr/0016-autenticacao-do-painel.md) | Autenticação do painel web (**proposto**) | 13 |
 | [017](adr/0017-base-da-interface.md) | Base da interface: contrato gerado, design system e cadeia de suprimentos do front-end | 6.3, 14, 19 |
+| [018](adr/0018-arquivos-aos-motores-por-descritor.md) | Arquivos entregues aos motores por descritor, nunca por nome | 7, 13 |

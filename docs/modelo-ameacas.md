@@ -55,6 +55,7 @@
 | Executor com poderes demais | `CapabilityBoundingSet` mínimo por fase, `ProtectSystem`, filtro de chamadas de sistema; exposição 2,4 no `systemd-analyze security` | Implementado (Fase 0) |
 | Arquivo malicioso explorando o processo root | Motores sempre em processos externos, em unidades transitórias sem rede e só leitura | Planejado (1A) |
 | Saída de scanner forjada por nome de arquivo | Formatos estruturados (FILDES, NDJSON, JSON); *fuzzing* dos interpretadores | Planejado (1A) |
+| Nome hostil que derruba ou desvia o motor (o `yr scan -r` 1.21.0 aborta a árvore inteira com nome não UTF-8; quebra de linha corrompe listas; troca por link entre inventário e análise) | Motores nunca percorrem diretórios nem recebem nomes: o inventário abre com `O_NOFOLLOW`, confere o tipo pelo descritor e entrega `/dev/fd/N` ou `FILDES` ([ADR-018](adr/0018-arquivos-aos-motores-por-descritor.md)); corpus sintético com nomes especiais conferido nos motores reais | Protótipo validado (Fase 0); adaptador na 1A |
 | Corrida de link simbólico ou físico na quarentena | Descritor aberto, `O_NOFOLLOW`, `nlink == 1`, identidade conferida | Planejado (2) |
 
 ### 3.4 Dados de terceiros (regras, feeds, eventos)
