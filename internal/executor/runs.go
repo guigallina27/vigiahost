@@ -17,6 +17,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
+	"github.com/guigallina27/vigiahost/internal/rules"
 )
 
 // LocalConfig é a configuração do executor que só o root altera (/etc/vigiahost/executor.json). O que está aqui
@@ -88,6 +89,9 @@ func ValidateRequest(req *report.Request, extraDenied []string) error {
 	}
 	if len(req.Exclude) > 256 {
 		return bad(ipc.CodeBadRequest, "exclusões demais (máximo 256)")
+	}
+	if err := rules.ValidDisabled(req.DisabledRuleSources); err != nil {
+		return bad(ipc.CodeBadRequest, "%v", err)
 	}
 	denied := append(append([]string{}, deniedRoots...), extraDenied...)
 	for _, p := range req.Paths {

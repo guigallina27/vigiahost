@@ -12,6 +12,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
 	"github.com/guigallina27/vigiahost/internal/inspect"
 	"github.com/guigallina27/vigiahost/internal/report"
+	"github.com/guigallina27/vigiahost/internal/rules"
 	"github.com/guigallina27/vigiahost/internal/scan"
 )
 
@@ -20,6 +21,7 @@ func runInspect(args []string) int {
 	fs := flag.NewFlagSet("inspect", flag.ContinueOnError)
 	dir := fs.String("dir", "", "diretório de saída da execução (com request.json)")
 	state := fs.String("state", defaultStateDir, "diretório de estado do executor (regras compiladas, cache)")
+	userRules := fs.String("user-rules", rules.UserDir, "diretório das fontes locais de regras YARA")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -31,7 +33,8 @@ func runInspect(args []string) int {
 	defer stop()
 
 	started := time.Now().UTC()
-	info := scan.DiscoverEngines(ctx, *state, scan.DiscoverOptions{Compile: true, ClamdWait: time.Minute},
+	info := scan.DiscoverEngines(ctx, *state, scan.DiscoverOptions{Compile: true, ClamdWait: time.Minute,
+		UserRules: *userRules, DisabledRules: req.DisabledRuleSources, Trigger: "inspect"},
 		func() (clamav.Config, bool) { return clamav.Discover(os.DirFS("/")) })
 	cfg := inspect.Config{Request: req, OutDir: *dir, StateDir: *state, Logger: logger}
 	info.Apply(&cfg.Engines)

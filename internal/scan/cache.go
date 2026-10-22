@@ -24,6 +24,7 @@ type CacheKey struct {
 const (
 	cleanYARA uint8 = 1 << iota
 	cleanClamAV
+	cleanLMD
 )
 
 type cacheEntry struct {
@@ -37,7 +38,9 @@ type cacheFile struct {
 	Format      int
 	YARAVersion string
 	ClamVersion string
-	Entries     map[CacheKey]cacheEntry
+	// LMDVersion entrou depois (gob ignora o campo ausente em caches antigos, que valem como "LMD não analisou").
+	LMDVersion string
+	Entries    map[CacheKey]cacheEntry
 }
 
 const cacheFormat = 1
@@ -48,10 +51,21 @@ type Cache struct {
 	path    string
 	yaraOK  bool // versão das regras igual à do cache
 	clamOK  bool
+	lmdOK   bool
 	old     map[CacheKey]cacheEntry
 	next    map[CacheKey]cacheEntry
 	yaraVer string
 	clamVer string
+	lmdVer  string
+}
+
+// SetLMDVersion informa a versão do LMD (motor, assinaturas e estágios) desta execução, logo depois do LoadCache:
+// os bits do LMD gravados com outra versão deixam de valer. Vazio: LMD fora desta execução.
+func (c *Cache) SetLMDVersion(v string) {
+	c.mu.Lock()
+	c.lmdOK = v != "" && c.lmdVer == v
+	c.lmdVer = v
+	c.mu.Unlock()
 }
 
 // LoadCache abre o cache (ou começa vazio) e compara as versões dos motores.
@@ -72,7 +86,31 @@ func LoadCache(path, yaraVersion, clamVersion string) *Cache {
 	c.old = cf.Entries
 	c.yaraOK = cf.YARAVersion != "" && cf.YARAVersion == yaraVersion
 	c.clamOK = cf.ClamVersion != "" && cf.ClamVersion == clamVersion
+	c.lmdVer = cf.LMDVersion // comparado em SetLMDVersion
 	return c
+}
+
+// LMDClean diz se o objeto inalterado já saiu limpo no LMD com as mesmas versões.
+func (c *Cache) LMDClean(k CacheKey) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, found := c.old[k]
+	return found && c.lmdOK && e.Clean&cleanLMD != 0
+}
+
+// StoreLMD soma o resultado do LMD ao registro do objeto (o LMD analisa em lotes, depois dos outros motores).
+func (c *Cache) StoreLMD(k CacheKey, sha [32]byte, clean bool) {
+	if !clean {
+		return
+	}
+	c.mu.Lock()
+	e, ok := c.next[k]
+	if !ok || e.SHA256 != sha {
+		e = cacheEntry{SHA256: sha}
+	}
+	e.Clean |= cleanLMD
+	c.next[k] = e
+	c.mu.Unlock()
 }
 
 // Lookup devolve o hash conhecido e para quais motores o objeto inalterado já saiu limpo.
@@ -120,7 +158,7 @@ func (c *Cache) Save() error {
 	}
 	defer func() { _ = os.Remove(tmp.Name()) }()
 	w := bufio.NewWriter(tmp)
-	cf := cacheFile{Format: cacheFormat, YARAVersion: c.yaraVer, ClamVersion: c.clamVer, Entries: c.next}
+	cf := cacheFile{Format: cacheFormat, YARAVersion: c.yaraVer, ClamVersion: c.clamVer, LMDVersion: c.lmdVer, Entries: c.next}
 	if err := gob.NewEncoder(w).Encode(&cf); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("cache: %w", err)

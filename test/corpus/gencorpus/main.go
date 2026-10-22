@@ -5,6 +5,7 @@
 //	gencorpus benigno   -out DIR            CMS e frameworks oficiais (benign.json), conferidos pelo SHA-256
 //	gencorpus regra     -out ARQUIVO        regra YARA do controle positivo
 //	gencorpus verificar -dir DIR            confere um corpus contra o manifesto com o ClamAV e o YARA-X reais
+//	gencorpus sobreposicao -dir DIR         compara o LMD instalado com o ClamAV (oficial e só com as assinaturas rfxn)
 //
 // Cada comando grava manifest.json com o que foi gerado e o que cada motor deve (ou não) detectar.
 // Nunca há malware real: o corpus inteiro é gerado ou baixado de fontes oficiais na hora do teste.
@@ -37,6 +38,8 @@ func main() {
 		err = runRule(args)
 	case "verificar":
 		err = runVerify(args)
+	case "sobreposicao":
+		err = runOverlap(args)
 	default:
 		usage()
 		os.Exit(2)
@@ -50,7 +53,7 @@ func main() {
 var errNoOut = errors.New("informe -out")
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "uso: gencorpus positivos|sintetico|benigno|regra -out DESTINO [opções] | verificar -dir CORPUS")
+	fmt.Fprintln(os.Stderr, "uso: gencorpus positivos|sintetico|benigno|regra -out DESTINO [opções] | verificar|sobreposicao -dir CORPUS")
 }
 
 // Expect diz o que cada motor deve reportar para o arquivo; vazio significa "nada".

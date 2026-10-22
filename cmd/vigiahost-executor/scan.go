@@ -14,6 +14,7 @@ import (
 
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
 	"github.com/guigallina27/vigiahost/internal/report"
+	"github.com/guigallina27/vigiahost/internal/rules"
 	"github.com/guigallina27/vigiahost/internal/scan"
 )
 
@@ -44,6 +45,7 @@ func runScan(args []string) int {
 	fs := flag.NewFlagSet("scan", flag.ContinueOnError)
 	dir := fs.String("dir", "", "diretório de saída da execução (com request.json)")
 	state := fs.String("state", defaultStateDir, "diretório de estado do executor (regras compiladas, cache)")
+	userRules := fs.String("user-rules", rules.UserDir, "diretório das fontes locais de regras YARA")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -56,7 +58,9 @@ func runScan(args []string) int {
 	defer stop()
 
 	started := time.Now().UTC()
-	info := scan.DiscoverEngines(ctx, *state, scan.DiscoverOptions{Compile: true, ClamdWait: 3 * time.Minute}, func() (clamav.Config, bool) { return clamav.Discover(os.DirFS("/")) })
+	info := scan.DiscoverEngines(ctx, *state, scan.DiscoverOptions{Compile: true, ClamdWait: 3 * time.Minute,
+		UserRules: *userRules, DisabledRules: req.DisabledRuleSources, Trigger: "scan"},
+		func() (clamav.Config, bool) { return clamav.Discover(os.DirFS("/")) })
 	cfg := scan.Config{Request: req, OutDir: *dir, Logger: logger, CachePath: filepath.Join(*state, "cache", "files.gob")}
 	info.Apply(&cfg)
 	for _, w := range []string{info.YRError, info.ClamdError} {
@@ -72,6 +76,7 @@ func runScan(args []string) int {
 	if info.Clamd == nil && info.ClamdError != "" && info.Clamscan != "" {
 		sum.Warnings = append(sum.Warnings, "clamd indisponível ("+info.ClamdError+"); ClamAV rodou pelo clamscan, mais lento")
 	}
+	sum.Warnings = append(sum.Warnings, info.RulesWarnings...)
 	if err := scan.WriteJSONAtomic(filepath.Join(*dir, report.SummaryFile), sum); err != nil {
 		logger.Error("resumo não gravado", "erro", err)
 		return 1

@@ -1,0 +1,26 @@
+Linux Malware Detect v2.0.1
+            (C) 2002-2026, R-fx Networks <proj@rfxn.com>
+            (C) 2026, Ryan MacDonald <ryan@rfxn.com>
+This program may be freely redistributed under the terms of the GNU GPL v2
+
+maldet(201): {scan} compiling 48,799 signatures (hash hex csig yara)...
+maldet(201): {scan} signatures ready in 0s: 48,799 (42,634 SHA | 2,373 HEX | 86 CSIG | 3,706 YARA | 0 USER)
+maldet(201): {scan} user supplied file list '/var/tmp/e110/capture/lista', found 5 files...
+maldet(201): {scan} native engine: 5 workers, sha256 hashing (hardware sha256-ni)
+maldet(201): {scan} stages: sha256 hash, hex+csig, yara
+maldet(201): {scan} scan of /var/tmp/e110/capture/lista (5 files) in progress...
+maldet(201): {scan} [sha256] 5 files | 0 hits 0 cleaned
+maldet(201): {scan} [sha256] 5 files | elapsed 0s | 0 hits 0 cleaned
+maldet(201): {scan} [sha256] 5/5 files (100%) | elapsed 2s | 0 hits 0 cleaned
+maldet(201): {scan} [sha256] processing hits | 0 hits 0 cleaned
+maldet(201): {hit} 1 malware hits recorded [sha256]
+maldet(201): {scan} [hex+csig] 4 files | 1 hits 0 cleaned
+maldet(201): {scan} [hex+csig] 4 files | elapsed 0s | 1 hits 0 cleaned
+maldet(201): {scan} [hex+csig] 4/4 files (100%) | elapsed 2s | 1 hits 0 cleaned
+maldet(201): {scan} [hex+csig] processing hits | 1 hits 0 cleaned
+maldet(201): {hit} 2 malware hits recorded [hex+csig]
+maldet(201): {scan} [yara] 5 files | 3 hits 0 cleaned
+
+maldet(201): {scan} scan completed on /var/tmp/e110/capture/lista: files 5, malware hits 3, cleaned hits 0, time 5s
+maldet(201): {scan} scan report saved, to view run: maldet --report 261022-2001.201
+maldet(201): {scan} quarantine is disabled! set quarantine_hits=1 in conf.maldet or to quarantine results run: maldet -q 261022-2001.201

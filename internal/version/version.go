@@ -12,5 +12,6 @@ var (
 // campos ou operações novas e opcionais incrementam ProtocolMinor.
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 1
+	// 1.1: contas (accounts.list). 1.2: regras YARA (rules.status, rules.compile) e LMD no pedido da execução.
+	ProtocolMinor = 2
 )

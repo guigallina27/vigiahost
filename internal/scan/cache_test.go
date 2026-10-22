@@ -43,3 +43,41 @@ func TestCacheValeSoComAsMesmasVersoes(t *testing.T) {
 		t.Fatal("objeto não visto deveria sair do cache")
 	}
 }
+
+func TestCacheLMD(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "cache.gob")
+	k := CacheKey{Dev: 1, Ino: 2, Size: 3, Mtime: 4, Ctime: 5}
+	sha := [32]byte{7}
+
+	c := LoadCache(path, "r", "c")
+	c.SetLMDVersion("2.0.1/2026052490478/yr")
+	// O LMD termina o lote antes ou depois dos outros motores: os bits se somam nas duas ordens.
+	c.StoreLMD(k, sha, true)
+	c.Store(k, sha, true, false)
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	c = LoadCache(path, "r", "c")
+	c.SetLMDVersion("2.0.1/2026052490478/yr")
+	if !c.LMDClean(k) {
+		t.Fatal("mesma versão do LMD deveria reaproveitar")
+	}
+	if _, y, cl, _ := c.Lookup(k); !y || cl {
+		t.Fatalf("bits dos outros motores alterados: %v %v", y, cl)
+	}
+	c = LoadCache(path, "r", "c")
+	c.SetLMDVersion("2.0.1/2026060100001/yr")
+	if c.LMDClean(k) {
+		t.Fatal("assinaturas novas do LMD não podem reaproveitar")
+	}
+	c = LoadCache(path, "r", "c")
+	c.SetLMDVersion("")
+	if c.LMDClean(k) {
+		t.Fatal("LMD fora da execução não usa o cache")
+	}
+	// Detecção (clean=false) não marca nada.
+	c.StoreLMD(CacheKey{Ino: 9}, sha, false)
+	if _, ok := c.next[CacheKey{Ino: 9}]; ok {
+		t.Fatal("arquivo com achado entrou no cache")
+	}
+}

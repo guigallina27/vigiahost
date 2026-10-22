@@ -42,6 +42,10 @@ type Request struct {
 	// Incremental reaproveita o cache: objeto inalterado já analisado com as mesmas versões não é relido.
 	Incremental bool    `json:"incremental"`
 	Profile     Profile `json:"profile"`
+	// LMD liga o estágio do Linux Malware Detect (fonte adicional de assinaturas, ADR-020); desligado por padrão.
+	LMD bool `json:"lmd,omitempty"`
+	// DisabledRuleSources são fontes de regras YARA desativadas pelo administrador (nomes; o executor confere).
+	DisabledRuleSources []string `json:"disabled_rule_sources,omitempty"`
 }
 
 // Profile é o perfil de recursos efetivo da execução (escopo, seção 12).
@@ -69,6 +73,7 @@ const (
 	PhaseInventory Phase = "inventory"
 	PhaseScanning  Phase = "scanning"
 	PhaseLarge     Phase = "large_files"
+	PhaseLMD       Phase = "lmd"
 	PhaseInspect   Phase = "inspect"
 	PhaseDone      Phase = "done"
 )
@@ -159,7 +164,7 @@ func (l Location) RawPath() string {
 
 // Finding é uma linha de findings.ndjson.
 type Finding struct {
-	Engine        string            `json:"engine"`         // clamav, yara-x, inventory, inspector
+	Engine        string            `json:"engine"`         // clamav, yara-x, lmd, inventory, inspector
 	EngineVersion string            `json:"engine_version"` // versão do motor
 	RulesVersion  string            `json:"rules_version"`  // versão das assinaturas ou do conjunto de regras
 	Signature     string            `json:"signature"`      // nome da assinatura ou regra
