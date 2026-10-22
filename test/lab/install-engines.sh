@@ -68,4 +68,37 @@ fi
 mkdir -p /var/lib/clamav
 log "atualizando assinaturas (freshclam)"
 freshclam --quiet --config-file="$conf" || freshclam --config-file="$conf"
-log "pronto: $(clamscan --version), $(yr --version)"
+# clamd do laboratório: o pacote oficial não traz usuário nem unidade. Em servidores reais o produto usa o clamd
+# que já existe (do sistema ou do painel) e nunca o reconfigura; aqui ele existe só para os testes de FILDES.
+clamd_conf=/usr/local/etc/clamd.conf
+if [[ ! -f $clamd_conf ]]; then
+	cat >"$clamd_conf" <<-EOF
+		LocalSocket /run/clamd.scan/clamd.sock
+		LocalSocketMode 660
+		DatabaseDirectory /var/lib/clamav
+		MaxThreads 4
+		MaxFileSize 25M
+		MaxScanSize 100M
+		LogTime yes
+		Foreground yes
+	EOF
+fi
+cat >/etc/systemd/system/vigiahost-lab-clamd.service <<-EOF
+	[Unit]
+	Description=clamd do laboratório do VigiaHost (só para testes)
+	After=network.target
+
+	[Service]
+	Type=simple
+	ExecStart=$(command -v clamd) --config-file=$clamd_conf
+	RuntimeDirectory=clamd.scan
+	Restart=on-failure
+
+	[Install]
+	WantedBy=multi-user.target
+EOF
+systemctl daemon-reload
+systemctl enable --now vigiahost-lab-clamd.service
+for _ in $(seq 1 120); do [[ -S /run/clamd.scan/clamd.sock ]] && break; sleep 1; done
+[[ -S /run/clamd.scan/clamd.sock ]] || { log "clamd não abriu o socket" >&2; exit 1; }
+log "pronto: $(clamscan --version), $(yr --version), clamd em /run/clamd.scan/clamd.sock"
