@@ -22,6 +22,9 @@ const (
 	StateExcepted      = "excepted"
 )
 
+// KindSystem é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta).
+const KindSystem = "system"
+
 // OpenStates contam como abertos.
 var OpenStates = []string{StateNew, StateInReview, StateConfirmed}
 
@@ -46,8 +49,8 @@ func CanTransition(from, to string) bool {
 }
 
 // Fingerprint é a identidade estável do achado. Arquivos: motor + assinatura + objeto (cópias do mesmo objeto são
-// um achado com várias localizações, ADR-008); indicadores de nome: pela localização; processos e persistência:
-// pelo executável ou pelo item.
+// um achado com várias localizações, ADR-008); indicadores de nome e diferenças contra o pacote: pela localização;
+// processos e persistência: pelo executável ou pelo item; achados do sistema: pelo assunto.
 func Fingerprint(f report.Finding) (kind, fp string) {
 	h := sha256.New()
 	write := func(parts ...string) {
@@ -63,13 +66,22 @@ func Fingerprint(f report.Finding) (kind, fp string) {
 		if exe == "" {
 			exe = f.Process.Exe
 		}
-		write(kind, f.Engine, f.Signature, exe)
+		if f.Subject != "" {
+			// Processo sem executável legível (oculto): o assunto ("pid:N") distingue um do outro.
+			write(kind, f.Engine, f.Signature, exe, f.Subject)
+		} else {
+			write(kind, f.Engine, f.Signature, exe)
+		}
 	case f.Persistence != nil:
 		kind = "persistence"
 		write(kind, f.Engine, f.Signature, f.Persistence.Kind, f.Persistence.Path)
+	case f.Location == nil && f.Subject != "":
+		kind = KindSystem
+		write(kind, f.Engine, f.Signature, f.Subject)
 	default:
 		kind = "file"
-		if f.SHA256 != "" && f.Category != report.CategoryIndicator {
+		// Diferença contra o pacote é do arquivo naquele caminho: o conteúdo pode mudar de novo sem virar outro achado.
+		if f.SHA256 != "" && f.Category != report.CategoryIndicator && f.Category != report.CategoryIntegrity {
 			write(kind, f.Engine, f.Signature, f.SHA256)
 		} else if f.Location != nil {
 			write(kind, f.Engine, f.Signature, f.Location.Path, f.Location.PathHex)
@@ -172,11 +184,11 @@ func ingestOne(ctx context.Context, tx *sql.Tx, runID string, f report.Finding, 
 		err = tx.QueryRowContext(ctx, `INSERT INTO findings (fingerprint, kind, engine, engine_version, rules_version,
 			signature, source, license, author, reference, description, category, severity, sha256, location_id,
 			file_type, state, exception_id, first_run, last_run, first_seen, last_seen, state_changed, evidence,
-			process, persistence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			process, persistence, subject) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			RETURNING id`,
 			fp, kind, f.Engine, f.EngineVersion, f.RulesVersion, f.Signature, f.Source, f.License, f.Author, f.Reference,
 			f.Description, string(f.Category), string(f.Severity), sha, loc, f.FileType, initial, excID, runID, runID,
-			ts(now), ts(now), ts(now), toJSON(f.Evidence), procJSON, persJSON).Scan(&id)
+			ts(now), ts(now), ts(now), toJSON(f.Evidence), procJSON, persJSON, f.Subject).Scan(&id)
 		if err != nil {
 			return err
 		}
@@ -193,6 +205,9 @@ func ingestOne(ctx context.Context, tx *sql.Tx, runID string, f report.Finding, 
 		return err
 	default:
 		res.Seen++
+		// Achados que descrevem um estado atual (quantas correções faltam, o que mudou no arquivo) ficam com a
+		// evidência da execução mais recente; os demais guardam a da primeira detecção.
+		refresh := kind == KindSystem || f.Category == report.CategoryIntegrity || f.Category == report.CategoryUpdate
 		next := state
 		note := ""
 		switch {
@@ -207,9 +222,11 @@ func ingestOne(ctx context.Context, tx *sql.Tx, runID string, f report.Finding, 
 		if _, err := tx.ExecContext(ctx, `UPDATE findings SET last_run = ?, last_seen = ?, times_seen = times_seen + 1,
 			engine_version = ?, rules_version = ?, location_id = COALESCE(?, location_id), state = ?,
 			exception_id = ?, state_changed = CASE WHEN state != ? THEN ? ELSE state_changed END,
-			process = CASE WHEN ? != '' THEN ? ELSE process END
+			process = CASE WHEN ? != '' THEN ? ELSE process END,
+			evidence = CASE WHEN ? THEN ? ELSE evidence END, severity = CASE WHEN ? THEN ? ELSE severity END,
+			description = CASE WHEN ? THEN ? ELSE description END
 			WHERE id = ?`, runID, ts(now), f.EngineVersion, f.RulesVersion, loc, next, excID, next, ts(now),
-			procJSON, procJSON, id); err != nil {
+			procJSON, procJSON, refresh, toJSON(f.Evidence), refresh, string(f.Severity), refresh, f.Description, id); err != nil {
 			return err
 		}
 		if next != state {
@@ -264,12 +281,13 @@ type Finding struct {
 	Evidence      map[string]string
 	Process       *report.ProcessEvidence
 	Persistence   *report.PersistenceEntry
+	Subject       string
 }
 
 const findingColumns = `f.id, f.kind, f.engine, f.engine_version, f.rules_version, f.signature, f.source, f.license,
 	f.author, f.reference, f.description, f.category, f.severity, COALESCE(f.sha256, ''), f.file_type, f.state,
 	f.assignee, f.exception_id, f.first_run, f.last_run, f.first_seen, f.last_seen, f.state_changed, f.times_seen,
-	f.evidence, f.process, f.persistence,
+	f.evidence, f.process, f.persistence, f.subject,
 	l.path, l.path_hex, l.dev, l.ino, l.size, l.mode, l.uid, l.gid, l.nlink, l.mtime, l.ctime,
 	(SELECT COUNT(*) FROM locations x WHERE f.sha256 IS NOT NULL AND x.sha256 = f.sha256)`
 
@@ -282,7 +300,7 @@ func scanFinding(s scanner) (Finding, error) {
 	err := s.Scan(&f.ID, &f.Kind, &f.Engine, &f.EngineVersion, &f.RulesVersion, &f.Signature, &f.Source, &f.License,
 		&f.Author, &f.Reference, &f.Description, &f.Category, &f.Severity, &f.SHA256, &f.FileType, &f.State,
 		&f.Assignee, &excID, &f.FirstRun, &f.LastRun, &first, &last, &changed, &f.TimesSeen,
-		&evidence, &proc, &pers, &path, &pathHex, &dev, &ino, &size, &mode, &uid, &gid, &nlink, &mtime, &ctime, &f.Locations)
+		&evidence, &proc, &pers, &f.Subject, &path, &pathHex, &dev, &ino, &size, &mode, &uid, &gid, &nlink, &mtime, &ctime, &f.Locations)
 	if errors.Is(err, sql.ErrNoRows) {
 		return f, ErrNotFound
 	}
@@ -353,9 +371,9 @@ func (d *DB) ListFindings(ctx context.Context, f FindingFilter) ([]Finding, erro
 	if s := strings.TrimSpace(f.Query); s != "" {
 		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(s) + "%"
 		// O caminho pode ser de qualquer cópia do objeto, não só da localização mais recente.
-		q += ` AND (l.path LIKE ? ESCAPE '\' OR f.signature LIKE ? ESCAPE '\' OR f.sha256 = ?
+		q += ` AND (l.path LIKE ? ESCAPE '\' OR f.signature LIKE ? ESCAPE '\' OR f.subject LIKE ? ESCAPE '\' OR f.sha256 = ?
 			OR f.sha256 IN (SELECT sha256 FROM locations WHERE sha256 IS NOT NULL AND path LIKE ? ESCAPE '\'))`
-		args = append(args, like, like, strings.ToLower(s), like)
+		args = append(args, like, like, like, strings.ToLower(s), like)
 	}
 	if f.BeforeID > 0 {
 		q += ` AND f.id < ?`

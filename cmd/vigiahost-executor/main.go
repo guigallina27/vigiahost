@@ -31,6 +31,12 @@ func run(args []string) int {
 	if len(args) > 0 && args[0] == "inspect" {
 		return runInspect(args[1:])
 	}
+	if len(args) > 0 && args[0] == "integrity" {
+		return runIntegrity(args[1:])
+	}
+	if len(args) > 0 && args[0] == "updates" {
+		return runUpdates(args[1:])
+	}
 	fs := flag.NewFlagSet("vigiahost-executor", flag.ContinueOnError)
 	socket := fs.String("socket", "/run/vigiahost-executor/executor.sock", "caminho do socket Unix")
 	allow := fs.String("allow-user", "vigiahost", "usuários (separados por vírgula) autorizados além do root")

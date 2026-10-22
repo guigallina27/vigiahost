@@ -1,0 +1,5 @@
+SM5....T.    /usr/bin/tree
+missing   d /usr/share/doc/tree/README
+S.5....T.  c /etc/nanorc
+....L....    /usr/bin/rnano
+rc=2

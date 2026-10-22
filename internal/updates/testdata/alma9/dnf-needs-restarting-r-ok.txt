@@ -1,0 +1,3 @@
+No core libraries or services have been updated since boot-up.
+Reboot should not be necessary.
+rc=0

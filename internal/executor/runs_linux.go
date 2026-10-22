@@ -22,10 +22,6 @@ import (
 	"github.com/guigallina27/vigiahost/internal/report"
 )
 
-// Capacidades do processo da execução: ler qualquer arquivo (DAC_READ_SEARCH) e conectar ao socket do clamd de
-// outro dono (DAC_OVERRIDE). Com ProtectSystem=strict a escrita continua restrita aos ReadWritePaths.
-const runCapabilities = 1<<1 | 1<<2 // CAP_DAC_OVERRIDE, CAP_DAC_READ_SEARCH
-
 // Runs cria e acompanha execuções em unidades transitórias do systemd.
 type Runs struct {
 	Logger   *slog.Logger
@@ -155,16 +151,15 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	sub, families, caps := "scan", []string{"AF_UNIX"}, uint64(runCapabilities)
-	if in.Request.Kind == report.KindProcesses {
-		// O inspetor lê /proc de todos os processos (SYS_PTRACE para /proc/PID/exe de outros usuários) e a rede
-		// por netlink (sock_diag).
-		sub, families, caps = "inspect", []string{"AF_UNIX", "AF_NETLINK"}, uint64(runCapabilities|1<<19)
-	}
+	spec := SpecFor(in.Request.Kind, r.Local, func(d string) bool {
+		info, err := os.Stat(d)
+		return err == nil && info.IsDir()
+	})
+	argv := append([]string{r.Exe, spec.Sub, "-dir", dir, "-state", r.StateDir}, spec.Args...)
 	props := []sddbus.Property{
 		sddbus.PropDescription("VigiaHost: execução " + in.Request.RunID),
 		sddbus.PropType("exec"),
-		sddbus.PropExecStart([]string{r.Exe, sub, "-dir", dir, "-state", r.StateDir}, true),
+		sddbus.PropExecStart(argv, true),
 		sddbus.PropSlice("vigiahost.slice"),
 		prop("CollectMode", "inactive-or-failed"),
 		prop("RuntimeMaxUSec", uint64(p.MaxRuntimeSec)*1_000_000), //nolint:gosec // validado por Enforce
@@ -172,12 +167,12 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 		prop("TasksMax", uint64(512)),
 		prop("UMask", uint32(0o027)),
 		// Isolamento: sem rede, sistema só leitura, escrita só nos diretórios da execução, do cache e das regras.
-		prop("PrivateNetwork", true),
+		prop("PrivateNetwork", spec.PrivateNetwork),
 		// Sem PrivateTmp: /tmp, /var/tmp e /dev/shm são onde malware costuma ficar e precisam ser varridos.
 		prop("NoNewPrivileges", true),
 		prop("ProtectSystem", "strict"),
 		prop("ProtectHome", "read-only"),
-		prop("ReadWritePaths", []string{dir, filepath.Join(r.StateDir, "cache"), filepath.Join(r.StateDir, "rules")}),
+		prop("ReadWritePaths", append([]string{dir, filepath.Join(r.StateDir, "cache"), filepath.Join(r.StateDir, "rules")}, spec.Write...)),
 		prop("ProtectKernelTunables", true),
 		prop("ProtectKernelModules", true),
 		prop("ProtectControlGroups", true),
@@ -187,8 +182,15 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 		prop("RestrictAddressFamilies", struct {
 			Allow    bool
 			Families []string
-		}{true, families}),
-		prop("CapabilityBoundingSet", caps),
+		}{true, spec.Families}),
+		prop("CapabilityBoundingSet", spec.Caps),
+	}
+	if spec.IPDenyAll {
+		// Na rede do sistema sem tráfego IP: o filtro do cgroup (BPF) descarta pacotes de entrada e de saída.
+		props = append(props, prop("IPAddressDeny", []ipPrefix{
+			{Family: syscall.AF_INET, Address: make([]byte, 4)},
+			{Family: syscall.AF_INET6, Address: make([]byte, 16)},
+		}))
 	}
 	if r.CoreGID >= 0 {
 		// Grupo primário do core: os relatórios nascem root:<grupo do core> (0640 com o UMask 027) e o core os lê.
@@ -196,7 +198,11 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 	}
 	props = append(props, limitProps(p)...)
 	if p.IOReadBytesPerSec > 0 {
-		props = append(props, prop("IOReadBandwidthMax", ioDevices(in.Request.Paths, uint64(p.IOReadBytesPerSec)))) //nolint:gosec // validado
+		roots := in.Request.Paths
+		if len(roots) == 0 {
+			roots = []string{"/"} // verificações do sistema leem sobretudo o disco raiz
+		}
+		props = append(props, prop("IOReadBandwidthMax", ioDevices(roots, uint64(p.IOReadBytesPerSec)))) //nolint:gosec // validado
 	}
 	unit := UnitName(in.Request.RunID)
 	if _, err := conn.StartTransientUnitContext(ctx, unit, "fail", props, nil); err != nil {
@@ -206,6 +212,13 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 	r.Logger.Info("execução iniciada", "execucao", in.Request.RunID, "unidade", unit, "tipo", in.Request.Kind,
 		"perfil", p.Name, "caminhos", len(in.Request.Paths))
 	return r.state(ctx, in.Request.RunID)
+}
+
+// ipPrefix é a assinatura D-Bus a(iayu) de IPAddressDeny; prefixo 0 cobre a família inteira ("any").
+type ipPrefix struct {
+	Family    int32
+	Address   []byte
+	PrefixLen uint32
 }
 
 type ioLimit struct {

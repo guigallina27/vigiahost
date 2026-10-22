@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/controls"
+	"github.com/guigallina27/vigiahost/internal/inspect"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
@@ -329,7 +330,74 @@ func TestInspecaoDeProcessosEmUnidade(t *testing.T) {
 	if err != nil || json.Unmarshal(raw, &pers) != nil || !pers.Baseline || len(pers.Items) == 0 {
 		t.Fatalf("persistence.json: %v baseline=%v itens=%d", err, pers.Baseline, len(pers.Items))
 	}
+	// Processos e portas ocultos rodam na rede do sistema (sem tráfego IP); fora dela a busca seria cega.
+	var hidden inspect.HiddenReport
+	raw, err = os.ReadFile(filepath.Join(st.Dir, report.HiddenFile))
+	if err != nil || json.Unmarshal(raw, &hidden) != nil || !hidden.Processes.Checked || !hidden.Ports.Checked || hidden.Ports.Probed == 0 {
+		t.Fatalf("hidden.json: %v %s", err, raw)
+	}
+	t.Logf("ocultos: processos %d, portas %d (testadas %d)", len(hidden.Processes.Found), len(hidden.Ports.Found), hidden.Ports.Probed)
 	if _, err := runs.Cleanup(ctx, ref); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Verificação contra os pacotes e correções pendentes nas unidades reais, com o isolamento de produção (sem rede,
+// sistema só leitura): a execução precisa terminar com o relatório gravado.
+func TestVerificacoesDoSistemaEmUnidade(t *testing.T) {
+	if os.Getenv("VIGIAHOST_SYSTEMD_TEST") != "1" || os.Geteuid() != 0 {
+		t.Skip("exige root, systemd e VIGIAHOST_SYSTEMD_TEST=1")
+	}
+	base, err := os.MkdirTemp("/var/tmp", "vh-teste-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	exe := filepath.Join(base, "vigiahost-executor")
+	if b, err := exec.Command("go", "build", "-o", exe, "../../cmd/vigiahost-executor").CombinedOutput(); err != nil {
+		t.Fatalf("%v: %s", err, b)
+	}
+	hw := DetectHardware()
+	runs := &Runs{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), StateDir: filepath.Join(base, "estado"), Exe: exe, CoreGID: 0, Hardware: hw}
+	if err := runs.Prepare(); err != nil {
+		t.Fatal(err)
+	}
+	defer runs.Close()
+	p, _ := profile.Preset(hw, profile.Standard)
+	ctx := context.Background()
+	for _, c := range []struct {
+		kind report.Kind
+		file string
+	}{{report.KindIntegrity, report.IntegrityFile}, {report.KindUpdates, report.UpdatesFile}} {
+		id := string(c.kind) + "-" + time.Now().Format("150405")
+		body, _ := json.Marshal(ipc.RunStart{Request: report.Request{RunID: id, Kind: c.kind, Profile: p}})
+		if _, err := runs.Start(ctx, body); err != nil {
+			t.Fatal(err)
+		}
+		ref, _ := json.Marshal(ipc.RunRef{RunID: id})
+		deadline := time.Now().Add(15 * time.Minute)
+		var st ipc.RunState
+		for time.Now().Before(deadline) {
+			out, err := runs.Status(ctx, ref)
+			if err != nil {
+				t.Fatal(err)
+			}
+			st = out.(ipc.RunState)
+			if st.Summary != nil && (st.Active == "gone" || st.Active == "inactive") {
+				break
+			}
+			time.Sleep(2 * time.Second)
+		}
+		if st.Summary == nil || (st.Summary.Status != report.StatusCompleted && st.Summary.Status != report.StatusPartial) {
+			t.Fatalf("%s: %+v", c.kind, st)
+		}
+		raw, err := os.ReadFile(filepath.Join(st.Dir, c.file))
+		if err != nil || len(raw) < 10 {
+			t.Fatalf("%s: %v", c.file, err)
+		}
+		t.Logf("%s: estado=%s achados=%d avisos=%v erro=%q", c.kind, st.Summary.Status, st.Summary.Findings, st.Summary.Warnings, st.Summary.Error)
+		if _, err := runs.Cleanup(ctx, ref); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

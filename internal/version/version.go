@@ -12,5 +12,5 @@ var (
 // campos ou operações novas e opcionais incrementam ProtocolMinor.
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 1
+	ProtocolMinor = 2 // 2: tipos de execução integrity e updates; inspeção de processos e portas ocultos
 )

@@ -1,0 +1,21 @@
+??5??????   /usr/bin/tree
+missing     /usr/share/doc/tree/README.gz
+missing     /usr/share/doc/tree/TODO
+missing     /usr/share/man/man1/tree.1.gz
+??5?????? c /etc/bash.bashrc
+missing     /usr/share/doc/bash/COMPAT.gz
+missing     /usr/share/doc/bash/INTRO.gz
+missing     /usr/share/doc/bash/NEWS.gz
+missing     /usr/share/doc/bash/POSIX.gz
+missing     /usr/share/doc/bash/RBASH
+missing     /usr/share/doc/bash/README.Debian.gz
+missing     /usr/share/doc/bash/README.abs-guide
+missing     /usr/share/doc/bash/README.commands.gz
+missing     /usr/share/doc/bash/README.gz
+missing     /usr/share/doc/bash/inputrc.arrows
+missing     /usr/share/man/man1/bash.1.gz
+missing     /usr/share/man/man1/bashbug.1.gz
+missing     /usr/share/man/man1/clear_console.1.gz
+missing     /usr/share/man/man1/rbash.1.gz
+missing     /usr/share/man/man7/bash-builtins.7.gz
+rc=0

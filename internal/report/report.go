@@ -20,6 +20,12 @@ const (
 	// Instantâneos da inspeção de processos.
 	ProcessesFile   = "processes.json"
 	PersistenceFile = "persistence.json"
+	// HiddenFile é o resultado da busca por processos e portas ocultos (inspeção de processos).
+	HiddenFile = "hidden.json"
+	// IntegrityFile é o relatório da verificação contra os pacotes (execução de integridade).
+	IntegrityFile = "integrity.json"
+	// UpdatesFile é o relatório de correções pendentes e reinícios (execução de atualizações).
+	UpdatesFile = "updates.json"
 )
 
 // Kind é o tipo de execução.
@@ -28,7 +34,22 @@ type Kind string
 const (
 	KindFiles     Kind = "files"     // varredura de arquivos com os motores
 	KindProcesses Kind = "processes" // inspeção de processos, rede e persistência
+	KindIntegrity Kind = "integrity" // arquivos conferidos contra os pacotes instalados (protocolo 1.2)
+	KindUpdates   Kind = "updates"   // correções pendentes, serviços a reiniciar e reinício pendente (protocolo 1.2)
 )
+
+// Kinds lista os tipos de execução conhecidos, na ordem de despacho.
+var Kinds = []Kind{KindFiles, KindProcesses, KindIntegrity, KindUpdates}
+
+// ValidKind diz se o tipo é conhecido.
+func ValidKind(k Kind) bool {
+	for _, x := range Kinds {
+		if x == k {
+			return true
+		}
+	}
+	return false
+}
 
 // Request é o pedido de execução que o core entrega ao executor; o executor revalida tudo pela própria política.
 type Request struct {
@@ -70,6 +91,11 @@ const (
 	PhaseScanning  Phase = "scanning"
 	PhaseLarge     Phase = "large_files"
 	PhaseInspect   Phase = "inspect"
+	PhaseHidden    Phase = "hidden"     // busca por processos e portas ocultos
+	PhaseVerify    Phase = "verify"     // arquivos conferidos contra o banco de pacotes
+	PhaseSignature Phase = "signatures" // assinaturas de pacotes e repositórios
+	PhaseUpdates   Phase = "updates"    // correções pendentes no cache do gerenciador de pacotes
+	PhaseRestart   Phase = "restart"    // serviços e kernel aguardando reinício
 	PhaseDone      Phase = "done"
 )
 
@@ -119,6 +145,11 @@ const (
 	CategoryPersistence Category = "persistence"
 	CategoryNetwork     Category = "network"
 	CategoryTest        Category = "test" // controle positivo (EICAR, marcador): prova que o motor funciona
+	// CategoryIntegrity: arquivo que não confere com o pacote instalado, ou pacote e repositório sem assinatura
+	// conferível. O achado de arquivo é identificado pela localização, porque o conteúdo muda a cada alteração.
+	CategoryIntegrity Category = "integrity"
+	// CategoryUpdate: correção de segurança pendente, serviço com biblioteca antiga ou reinício pendente.
+	CategoryUpdate Category = "update"
 )
 
 // Location identifica onde o objeto estava no momento da análise.
@@ -175,8 +206,11 @@ type Finding struct {
 	Location      *Location         `json:"location,omitempty"`
 	Process       *ProcessEvidence  `json:"process,omitempty"`
 	Persistence   *PersistenceEntry `json:"persistence,omitempty"`
-	Evidence      map[string]string `json:"evidence,omitempty"`
-	DetectedAt    time.Time         `json:"detected_at"`
+	// Subject identifica achados do sistema sem arquivo, processo ou item de persistência (pacote, repositório,
+	// porta, serviço, kernel) e entra na identidade do achado.
+	Subject    string            `json:"subject,omitempty"`
+	Evidence   map[string]string `json:"evidence,omitempty"`
+	DetectedAt time.Time         `json:"detected_at"`
 }
 
 // ProcessEvidence é o instantâneo do processo que gerou o achado (segredos mascarados).

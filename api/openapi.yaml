@@ -681,6 +681,41 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/integrity:
+    get:
+      operationId: getIntegrity
+      summary: Verificação contra os pacotes da última execução de integridade (ou da informada)
+      description: >-
+        Arquivos que diferem do registrado no pacote (rpm -Va, dpkg --verify, debsums), classificados pelo tipo do
+        arquivo, e a situação das assinaturas dos pacotes e dos repositórios.
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Relatório de integridade
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntegrityReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/updates:
+    get:
+      operationId: getUpdates
+      summary: Correções pendentes, reinício e serviços a reiniciar da última execução de atualizações (ou da informada)
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Relatório de atualizações
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdatesReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/engines:
     get:
       operationId: getEngines
@@ -877,7 +912,7 @@ components:
     SnapshotRun:
       name: run_id
       in: query
-      description: Execução de inspeção; sem ele, a mais recente
+      description: Execução da verificação; sem ele, a mais recente
       schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,39}$" }
     Limit:
       name: limit
@@ -1132,10 +1167,11 @@ components:
       enum: [new, in_review, confirmed, resolved, false_positive, excepted]
     FindingKind:
       type: string
-      enum: [file, process, persistence]
+      description: system é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta)
+      enum: [file, process, persistence, system]
     RunKind:
       type: string
-      enum: [files, processes]
+      enum: [files, processes, integrity, updates]
     RunStatus:
       type: string
       enum: [queued, reserved, running, completed, partial, failed, engine_failure, canceled, interrupted]
@@ -1380,6 +1416,10 @@ components:
         exe_memfd: { type: boolean }
         exe_sha256: { type: string }
         package: { type: string, description: 'Pacote dono do executável; "-" quando nenhum pacote o reconhece' }
+        package_status:
+          type: string
+          enum: [match, mismatch]
+          description: O executável confere (match) ou não (mismatch) com o resumo registrado no pacote
         unit: { type: string }
         cgroup: { type: string }
         start_ticks: { type: integer, format: int64 }
@@ -1397,6 +1437,230 @@ components:
         run_id: { type: string }
         taken_at: { type: string, format: date-time }
         processes: { type: array, items: { $ref: "#/components/schemas/ProcessInfo" } }
+        hidden: { $ref: "#/components/schemas/HiddenReport" }
+    HiddenReport:
+      type: object
+      additionalProperties: false
+      description: Processos e portas que o kernel confirma mas as listagens escondem (conferidos duas vezes)
+      required: [processes, ports, seconds]
+      properties:
+        processes: { $ref: "#/components/schemas/HiddenProcesses" }
+        ports: { $ref: "#/components/schemas/HiddenPorts" }
+        seconds: { type: number }
+    HiddenProcesses:
+      type: object
+      additionalProperties: false
+      required: [checked, pid_max, visible, found, discarded]
+      properties:
+        checked: { type: boolean }
+        pid_max: { type: integer }
+        visible: { type: integer, description: Processos e threads listados no /proc }
+        found:
+          type: array
+          items: { $ref: "#/components/schemas/HiddenProcess" }
+        discarded: { type: integer, description: Candidatos descartados por serem efêmeros }
+        error: { type: string }
+    HiddenProcess:
+      type: object
+      additionalProperties: false
+      required: [pid, checks, direct_access]
+      properties:
+        pid: { type: integer }
+        checks: { type: array, items: { type: string }, description: Chamadas que confirmaram o processo }
+        direct_access: { type: boolean, description: /proc/PID abre mesmo fora da listagem }
+        comm: { type: string }
+        exe: { type: string }
+    HiddenPorts:
+      type: object
+      additionalProperties: false
+      required: [checked, probed, skipped, listed, netlink, found, discarded]
+      properties:
+        checked: { type: boolean }
+        probed: { type: integer }
+        skipped: { type: integer }
+        listed: { type: integer }
+        netlink: { type: boolean }
+        found:
+          type: array
+          items: { $ref: "#/components/schemas/HiddenPort" }
+        discarded: { type: integer }
+        error: { type: string }
+    HiddenPort:
+      type: object
+      additionalProperties: false
+      required: [proto, port, reason]
+      properties:
+        proto: { type: string, enum: [tcp, udp] }
+        port: { type: integer }
+        reason: { type: string, enum: [bind_only, netlink_only, proc_only] }
+    ReportRun:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+    PackageRef:
+      type: object
+      additionalProperties: false
+      required: [name, version]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        arch: { type: string }
+    IntegrityFile:
+      type: object
+      additionalProperties: false
+      required: [path, flags, changes, class, severity, signature, description]
+      properties:
+        path: { type: string }
+        flags: { type: string, description: 'Marcas da ferramenta (S.5....T.); "missing" para arquivo ausente' }
+        changes:
+          type: array
+          items: { type: string, enum: [size, mode, digest, device, link, user, group, mtime, capabilities, missing] }
+        config: { type: boolean }
+        class: { type: string, enum: [binary, library, pam_module, kernel_module, config_sensitive, config, doc, other] }
+        severity: { $ref: "#/components/schemas/Severity" }
+        signature: { type: string }
+        description: { type: string }
+        packages: { type: array, items: { $ref: "#/components/schemas/PackageRef" } }
+        algo: { type: string }
+        expected: { type: string }
+        actual: { type: string }
+        sha256: { type: string }
+    SigningKey:
+      type: object
+      additionalProperties: false
+      required: [id, summary]
+      properties:
+        id: { type: string }
+        summary: { type: string }
+    KeyedPackage:
+      type: object
+      additionalProperties: false
+      required: [name, version, key_id]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        arch: { type: string }
+        key_id: { type: string }
+    PackageRepo:
+      type: object
+      additionalProperties: false
+      required: [id, file, enabled, verified]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        file: { type: string }
+        enabled: { type: boolean }
+        verified: { type: boolean }
+        problem: { type: string, enum: [gpgcheck_off, trusted, allow_insecure, unsigned_list, apt_conf_insecure] }
+    PackageSignatures:
+      type: object
+      additionalProperties: false
+      required: [manager, method, signed, repos]
+      properties:
+        manager: { type: string }
+        method: { type: string, enum: [package, repository] }
+        keys: { type: array, items: { $ref: "#/components/schemas/SigningKey" } }
+        signed: { type: integer }
+        unsigned: { type: array, items: { $ref: "#/components/schemas/PackageRef" } }
+        unknown_key: { type: array, items: { $ref: "#/components/schemas/KeyedPackage" } }
+        repos: { type: array, items: { $ref: "#/components/schemas/PackageRepo" } }
+        warnings: { type: array, items: { type: string } }
+    IntegrityReport:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, runs, manager, tools, debsums_available, packages, differences, files, ignored, by_severity, seconds]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        runs:
+          type: array
+          description: Execuções guardadas, da mais recente para a mais antiga
+          items: { $ref: "#/components/schemas/ReportRun" }
+        manager: { type: string, description: rpm, dpkg ou vazio quando nenhum gerenciador foi encontrado }
+        tools: { type: array, items: { type: string } }
+        debsums_available: { type: boolean }
+        packages: { type: integer }
+        differences: { type: integer, description: Linhas apontadas pela ferramenta, inclusive as ignoradas }
+        files: { type: array, items: { $ref: "#/components/schemas/IntegrityFile" } }
+        truncated: { type: integer, description: Diferenças além do limite da lista (os achados existem todos) }
+        ignored: { type: object, additionalProperties: { type: integer } }
+        by_severity: { type: object, additionalProperties: { type: integer } }
+        signatures: { $ref: "#/components/schemas/PackageSignatures" }
+        signature_error: { type: string }
+        error: { type: string }
+        warnings: { type: array, items: { type: string } }
+        seconds: { type: number }
+    PackageUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, available, security]
+      properties:
+        name: { type: string }
+        arch: { type: string }
+        installed: { type: string }
+        available: { type: string }
+        repo: { type: string }
+        security: { type: boolean }
+        severity: { type: string, description: critical, important, moderate, low ou unknown }
+        advisories: { type: array, items: { type: string } }
+        cves: { type: array, items: { type: string } }
+    RebootStatus:
+      type: object
+      additionalProperties: false
+      required: [known, required, running_kernel]
+      properties:
+        known: { type: boolean, description: Houve como saber (kernel por pacote, needs-restarting ou needrestart) }
+        required: { type: boolean }
+        reasons: { type: array, items: { type: string } }
+        running_kernel: { type: string }
+        latest_kernel: { type: string }
+        packages: { type: array, items: { type: string } }
+    RestartService:
+      type: object
+      additionalProperties: false
+      required: [unit, source]
+      properties:
+        unit: { type: string }
+        pids: { type: array, items: { type: integer } }
+        files: { type: array, items: { type: string } }
+        source: { type: string, description: needs-restarting, needrestart ou maps }
+    RestartProcess:
+      type: object
+      additionalProperties: false
+      required: [pid, comm, uid, files]
+      properties:
+        pid: { type: integer }
+        comm: { type: string }
+        uid: { type: integer, format: int64 }
+        files: { type: array, items: { type: string } }
+    UpdatesReport:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, runs, manager, refresh_allowed, refreshed, security, other, by_severity, reboot, services, processes, tools, seconds]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        runs: { type: array, items: { $ref: "#/components/schemas/ReportRun" } }
+        manager: { type: string }
+        cache_updated_at: { type: string, format: date-time, description: Lista de pacotes mais recente no cache }
+        cache_oldest_at: { type: string, format: date-time, description: Lista mais antiga entre os repositórios }
+        refresh_allowed: { type: boolean, description: O root liberou atualizar a lista de pacotes (executor.json) }
+        refreshed: { type: boolean }
+        refresh_error: { type: string }
+        security: { type: array, items: { $ref: "#/components/schemas/PackageUpdate" } }
+        other: { type: array, items: { $ref: "#/components/schemas/PackageUpdate" } }
+        by_severity: { type: object, additionalProperties: { type: integer } }
+        reboot: { $ref: "#/components/schemas/RebootStatus" }
+        services: { type: array, items: { $ref: "#/components/schemas/RestartService" } }
+        processes: { type: array, items: { $ref: "#/components/schemas/RestartProcess" } }
+        tools: { type: object, additionalProperties: { type: boolean } }
+        error: { type: string }
+        warnings: { type: array, items: { type: string } }
+        seconds: { type: number }
+        notes: { type: object, additionalProperties: { type: string } }
     PersistenceInventory:
       type: object
       additionalProperties: false
@@ -1455,6 +1719,7 @@ components:
           additionalProperties: { type: string }
         process: { $ref: "#/components/schemas/ProcessEvidence" }
         persistence: { $ref: "#/components/schemas/PersistenceEntry" }
+        subject: { type: string, description: 'Assunto do achado do sistema ("security-updates", "repo:epel", "tcp/31337")' }
     FindingEvent:
       type: object
       additionalProperties: false

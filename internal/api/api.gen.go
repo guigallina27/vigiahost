@@ -106,19 +106,22 @@ func (e ExceptionScope) Valid() bool {
 
 // Defines values for FindingKind.
 const (
-	File        FindingKind = "file"
-	Persistence FindingKind = "persistence"
-	Process     FindingKind = "process"
+	FindingKindFile        FindingKind = "file"
+	FindingKindPersistence FindingKind = "persistence"
+	FindingKindProcess     FindingKind = "process"
+	FindingKindSystem      FindingKind = "system"
 )
 
 // Valid indicates whether the value is a known member of the FindingKind enum.
 func (e FindingKind) Valid() bool {
 	switch e {
-	case File:
+	case FindingKindFile:
 		return true
-	case Persistence:
+	case FindingKindPersistence:
 		return true
-	case Process:
+	case FindingKindProcess:
+		return true
+	case FindingKindSystem:
 		return true
 	default:
 		return false
@@ -173,6 +176,123 @@ func (e HealthStatus) Valid() bool {
 	}
 }
 
+// Defines values for HiddenPortProto.
+const (
+	Tcp HiddenPortProto = "tcp"
+	Udp HiddenPortProto = "udp"
+)
+
+// Valid indicates whether the value is a known member of the HiddenPortProto enum.
+func (e HiddenPortProto) Valid() bool {
+	switch e {
+	case Tcp:
+		return true
+	case Udp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HiddenPortReason.
+const (
+	BindOnly    HiddenPortReason = "bind_only"
+	NetlinkOnly HiddenPortReason = "netlink_only"
+	ProcOnly    HiddenPortReason = "proc_only"
+)
+
+// Valid indicates whether the value is a known member of the HiddenPortReason enum.
+func (e HiddenPortReason) Valid() bool {
+	switch e {
+	case BindOnly:
+		return true
+	case NetlinkOnly:
+		return true
+	case ProcOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrityFileChanges.
+const (
+	IntegrityFileChangesCapabilities IntegrityFileChanges = "capabilities"
+	IntegrityFileChangesDevice       IntegrityFileChanges = "device"
+	IntegrityFileChangesDigest       IntegrityFileChanges = "digest"
+	IntegrityFileChangesGroup        IntegrityFileChanges = "group"
+	IntegrityFileChangesLink         IntegrityFileChanges = "link"
+	IntegrityFileChangesMissing      IntegrityFileChanges = "missing"
+	IntegrityFileChangesMode         IntegrityFileChanges = "mode"
+	IntegrityFileChangesMtime        IntegrityFileChanges = "mtime"
+	IntegrityFileChangesSize         IntegrityFileChanges = "size"
+	IntegrityFileChangesUser         IntegrityFileChanges = "user"
+)
+
+// Valid indicates whether the value is a known member of the IntegrityFileChanges enum.
+func (e IntegrityFileChanges) Valid() bool {
+	switch e {
+	case IntegrityFileChangesCapabilities:
+		return true
+	case IntegrityFileChangesDevice:
+		return true
+	case IntegrityFileChangesDigest:
+		return true
+	case IntegrityFileChangesGroup:
+		return true
+	case IntegrityFileChangesLink:
+		return true
+	case IntegrityFileChangesMissing:
+		return true
+	case IntegrityFileChangesMode:
+		return true
+	case IntegrityFileChangesMtime:
+		return true
+	case IntegrityFileChangesSize:
+		return true
+	case IntegrityFileChangesUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IntegrityFileClass.
+const (
+	Binary          IntegrityFileClass = "binary"
+	Config          IntegrityFileClass = "config"
+	ConfigSensitive IntegrityFileClass = "config_sensitive"
+	Doc             IntegrityFileClass = "doc"
+	KernelModule    IntegrityFileClass = "kernel_module"
+	Library         IntegrityFileClass = "library"
+	Other           IntegrityFileClass = "other"
+	PamModule       IntegrityFileClass = "pam_module"
+)
+
+// Valid indicates whether the value is a known member of the IntegrityFileClass enum.
+func (e IntegrityFileClass) Valid() bool {
+	switch e {
+	case Binary:
+		return true
+	case Config:
+		return true
+	case ConfigSensitive:
+		return true
+	case Doc:
+		return true
+	case KernelModule:
+		return true
+	case Library:
+		return true
+	case Other:
+		return true
+	case PamModule:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MissedPolicy.
 const (
 	RunOnce MissedPolicy = "run_once"
@@ -185,6 +305,51 @@ func (e MissedPolicy) Valid() bool {
 	case RunOnce:
 		return true
 	case Skip:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageRepoProblem.
+const (
+	AllowInsecure   PackageRepoProblem = "allow_insecure"
+	AptConfInsecure PackageRepoProblem = "apt_conf_insecure"
+	GpgcheckOff     PackageRepoProblem = "gpgcheck_off"
+	Trusted         PackageRepoProblem = "trusted"
+	UnsignedList    PackageRepoProblem = "unsigned_list"
+)
+
+// Valid indicates whether the value is a known member of the PackageRepoProblem enum.
+func (e PackageRepoProblem) Valid() bool {
+	switch e {
+	case AllowInsecure:
+		return true
+	case AptConfInsecure:
+		return true
+	case GpgcheckOff:
+		return true
+	case Trusted:
+		return true
+	case UnsignedList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackageSignaturesMethod.
+const (
+	Package    PackageSignaturesMethod = "package"
+	Repository PackageSignaturesMethod = "repository"
+)
+
+// Valid indicates whether the value is a known member of the PackageSignaturesMethod enum.
+func (e PackageSignaturesMethod) Valid() bool {
+	switch e {
+	case Package:
+		return true
+	case Repository:
 		return true
 	default:
 		return false
@@ -209,6 +374,24 @@ func (e PersistenceEntryChange) Valid() bool {
 	case Empty:
 		return true
 	case Removed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProcessInfoPackageStatus.
+const (
+	Match    ProcessInfoPackageStatus = "match"
+	Mismatch ProcessInfoPackageStatus = "mismatch"
+)
+
+// Valid indicates whether the value is a known member of the ProcessInfoPackageStatus enum.
+func (e ProcessInfoPackageStatus) Valid() bool {
+	switch e {
+	case Match:
+		return true
+	case Mismatch:
 		return true
 	default:
 		return false
@@ -263,7 +446,9 @@ func (e RunOrigin) Valid() bool {
 // Defines values for RunKind.
 const (
 	Files     RunKind = "files"
+	Integrity RunKind = "integrity"
 	Processes RunKind = "processes"
+	Updates   RunKind = "updates"
 )
 
 // Valid indicates whether the value is a known member of the RunKind enum.
@@ -271,7 +456,11 @@ func (e RunKind) Valid() bool {
 	switch e {
 	case Files:
 		return true
+	case Integrity:
+		return true
 	case Processes:
+		return true
+	case Updates:
 		return true
 	default:
 		return false
@@ -630,18 +819,20 @@ type ExecutorStatus struct {
 
 // Finding defines model for Finding.
 type Finding struct {
-	Assignee       string            `json:"assignee"`
-	Author         string            `json:"author"`
-	Category       string            `json:"category"`
-	Description    string            `json:"description"`
-	Engine         string            `json:"engine"`
-	EngineVersion  string            `json:"engine_version"`
-	Evidence       map[string]string `json:"evidence"`
-	ExceptionId    *int64            `json:"exception_id,omitempty"`
-	FileType       string            `json:"file_type"`
-	FirstRun       string            `json:"first_run"`
-	FirstSeen      time.Time         `json:"first_seen"`
-	Id             int64             `json:"id"`
+	Assignee      string            `json:"assignee"`
+	Author        string            `json:"author"`
+	Category      string            `json:"category"`
+	Description   string            `json:"description"`
+	Engine        string            `json:"engine"`
+	EngineVersion string            `json:"engine_version"`
+	Evidence      map[string]string `json:"evidence"`
+	ExceptionId   *int64            `json:"exception_id,omitempty"`
+	FileType      string            `json:"file_type"`
+	FirstRun      string            `json:"first_run"`
+	FirstSeen     time.Time         `json:"first_seen"`
+	Id            int64             `json:"id"`
+
+	// Kind system é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta)
 	Kind           FindingKind       `json:"kind"`
 	LastRun        string            `json:"last_run"`
 	LastSeen       time.Time         `json:"last_seen"`
@@ -658,7 +849,10 @@ type Finding struct {
 	Source         string            `json:"source"`
 	State          FindingState      `json:"state"`
 	StateChanged   time.Time         `json:"state_changed"`
-	TimesSeen      int64             `json:"times_seen"`
+
+	// Subject Assunto do achado do sistema ("security-updates", "repo:epel", "tcp/31337")
+	Subject   *string `json:"subject,omitempty"`
+	TimesSeen int64   `json:"times_seen"`
 }
 
 // FindingDetail defines model for FindingDetail.
@@ -679,7 +873,7 @@ type FindingEvent struct {
 	To     string    `json:"to"`
 }
 
-// FindingKind defines model for FindingKind.
+// FindingKind system é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta)
 type FindingKind string
 
 // FindingPage defines model for FindingPage.
@@ -724,6 +918,126 @@ type Health struct {
 
 // HealthStatus ok: executor conectado; degraded: core sem executor.
 type HealthStatus string
+
+// HiddenPort defines model for HiddenPort.
+type HiddenPort struct {
+	Port   int              `json:"port"`
+	Proto  HiddenPortProto  `json:"proto"`
+	Reason HiddenPortReason `json:"reason"`
+}
+
+// HiddenPortProto defines model for HiddenPort.Proto.
+type HiddenPortProto string
+
+// HiddenPortReason defines model for HiddenPort.Reason.
+type HiddenPortReason string
+
+// HiddenPorts defines model for HiddenPorts.
+type HiddenPorts struct {
+	Checked   bool         `json:"checked"`
+	Discarded int          `json:"discarded"`
+	Error     *string      `json:"error,omitempty"`
+	Found     []HiddenPort `json:"found"`
+	Listed    int          `json:"listed"`
+	Netlink   bool         `json:"netlink"`
+	Probed    int          `json:"probed"`
+	Skipped   int          `json:"skipped"`
+}
+
+// HiddenProcess defines model for HiddenProcess.
+type HiddenProcess struct {
+	// Checks Chamadas que confirmaram o processo
+	Checks []string `json:"checks"`
+	Comm   *string  `json:"comm,omitempty"`
+
+	// DirectAccess /proc/PID abre mesmo fora da listagem
+	DirectAccess bool    `json:"direct_access"`
+	Exe          *string `json:"exe,omitempty"`
+	Pid          int     `json:"pid"`
+}
+
+// HiddenProcesses defines model for HiddenProcesses.
+type HiddenProcesses struct {
+	Checked bool `json:"checked"`
+
+	// Discarded Candidatos descartados por serem efêmeros
+	Discarded int             `json:"discarded"`
+	Error     *string         `json:"error,omitempty"`
+	Found     []HiddenProcess `json:"found"`
+	PidMax    int             `json:"pid_max"`
+
+	// Visible Processos e threads listados no /proc
+	Visible int `json:"visible"`
+}
+
+// HiddenReport Processos e portas que o kernel confirma mas as listagens escondem (conferidos duas vezes)
+type HiddenReport struct {
+	Ports     HiddenPorts     `json:"ports"`
+	Processes HiddenProcesses `json:"processes"`
+	Seconds   float32         `json:"seconds"`
+}
+
+// IntegrityFile defines model for IntegrityFile.
+type IntegrityFile struct {
+	Actual      *string                `json:"actual,omitempty"`
+	Algo        *string                `json:"algo,omitempty"`
+	Changes     []IntegrityFileChanges `json:"changes"`
+	Class       IntegrityFileClass     `json:"class"`
+	Config      *bool                  `json:"config,omitempty"`
+	Description string                 `json:"description"`
+	Expected    *string                `json:"expected,omitempty"`
+
+	// Flags Marcas da ferramenta (S.5....T.); "missing" para arquivo ausente
+	Flags     string        `json:"flags"`
+	Packages  *[]PackageRef `json:"packages,omitempty"`
+	Path      string        `json:"path"`
+	Severity  Severity      `json:"severity"`
+	Sha256    *string       `json:"sha256,omitempty"`
+	Signature string        `json:"signature"`
+}
+
+// IntegrityFileChanges defines model for IntegrityFile.Changes.
+type IntegrityFileChanges string
+
+// IntegrityFileClass defines model for IntegrityFile.Class.
+type IntegrityFileClass string
+
+// IntegrityReport defines model for IntegrityReport.
+type IntegrityReport struct {
+	BySeverity       map[string]int `json:"by_severity"`
+	DebsumsAvailable bool           `json:"debsums_available"`
+
+	// Differences Linhas apontadas pela ferramenta
+	Differences int             `json:"differences"`
+	Error       *string         `json:"error,omitempty"`
+	Files       []IntegrityFile `json:"files"`
+	Ignored     map[string]int  `json:"ignored"`
+
+	// Manager rpm
+	Manager  string `json:"manager"`
+	Packages int    `json:"packages"`
+	RunId    string `json:"run_id"`
+
+	// Runs Execuções guardadas, da mais recente para a mais antiga
+	Runs           []ReportRun        `json:"runs"`
+	Seconds        float32            `json:"seconds"`
+	SignatureError *string            `json:"signature_error,omitempty"`
+	Signatures     *PackageSignatures `json:"signatures,omitempty"`
+	TakenAt        time.Time          `json:"taken_at"`
+	Tools          []string           `json:"tools"`
+
+	// Truncated Diferenças além do limite da lista (os achados existem todos)
+	Truncated *int      `json:"truncated,omitempty"`
+	Warnings  *[]string `json:"warnings,omitempty"`
+}
+
+// KeyedPackage defines model for KeyedPackage.
+type KeyedPackage struct {
+	Arch    *string `json:"arch,omitempty"`
+	KeyId   string  `json:"key_id"`
+	Name    string  `json:"name"`
+	Version string  `json:"version"`
+}
 
 // LastSelfTest defines model for LastSelfTest.
 type LastSelfTest struct {
@@ -794,6 +1108,56 @@ type Overview struct {
 	RecentFindings   []Finding      `json:"recent_findings"`
 }
 
+// PackageRef defines model for PackageRef.
+type PackageRef struct {
+	Arch    *string `json:"arch,omitempty"`
+	Name    string  `json:"name"`
+	Version string  `json:"version"`
+}
+
+// PackageRepo defines model for PackageRepo.
+type PackageRepo struct {
+	Enabled  bool                `json:"enabled"`
+	File     string              `json:"file"`
+	Id       string              `json:"id"`
+	Name     *string             `json:"name,omitempty"`
+	Problem  *PackageRepoProblem `json:"problem,omitempty"`
+	Verified bool                `json:"verified"`
+}
+
+// PackageRepoProblem defines model for PackageRepo.Problem.
+type PackageRepoProblem string
+
+// PackageSignatures defines model for PackageSignatures.
+type PackageSignatures struct {
+	Keys       *[]SigningKey           `json:"keys,omitempty"`
+	Manager    string                  `json:"manager"`
+	Method     PackageSignaturesMethod `json:"method"`
+	Repos      []PackageRepo           `json:"repos"`
+	Signed     int                     `json:"signed"`
+	UnknownKey *[]KeyedPackage         `json:"unknown_key,omitempty"`
+	Unsigned   *[]PackageRef           `json:"unsigned,omitempty"`
+	Warnings   *[]string               `json:"warnings,omitempty"`
+}
+
+// PackageSignaturesMethod defines model for PackageSignatures.Method.
+type PackageSignaturesMethod string
+
+// PackageUpdate defines model for PackageUpdate.
+type PackageUpdate struct {
+	Advisories *[]string `json:"advisories,omitempty"`
+	Arch       *string   `json:"arch,omitempty"`
+	Available  string    `json:"available"`
+	Cves       *[]string `json:"cves,omitempty"`
+	Installed  *string   `json:"installed,omitempty"`
+	Name       string    `json:"name"`
+	Repo       *string   `json:"repo,omitempty"`
+	Security   bool      `json:"security"`
+
+	// Severity critical
+	Severity *string `json:"severity,omitempty"`
+}
+
 // PasswordChange defines model for PasswordChange.
 type PasswordChange struct {
 	Current string `json:"current"`
@@ -857,19 +1221,27 @@ type ProcessInfo struct {
 	Listening *[]string `json:"listening,omitempty"`
 
 	// Package Pacote dono do executável; "-" quando nenhum pacote o reconhece
-	Package    *string `json:"package,omitempty"`
-	Pid        int     `json:"pid"`
-	Ppid       int     `json:"ppid"`
-	RssBytes   int64   `json:"rss_bytes"`
-	StartTicks *int64  `json:"start_ticks,omitempty"`
-	Threads    int     `json:"threads"`
-	Uid        int64   `json:"uid"`
-	Unit       *string `json:"unit,omitempty"`
-	User       *string `json:"user,omitempty"`
+	Package *string `json:"package,omitempty"`
+
+	// PackageStatus O executável confere (match) ou não (mismatch) com o resumo registrado no pacote
+	PackageStatus *ProcessInfoPackageStatus `json:"package_status,omitempty"`
+	Pid           int                       `json:"pid"`
+	Ppid          int                       `json:"ppid"`
+	RssBytes      int64                     `json:"rss_bytes"`
+	StartTicks    *int64                    `json:"start_ticks,omitempty"`
+	Threads       int                       `json:"threads"`
+	Uid           int64                     `json:"uid"`
+	Unit          *string                   `json:"unit,omitempty"`
+	User          *string                   `json:"user,omitempty"`
 }
+
+// ProcessInfoPackageStatus O executável confere (match) ou não (mismatch) com o resumo registrado no pacote
+type ProcessInfoPackageStatus string
 
 // ProcessInventory defines model for ProcessInventory.
 type ProcessInventory struct {
+	// Hidden Processos e portas que o kernel confirma mas as listagens escondem (conferidos duas vezes)
+	Hidden    *HiddenReport `json:"hidden,omitempty"`
 	Processes []ProcessInfo `json:"processes"`
 	RunId     string        `json:"run_id"`
 	TakenAt   time.Time     `json:"taken_at"`
@@ -889,6 +1261,23 @@ type ProfileEntry struct {
 type ReauthRequest struct {
 	Code     *string `json:"code,omitempty"`
 	Password string  `json:"password"`
+}
+
+// RebootStatus defines model for RebootStatus.
+type RebootStatus struct {
+	// Known Houve como saber (kernel por pacote
+	Known         bool      `json:"known"`
+	LatestKernel  *string   `json:"latest_kernel,omitempty"`
+	Packages      *[]string `json:"packages,omitempty"`
+	Reasons       *[]string `json:"reasons,omitempty"`
+	Required      bool      `json:"required"`
+	RunningKernel string    `json:"running_kernel"`
+}
+
+// ReportRun defines model for ReportRun.
+type ReportRun struct {
+	RunId   string    `json:"run_id"`
+	TakenAt time.Time `json:"taken_at"`
 }
 
 // ResetRequest defines model for ResetRequest.
@@ -922,6 +1311,24 @@ type Resources struct {
 	ExecutorError *string        `json:"executor_error,omitempty"`
 	Hardware      *Hardware      `json:"hardware,omitempty"`
 	Profiles      []ProfileEntry `json:"profiles"`
+}
+
+// RestartProcess defines model for RestartProcess.
+type RestartProcess struct {
+	Comm  string   `json:"comm"`
+	Files []string `json:"files"`
+	Pid   int      `json:"pid"`
+	Uid   int64    `json:"uid"`
+}
+
+// RestartService defines model for RestartService.
+type RestartService struct {
+	Files *[]string `json:"files,omitempty"`
+	Pids  *[]int    `json:"pids,omitempty"`
+
+	// Source needs-restarting
+	Source string `json:"source"`
+	Unit   string `json:"unit"`
 }
 
 // Role defines model for Role.
@@ -1104,6 +1511,12 @@ type SeverityCounts struct {
 	Total    int64 `json:"total"`
 }
 
+// SigningKey defines model for SigningKey.
+type SigningKey struct {
+	Id      string `json:"id"`
+	Summary string `json:"summary"`
+}
+
 // SystemCapabilities Sistema detectado pelo executor (escopo, seção 5.3).
 type SystemCapabilities struct {
 	// Arch Example: amd64
@@ -1128,6 +1541,36 @@ type SystemCapabilities struct {
 
 	// Systemd systemd é o init em execução.
 	Systemd bool `json:"systemd"`
+}
+
+// UpdatesReport defines model for UpdatesReport.
+type UpdatesReport struct {
+	BySeverity map[string]int `json:"by_severity"`
+
+	// CacheOldestAt Lista mais antiga entre os repositórios
+	CacheOldestAt *time.Time `json:"cache_oldest_at,omitempty"`
+
+	// CacheUpdatedAt Lista de pacotes mais recente no cache
+	CacheUpdatedAt *time.Time         `json:"cache_updated_at,omitempty"`
+	Error          *string            `json:"error,omitempty"`
+	Manager        string             `json:"manager"`
+	Notes          *map[string]string `json:"notes,omitempty"`
+	Other          []PackageUpdate    `json:"other"`
+	Processes      []RestartProcess   `json:"processes"`
+	Reboot         RebootStatus       `json:"reboot"`
+
+	// RefreshAllowed O root liberou atualizar a lista de pacotes (executor.json)
+	RefreshAllowed bool             `json:"refresh_allowed"`
+	RefreshError   *string          `json:"refresh_error,omitempty"`
+	Refreshed      bool             `json:"refreshed"`
+	RunId          string           `json:"run_id"`
+	Runs           []ReportRun      `json:"runs"`
+	Seconds        float32          `json:"seconds"`
+	Security       []PackageUpdate  `json:"security"`
+	Services       []RestartService `json:"services"`
+	TakenAt        time.Time        `json:"taken_at"`
+	Tools          map[string]bool  `json:"tools"`
+	Warnings       *[]string        `json:"warnings,omitempty"`
 }
 
 // User defines model for User.
@@ -1232,15 +1675,21 @@ type ListFindingsParams struct {
 	Limit  *Limit `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// GetIntegrityParams defines parameters for GetIntegrity.
+type GetIntegrityParams struct {
+	// RunId Execução da verificação; sem ele, a mais recente
+	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
+}
+
 // GetPersistenceInventoryParams defines parameters for GetPersistenceInventory.
 type GetPersistenceInventoryParams struct {
-	// RunId Execução de inspeção; sem ele, a mais recente
+	// RunId Execução da verificação; sem ele, a mais recente
 	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
 }
 
 // GetProcessInventoryParams defines parameters for GetProcessInventory.
 type GetProcessInventoryParams struct {
-	// RunId Execução de inspeção; sem ele, a mais recente
+	// RunId Execução da verificação; sem ele, a mais recente
 	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
 }
 
@@ -1261,6 +1710,12 @@ type ListRunsParams struct {
 type CreateRunParams struct {
 	// IdempotencyKey Repetir a mesma chave devolve a execução já criada (clique duplo, nova tentativa)
 	IdempotencyKey *string `json:"Idempotency-Key,omitempty"`
+}
+
+// GetUpdatesParams defines parameters for GetUpdates.
+type GetUpdatesParams struct {
+	// RunId Execução da verificação; sem ele, a mais recente
+	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
 }
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
@@ -1394,6 +1849,9 @@ type ServerInterface interface {
 	// GetHealth Saúde do core e da conexão com o executor
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// GetIntegrity Verificação contra os pacotes da última execução de integridade (ou da informada)
+	// (GET /api/v1/integrity)
+	GetIntegrity(w http.ResponseWriter, r *http.Request, params GetIntegrityParams)
 	// GetPersistenceInventory Inventário de persistência da última inspeção, com o que mudou em relação à anterior
 	// (GET /api/v1/inventory/persistence)
 	GetPersistenceInventory(w http.ResponseWriter, r *http.Request, params GetPersistenceInventoryParams)
@@ -1457,6 +1915,9 @@ type ServerInterface interface {
 	// RevokeApiToken Revoga token de API
 	// (DELETE /api/v1/tokens/{id})
 	RevokeApiToken(w http.ResponseWriter, r *http.Request, id Id)
+	// GetUpdates Correções pendentes, reinício e serviços a reiniciar da última execução de atualizações (ou da informada)
+	// (GET /api/v1/updates)
+	GetUpdates(w http.ResponseWriter, r *http.Request, params GetUpdatesParams)
 	// ListUsers Lista usuários do painel
 	// (GET /api/v1/users)
 	ListUsers(w http.ResponseWriter, r *http.Request)
@@ -2074,6 +2535,39 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 	handler.ServeHTTP(w, r)
 }
 
+// GetIntegrity operation middleware
+func (siw *ServerInterfaceWrapper) GetIntegrity(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetIntegrityParams
+
+	// ------------- Optional query parameter "run_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "run_id", r.URL.Query(), &params.RunId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "run_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetIntegrity(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPersistenceInventory operation middleware
 func (siw *ServerInterfaceWrapper) GetPersistenceInventory(w http.ResponseWriter, r *http.Request) {
 
@@ -2624,6 +3118,39 @@ func (siw *ServerInterfaceWrapper) RevokeApiToken(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// GetUpdates operation middleware
+func (siw *ServerInterfaceWrapper) GetUpdates(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetUpdatesParams
+
+	// ------------- Optional query parameter "run_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "run_id", r.URL.Query(), &params.RunId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "run_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetUpdates(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListUsers operation middleware
 func (siw *ServerInterfaceWrapper) ListUsers(w http.ResponseWriter, r *http.Request) {
 
@@ -2889,6 +3416,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.SaveResourceProfile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/processes", wrapper.GetProcessInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/persistence", wrapper.GetPersistenceInventory)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/integrity", wrapper.GetIntegrity)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/updates", wrapper.GetUpdates)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/engines", wrapper.GetEngines)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/users", wrapper.ListUsers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users", wrapper.CreateUser)

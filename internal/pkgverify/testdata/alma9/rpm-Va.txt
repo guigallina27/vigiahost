@@ -1,0 +1,12 @@
+.M.......    /
+......G..    /var/spool/mail
+......G..    /usr/libexec/utempter
+......G..    /usr/libexec/utempter/utempter
+......G..    /usr/bin/write
+......G..    /usr/libexec/openssh/ssh-keysign
+.M.......  c /etc/hostname
+S.5....T.  c /etc/nanorc
+....L....    /usr/bin/rnano
+SM5....T.    /usr/bin/tree
+missing   d /usr/share/doc/tree/README
+rc=1

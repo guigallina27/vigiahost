@@ -191,7 +191,7 @@ func (s *Server) scheduleFrom(ctx context.Context, in api.ScheduleInput, sc *sto
 	if sc.Name == "" {
 		return errors.New("informe um nome para o agendamento")
 	}
-	if sc.Kind != report.KindFiles && sc.Kind != report.KindProcesses {
+	if !report.ValidKind(sc.Kind) {
 		return errors.New("tipo de execução inválido")
 	}
 	if sc.MissedPolicy != store.MissedSkip && sc.MissedPolicy != store.MissedRunOnce {
@@ -220,7 +220,8 @@ func (s *Server) scheduleFrom(ctx context.Context, in api.ScheduleInput, sc *sto
 	if sc.Kind == report.KindFiles && len(sc.Paths) == 0 && sc.Accounts.Empty() {
 		return errors.New("informe ao menos um caminho ou uma conta para a varredura de arquivos")
 	}
-	if sc.Kind == report.KindProcesses {
+	if sc.Kind != report.KindFiles {
+		// Inspeção de processos e verificações do sistema têm escopo fixo.
 		sc.Paths, sc.Exclude, sc.Accounts = nil, nil, store.AccountSelection{}
 	}
 	if _, err := s.Orch.ResolveProfile(ctx, sc.Profile); err != nil {
