@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Ciclo de vida do pacote com systemd real: instala, inicia, confere saúde e política do executor,
-# atualiza, volta de versão, remove (dados preservados) e reinstala.
+# Ciclo de vida do pacote com systemd real: instala, ativa pelo setup plan/apply, confere saúde e política do executor,
+# atualiza, volta de versão, remove (dados preservados), reinstala e desinstala com -purge.
 # Uso (como root, na máquina de laboratório): test-lifecycle.sh <dir-pacotes> <versão-antiga> <versão-nova>
 set -euo pipefail
 
@@ -52,7 +52,16 @@ getent passwd vigiahost >/dev/null || fail "usuário vigiahost não criado"
 systemctl is-active --quiet vigiahost-core && fail "a instalação não deveria iniciar o serviço"
 ok "pacote instalado, usuário criado, serviços parados"
 
-systemctl enable --now vigiahost-executor.service vigiahost-core.service
+vigiahost setup plan >/tmp/setup-plan.txt || fail "setup plan com impedimentos: $(cat /tmp/setup-plan.txt)"
+grep -q "habilitar e iniciar vigiahost-core.service" /tmp/setup-plan.txt || fail "plano sem ativar o core"
+systemctl is-active --quiet vigiahost-core && fail "o plan não deveria alterar nada"
+vigiahost setup apply >/tmp/setup-apply.txt || fail "setup apply falhou: $(cat /tmp/setup-apply.txt)"
+grep -q "Token de primeiro acesso" /tmp/setup-apply.txt || fail "apply não mostrou o primeiro acesso"
+[[ "$(stat -c '%a %U' /etc/vigiahost/setup-manifest.json)" == "600 root" ]] || fail "manifesto ausente ou com permissão errada"
+vigiahost setup plan | grep -q "nada a fazer" || fail "reexecução do plano deveria estar em dia"
+vigiahost setup apply >/dev/null || fail "segundo apply falhou"
+[[ "$(jq '.changes | length' /etc/vigiahost/setup-manifest.json)" == "2" ]] || fail "reexecução duplicou o manifesto"
+ok "setup plan/apply idempotente com manifesto"
 out="$(wait_health "$old")" || fail "API não respondeu com $old e executor conectado"
 ok "API e executor: $(jq -c '{status, version, executor: (.executor | {connected, protocol, distro: .system.distro_id, cgroup_v2: .system.cgroup_v2, psi: .system.psi})}' <<<"$out")"
 
@@ -115,10 +124,15 @@ ok "serviços parados; banco e usuário preservados"
 
 echo "== reinstalação de $new sobre os dados preservados"
 pkg_install "$(pkg "$new")"
-systemctl enable --now vigiahost-executor.service vigiahost-core.service
+vigiahost setup apply >/dev/null || fail "setup apply na reinstalação falhou"
 wait_health "$new" >/dev/null || fail "reinstalação não subiu"
 journalctl -u vigiahost-core --no-pager -n 50 | grep -q "falha" && fail "erros no journal do core"
 ok "reinstalado sobre os dados existentes"
 
-pkg_remove
+echo "== desinstalação completa (setup uninstall -purge)"
+vigiahost setup uninstall -purge -remove-package -yes >/tmp/uninstall.txt || fail "uninstall falhou: $(cat /tmp/uninstall.txt)"
+systemctl is-active --quiet vigiahost-core && fail "serviço ativo após o uninstall"
+[[ -e /var/lib/vigiahost || -e /etc/vigiahost ]] && fail "dados ou configuração restaram após o -purge"
+command -v vigiahost >/dev/null && fail "pacote não removido"
+ok "desinstalação com -purge: serviços, dados, manifesto e pacote removidos"
 echo "CICLO DE VIDA APROVADO ($(. /etc/os-release && echo "$PRETTY_NAME"))"

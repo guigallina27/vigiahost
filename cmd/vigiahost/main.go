@@ -1,4 +1,4 @@
-// Comando vigiahost: serviço web (serve), diagnóstico (doctor), acesso (first-access, user reset) e versão.
+// Comando vigiahost: serviço web (serve), instalação (setup), diagnóstico (doctor), acesso (first-access, user reset) e versão.
 package main
 
 import (
@@ -12,7 +12,8 @@ const usage = `Uso: vigiahost <comando> [opções]
 
 Comandos:
   serve         inicia o serviço web e a API (normalmente pelo systemd)
-  doctor        verifica o sistema e a conexão com o executor
+  setup         plan/apply/uninstall: prepara, ativa e desfaz a instalação (root)
+  doctor        verifica o sistema, os motores e a conexão com o executor
   first-access  mostra o token de primeiro acesso ao painel (root)
   user reset    gera token de recuperação de acesso de um usuário (root)
   version       mostra a versão
@@ -28,6 +29,8 @@ func main() {
 	switch os.Args[1] {
 	case "serve":
 		os.Exit(runServe(os.Args[2:]))
+	case "setup":
+		os.Exit(runSetup(os.Args[2:]))
 	case "doctor":
 		os.Exit(runDoctor(os.Args[2:]))
 	case "first-access":

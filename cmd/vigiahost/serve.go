@@ -119,6 +119,8 @@ func runServe(args []string) int {
 			return 1
 		}
 		tlsConf = &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS12}
+		// O setup apply mostra a impressão digital ao administrador.
+		_ = os.WriteFile(filepath.Join(filepath.Dir(*dbPath), "tls", "fingerprint"), []byte(fp+"\n"), 0o600)
 		logger.Warn("interface web fora do endereço local com certificado autoassinado; confira a impressão digital "+
 			"no navegador e restrinja o acesso no firewall", "listen", *listen, "sha256", fp)
 	}

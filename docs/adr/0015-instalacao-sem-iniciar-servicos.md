@@ -14,4 +14,4 @@
 
 **Consequências.** Mais fácil: instalar em massa e revisar antes de ativar; comportamento previsível. Mais difícil: o administrador precisa de um passo a mais, que o script de bootstrap encadeia. Revisitar quando o `setup apply` existir, para decidir se o bootstrap o chama por padrão.
 
-**Ações.** [x] Scripts do pacote para DEB e RPM com atualização, retorno e remoção testados em 10 distribuições e com systemd real. [ ] `vigiahost setup plan/apply` (Fase 1A).
+**Ações.** [x] Scripts do pacote para DEB e RPM com atualização, retorno e remoção testados em 10 distribuições e com systemd real. [x] `vigiahost setup plan/apply/uninstall` (Fase 1A): plano sem efeito colateral, aplicação idempotente com manifesto em `/etc/vigiahost/setup-manifest.json` e backup em `/var/backups/vigiahost/setup-AAAAMMDD-HHMMSS/`, desinstalação que desfaz o manifesto, com `-purge` opcional; o firewall nunca é alterado (o plano mostra os comandos).
