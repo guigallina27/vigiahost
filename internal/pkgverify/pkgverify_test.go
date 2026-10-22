@@ -144,7 +144,13 @@ func TestAssessSeverityTable(t *testing.T) {
 		{Issue{Path: "/usr/bin/rnano", Changes: []string{ChangeLink}}, nil, "integridade.link_alterado", report.SeverityHigh, "", true},
 		{Issue{Path: "/usr/libexec/openssh/ssh-keysign", Changes: []string{ChangeGroup}}, nil, "integridade.permissoes_alteradas", report.SeverityMedium, "", true},
 		{Issue{Path: "/usr/bin/write", Changes: []string{ChangeMode}}, setuid, "integridade.permissoes_alteradas", report.SeverityHigh, "", true},
+		// Caso real do laboratório: programa setgid que ficou com o grupo root (grupo perdido na importação).
+		{Issue{Path: "/usr/bin/write", Changes: []string{ChangeGroup}}, &FileState{Mode: fs.ModeSetgid | 0o755}, "integridade.permissoes_alteradas", report.SeverityHigh, "", true},
 		{Issue{Path: "/usr/bin/ping", Changes: []string{ChangeCaps}}, nil, "integridade.permissoes_alteradas", report.SeverityHigh, "", true},
+		{Issue{Path: "/usr/bin/ping", Changes: []string{ChangeCaps}}, &FileState{Mode: 0o755, CapsKnown: true, Caps: true}, "integridade.permissoes_alteradas", report.SeverityHigh, "", true},
+		// Rocky 10 em contêiner: a imagem perdeu as capacidades de arping e newuidmap (menos privilégio).
+		{Issue{Path: "/usr/bin/arping", Changes: []string{ChangeCaps}}, &FileState{Mode: 0o755, CapsKnown: true}, "integridade.permissoes_alteradas", report.SeverityLow, "", true},
+		{Issue{Path: "/var/cache/apt/archives", Changes: []string{ChangeMissing}}, nil, "integridade.arquivo_ausente", report.SeverityInfo, "", true},
 		{Issue{Path: "/usr/bin/tree", Changes: []string{ChangeMissing}}, nil, "integridade.arquivo_ausente", report.SeverityMedium, "", true},
 		{Issue{Path: "/usr/share/doc/tree/README", Doc: true, Changes: []string{ChangeMissing}}, nil, "", "", IgnoreDoc, false},
 		{Issue{Path: "/usr/share/man/man1/tree.1.gz", Changes: []string{ChangeMissing}}, nil, "", "", IgnoreDoc, false},

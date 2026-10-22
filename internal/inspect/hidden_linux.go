@@ -151,8 +151,9 @@ func diagDump(family, proto uint8) ([]int, error) {
 		return nil, err
 	}
 	// nlmsghdr (16) + inet_diag_req_v2 (56): família, protocolo, extensões, preenchimento, estados e o id zerado.
-	req := make([]byte, 16+56)
-	binary.NativeEndian.PutUint32(req[0:], uint32(len(req)))
+	const reqLen = 16 + 56
+	req := make([]byte, reqLen)
+	binary.NativeEndian.PutUint32(req[0:], reqLen)
 	binary.NativeEndian.PutUint16(req[4:], unix.SOCK_DIAG_BY_FAMILY)
 	binary.NativeEndian.PutUint16(req[6:], unix.NLM_F_REQUEST|unix.NLM_F_DUMP)
 	binary.NativeEndian.PutUint32(req[8:], 1)
@@ -179,8 +180,9 @@ func diagDump(family, proto uint8) ([]int, error) {
 				return ports, nil
 			case unix.NLMSG_ERROR:
 				if len(m.data) >= 4 {
-					if code := int32(binary.NativeEndian.Uint32(m.data)); code != 0 { //nolint:gosec // errno negativo do kernel
-						return nil, unix.Errno(-code)
+					// O kernel grava o errno negativo (int32); o complemento de dois devolve o positivo.
+					if raw := binary.NativeEndian.Uint32(m.data); raw != 0 {
+						return nil, unix.Errno(-raw & 0xffff)
 					}
 				}
 				return ports, nil

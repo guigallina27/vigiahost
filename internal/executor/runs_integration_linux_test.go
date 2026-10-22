@@ -396,6 +396,12 @@ func TestVerificacoesDoSistemaEmUnidade(t *testing.T) {
 			t.Fatalf("%s: %v", c.file, err)
 		}
 		t.Logf("%s: estado=%s achados=%d avisos=%v erro=%q", c.kind, st.Summary.Status, st.Summary.Findings, st.Summary.Warnings, st.Summary.Error)
+		if keep := os.Getenv("VIGIAHOST_TEST_KEEP"); keep != "" {
+			// Guarda o relatório e os achados para conferência manual no laboratório.
+			findings, _ := os.ReadFile(filepath.Join(st.Dir, report.FindingsFile))
+			_ = os.WriteFile(filepath.Join(keep, c.file), raw, 0o600)
+			_ = os.WriteFile(filepath.Join(keep, string(c.kind)+"-"+report.FindingsFile), findings, 0o600)
+		}
 		if _, err := runs.Cleanup(ctx, ref); err != nil {
 			t.Fatal(err)
 		}

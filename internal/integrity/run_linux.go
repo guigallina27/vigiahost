@@ -2,12 +2,15 @@ package integrity
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/guigallina27/vigiahost/internal/pkgverify"
 	"github.com/guigallina27/vigiahost/internal/report"
@@ -144,5 +147,12 @@ func statPath(p string) (*report.Location, *pkgverify.FileState) {
 		loc.Dev, loc.Ino, loc.Mode, loc.UID, loc.GID, loc.Nlink = sys.Dev, sys.Ino, sys.Mode, sys.Uid, sys.Gid, uint64(sys.Nlink) //nolint:unconvert // Nlink varia por arquitetura
 		loc.Ctime = time.Unix(sys.Ctim.Sec, sys.Ctim.Nsec).UTC()                                                                  //nolint:unconvert // idem
 	}
-	return loc, &pkgverify.FileState{Mode: st.Mode()}
+	fst := &pkgverify.FileState{Mode: st.Mode()}
+	if st.Mode().IsRegular() {
+		// Tamanho do atributo security.capability: ENODATA é "sem capacidades"; outro erro deixa desconhecido.
+		n, err := unix.Lgetxattr(p, "security.capability", nil)
+		fst.CapsKnown = err == nil || errors.Is(err, unix.ENODATA)
+		fst.Caps = err == nil && n > 0
+	}
+	return loc, fst
 }

@@ -99,6 +99,9 @@ func hasSuffix(s string, list []string) bool {
 // FileState é o que se sabe do arquivo no disco agora (nil = ausente ou não conferido).
 type FileState struct {
 	Mode fs.FileMode
+	// CapsKnown: deu para ler as capacidades do arquivo (security.capability); Caps: o arquivo tem alguma.
+	CapsKnown bool
+	Caps      bool
 }
 
 // Assessment é a decisão sobre uma diferença: se vira achado, com que assinatura e gravidade.
@@ -145,7 +148,8 @@ func Assess(is Issue, st *FileState) Assessment {
 		case a.Class == ClassConfig || a.Class == ClassConfigSensitive:
 			return set("integridade.arquivo_ausente", report.SeverityInfo, "arquivo de configuração do pacote foi apagado")
 		default:
-			return set("integridade.arquivo_ausente", report.SeverityLow, "arquivo do pacote foi apagado")
+			// Diretório de cache, documentação de idioma, /boot em contêiner: ausência comum e sem efeito na execução.
+			return set("integridade.arquivo_ausente", report.SeverityInfo, "arquivo ou diretório do pacote foi apagado")
 		}
 	case is.ContentChanged():
 		switch {
@@ -178,10 +182,17 @@ func Assess(is Issue, st *FileState) Assessment {
 		return set("integridade.link_alterado", report.SeverityLow, "link simbólico do pacote aponta para outro destino")
 	case is.Has(ChangeMode) || is.Has(ChangeUser) || is.Has(ChangeGroup) || is.Has(ChangeCaps) || is.Has(ChangeDevice):
 		setid := st != nil && st.Mode&(fs.ModeSetuid|fs.ModeSetgid) != 0
+		permsOnly := !is.Has(ChangeMode) && !is.Has(ChangeUser) && !is.Has(ChangeGroup) && !is.Has(ChangeDevice)
 		switch {
-		case exec && (is.Has(ChangeCaps) || (is.Has(ChangeMode) && setid)):
+		case exec && permsOnly && !setid && st != nil && st.CapsKnown && !st.Caps:
+			// O pacote prevê capacidades que o arquivo não tem (cópia sem atributos estendidos, imagem de contêiner):
+			// o programa ficou com menos privilégio, não com mais.
+			return set("integridade.permissoes_alteradas", report.SeverityLow,
+				"capacidades previstas no pacote ausentes no arquivo (o programa roda com menos privilégio)")
+		case exec && (is.Has(ChangeCaps) || (setid && (is.Has(ChangeMode) || is.Has(ChangeUser) || is.Has(ChangeGroup)))):
+			// Programa setuid/setgid com outro dono ou grupo concede outra identidade a quem o executa.
 			return set("integridade.permissoes_alteradas", report.SeverityHigh,
-				"permissões especiais (setuid, setgid ou capacidades) diferentes do pacote")
+				"permissões especiais (setuid, setgid ou capacidades) ou dono de programa setuid/setgid diferentes do pacote")
 		case exec:
 			return set("integridade.permissoes_alteradas", report.SeverityMedium, "dono ou permissões diferentes do pacote")
 		case a.Class == ClassConfigSensitive:

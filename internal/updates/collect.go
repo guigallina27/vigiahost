@@ -34,6 +34,9 @@ type Collector struct {
 	Now     func() time.Time
 	// Phase é chamado ao mudar de etapa (progresso).
 	Phase func(string)
+
+	// skipMissing ignora repositórios sem lista no cache (descoberto na primeira consulta).
+	skipMissing bool
 }
 
 func (c *Collector) root(p string) string { return filepath.Join(c.rootDir(), filepath.FromSlash(p)) }
@@ -77,6 +80,9 @@ func (c *Collector) dnf(args ...string) []string {
 	if c.LogDir != "" {
 		base = append(base, "--setopt=logdir="+c.LogDir)
 	}
+	if c.skipMissing {
+		base = append(base, "--setopt=skip_if_unavailable=True")
+	}
 	return append(base, args...)
 }
 
@@ -109,6 +115,12 @@ func (c *Collector) Collect(ctx context.Context) Report {
 	default:
 		rep.Error = pkgverify.ErrNoManager.Error()
 	}
+	if rep.Security == nil {
+		rep.Security = []Update{}
+	}
+	if rep.Other == nil {
+		rep.Other = []Update{}
+	}
 	rep.BySeverity = CountBySeverity(rep.Security)
 	c.phase("restart")
 	c.collectRestart(ctx, &rep)
@@ -135,7 +147,18 @@ func (c *Collector) collectRPM(ctx context.Context, rep *Report) {
 		}
 	}
 	rep.CacheUpdatedAt, rep.CacheOldestAt = c.cacheTimes(filepath.Join("var", "cache", "dnf", "*", "repodata", "repomd.xml"))
+	if rep.CacheUpdatedAt == nil {
+		// Sem lista baixada o modo só cache (-C) falha em todo repositório: o achado "lista de pacotes ausente"
+		// explica o motivo sem marcar a execução como parcial.
+		return
+	}
 	adv, stderr, code, err := c.out(ctx, dnfBin, c.dnf("updateinfo", "list", "--security")...)
+	if err == nil && code != 0 && strings.Contains(stderr, "no cache for") {
+		// Algum repositório habilitado nunca teve a lista baixada: confere os demais e avisa.
+		rep.Warnings = append(rep.Warnings, "repositório sem lista no cache: "+firstLine(stderr))
+		c.skipMissing = true
+		adv, stderr, code, err = c.out(ctx, dnfBin, c.dnf("updateinfo", "list", "--security")...)
+	}
 	if err != nil || code != 0 {
 		rep.Error = "dnf updateinfo: " + firstLine(stderr)
 		if err != nil {
