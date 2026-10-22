@@ -205,12 +205,12 @@ func firewallHints(fw []string, port string) []string {
 // Render escreve o plano para o terminal.
 func (p Plan) Render(w io.Writer) {
 	e := p.Env
-	fmt.Fprintf(w, "Ambiente\n")
-	fmt.Fprintf(w, "  Sistema      %s (%s, %s)\n", dash(e.Distro), dash(e.Family), dash(e.Arch))
-	fmt.Fprintf(w, "  systemd      %s · cgroup v2 %s · PSI %s\n", yes(e.Systemd), yes(e.CgroupV2), yes(e.PSI))
-	fmt.Fprintf(w, "  Painéis      %s\n", list(e.Panels))
-	fmt.Fprintf(w, "  SELinux      %s · AppArmor %s\n", dash(e.SELinux), yes(e.AppArmor))
-	fmt.Fprintf(w, "  Firewall     %s\n", list(e.Firewalls))
+	_, _ = fmt.Fprintf(w, "Ambiente\n")
+	_, _ = fmt.Fprintf(w, "  Sistema      %s (%s, %s)\n", dash(e.Distro), dash(e.Family), dash(e.Arch))
+	_, _ = fmt.Fprintf(w, "  systemd      %s · cgroup v2 %s · PSI %s\n", yes(e.Systemd), yes(e.CgroupV2), yes(e.PSI))
+	_, _ = fmt.Fprintf(w, "  Painéis      %s\n", list(e.Panels))
+	_, _ = fmt.Fprintf(w, "  SELinux      %s · AppArmor %s\n", dash(e.SELinux), yes(e.AppArmor))
+	_, _ = fmt.Fprintf(w, "  Firewall     %s\n", list(e.Firewalls))
 	yr := "não encontrado"
 	if e.Engines.YR != "" {
 		yr = e.Engines.YR + " " + e.Engines.YRVersion
@@ -222,23 +222,23 @@ func (p Plan) Render(w io.Writer) {
 	case e.Engines.Clamscan != "":
 		clam = "só clamscan (" + e.Engines.Clamscan + ")"
 	}
-	fmt.Fprintf(w, "  YARA-X       %s\n  ClamAV       %s\n", yr, clam)
+	_, _ = fmt.Fprintf(w, "  YARA-X       %s\n  ClamAV       %s\n", yr, clam)
 	for _, u := range Units {
 		st := e.Services[u]
-		fmt.Fprintf(w, "  %-12s %s, %s\n", strings.TrimSuffix(u, ".service"), st.Enabled, st.Active)
+		_, _ = fmt.Fprintf(w, "  %-12s %s, %s\n", strings.TrimSuffix(u, ".service"), st.Enabled, st.Active)
 	}
 	section(w, "Impedimentos (resolva antes do apply)", p.Blockers)
 	section(w, "Avisos", p.Warnings)
-	fmt.Fprintf(w, "\nAlterações previstas\n")
+	_, _ = fmt.Fprintf(w, "\nAlterações previstas\n")
 	for i, a := range p.Actions {
 		mark := " "
 		if a.Done {
 			mark = "✓"
 		}
-		fmt.Fprintf(w, "  %s %d. %s\n", mark, i+1, a.Description)
+		_, _ = fmt.Fprintf(w, "  %s %d. %s\n", mark, i+1, a.Description)
 	}
 	if !p.Pending() {
-		fmt.Fprintf(w, "  nada a fazer: o sistema já está como o plano pede\n")
+		_, _ = fmt.Fprintf(w, "  nada a fazer: o sistema já está como o plano pede\n")
 	}
 	section(w, "Recomendações (não aplicadas automaticamente)", p.Recommendations)
 }
@@ -247,9 +247,9 @@ func section(w io.Writer, title string, items []string) {
 	if len(items) == 0 {
 		return
 	}
-	fmt.Fprintf(w, "\n%s\n", title)
+	_, _ = fmt.Fprintf(w, "\n%s\n", title)
 	for _, it := range items {
-		fmt.Fprintf(w, "  - %s\n", it)
+		_, _ = fmt.Fprintf(w, "  - %s\n", it)
 	}
 }
 

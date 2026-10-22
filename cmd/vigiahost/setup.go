@@ -57,7 +57,7 @@ func setupPlanApply(cmd string, args []string) int {
 		return 2
 	}
 	if *answers != "" {
-		b, err := os.ReadFile(*answers)
+		b, err := os.ReadFile(*answers) //nolint:gosec // G703: arquivo de respostas indicado pelo próprio root
 		if err == nil {
 			var a setup.Options
 			if err = json.Unmarshal(b, &a); err == nil {
@@ -169,7 +169,8 @@ func afterApply(ctx context.Context, o setup.Options) {
 	}}
 	ok := false
 	for i := 0; i < 30 && ctx.Err() == nil; i++ {
-		if resp, err := client.Get(url); err == nil { //nolint:gosec // endereço do próprio painel
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if resp, err := client.Do(req); err == nil { //nolint:gosec // endereço do próprio painel
 			_, _ = io.Copy(io.Discard, resp.Body)
 			_ = resp.Body.Close()
 			ok = true

@@ -93,7 +93,7 @@ func (s *System) writeFile(p string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	tmp := full + ".vigiahost-tmp"
-	if err := os.WriteFile(tmp, data, perm); err != nil {
+	if err := os.WriteFile(tmp, data, perm); err != nil { //nolint:gosec // G703: caminhos fixos do setup sob a raiz informada
 		return err
 	}
 	return os.Rename(tmp, full)
@@ -122,10 +122,10 @@ func (s *System) Apply(ctx context.Context, p Plan, prev *Manifest, out io.Write
 	reload := false
 	for _, a := range p.Actions {
 		if a.Done {
-			fmt.Fprintf(out, "✓ %s (já estava feito)\n", a.Description)
+			_, _ = fmt.Fprintf(out, "✓ %s (já estava feito)\n", a.Description)
 			continue
 		}
-		fmt.Fprintf(out, "→ %s\n", a.Description)
+		_, _ = fmt.Fprintf(out, "→ %s\n", a.Description)
 		switch a.Kind {
 		case "file":
 			if m.find("file", a.Path) == nil {
@@ -215,7 +215,7 @@ func (s *System) Uninstall(ctx context.Context, purge bool, out io.Writer) error
 		return err
 	}
 	if m == nil {
-		fmt.Fprintln(out, "nenhum manifesto do setup: nada a desfazer além do pacote")
+		_, _ = fmt.Fprintln(out, "nenhum manifesto do setup: nada a desfazer além do pacote")
 		m = &Manifest{}
 	}
 	var errs []error
@@ -224,14 +224,14 @@ func (s *System) Uninstall(ctx context.Context, purge bool, out io.Writer) error
 		switch c.Kind {
 		case "service":
 			if c.Prior != nil && c.Prior.Enabled && c.Prior.Active {
-				fmt.Fprintf(out, "• %s já estava habilitado antes do setup: só parado\n", c.Unit)
+				_, _ = fmt.Fprintf(out, "• %s já estava habilitado antes do setup: só parado\n", c.Unit)
 			}
-			fmt.Fprintf(out, "→ parar e desabilitar %s\n", c.Unit)
+			_, _ = fmt.Fprintf(out, "→ parar e desabilitar %s\n", c.Unit)
 			if o, err := s.Systemctl(ctx, "disable", "--now", c.Unit); err != nil {
 				errs = append(errs, fmt.Errorf("systemctl disable --now %s: %w (%s)", c.Unit, err, o))
 			}
 		case "file":
-			fmt.Fprintf(out, "→ desfazer %s\n", c.Path)
+			_, _ = fmt.Fprintf(out, "→ desfazer %s\n", c.Path)
 			if err := s.revertFile(&c); err != nil {
 				errs = append(errs, err)
 			}
@@ -240,7 +240,7 @@ func (s *System) Uninstall(ctx context.Context, purge bool, out io.Writer) error
 	_, _ = s.Systemctl(ctx, "daemon-reload")
 	if purge {
 		for _, d := range DataDirs {
-			fmt.Fprintf(out, "→ apagar %s\n", d)
+			_, _ = fmt.Fprintf(out, "→ apagar %s\n", d)
 			if err := os.RemoveAll(s.path(d)); err != nil {
 				errs = append(errs, err)
 			}

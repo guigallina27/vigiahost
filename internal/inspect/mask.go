@@ -21,7 +21,7 @@ func MaskArgs(args []string) []string {
 	mysql := len(args) > 0 && strings.Contains(path.Base(args[0]), "mysql") || len(args) > 0 && strings.Contains(path.Base(args[0]), "mariadb")
 	for i, a := range args {
 		switch {
-		case i > 0 && secretFlag.MatchString(args[i-1]):
+		case i > 0 && secretFlag.MatchString(args[i-1]): //nolint:gosec // G602: i > 0 garante o índice
 			out[i] = mask
 		case secretAssign.MatchString(a):
 			out[i] = secretAssign.ReplaceAllString(a, "${1}"+mask)

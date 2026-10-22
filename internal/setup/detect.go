@@ -152,7 +152,7 @@ func (s *System) Detect(ctx context.Context, listen string) Environment {
 		env.Services[u] = s.serviceState(ctx, u)
 	}
 	if listen != "" && env.Services["vigiahost-core.service"].Active != "active" {
-		if l, err := net.Listen("tcp", listen); err != nil {
+		if l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", listen); err != nil {
 			env.ListenBusy = err.Error()
 			if errors.Is(err, syscall.EADDRINUSE) {
 				env.ListenBusy = "a porta já está em uso por outro programa"
