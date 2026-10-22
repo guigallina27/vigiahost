@@ -13,8 +13,12 @@ import (
 	"github.com/guigallina27/vigiahost/internal/rules"
 )
 
-// clamdStartupWait é quanto a execução espera um clamd configurado que ainda não respondeu.
-var clamdStartupWait = 3 * time.Minute
+// DiscoverOptions controla o custo da descoberta: a execução compila as regras e espera o clamd subir; a tela de
+// saúde só consulta versões.
+type DiscoverOptions struct {
+	Compile   bool
+	ClamdWait time.Duration // quanto esperar um clamd configurado que ainda não respondeu (carregando assinaturas)
+}
 
 // Locais procurados para os binários dos motores, em ordem: o do pacote do produto primeiro.
 var (
@@ -47,7 +51,7 @@ func firstExecutable(paths []string) string {
 
 // DiscoverEngines localiza e prepara os motores: compila as regras do produto em stateDir/rules e procura o
 // clamd pela configuração e o clamscan. root é a raiz para a descoberta do clamd (os.DirFS("/")).
-func DiscoverEngines(ctx context.Context, stateDir string, clamdCfg func() (clamav.Config, bool), extra ...yarax.Source) EngineInfo {
+func DiscoverEngines(ctx context.Context, stateDir string, opts DiscoverOptions, clamdCfg func() (clamav.Config, bool), extra ...yarax.Source) EngineInfo {
 	var info EngineInfo
 	if yr := firstExecutable(yrPaths); yr == "" {
 		info.YRError = "YARA-X (yr) não encontrado"
@@ -58,6 +62,8 @@ func DiscoverEngines(ctx context.Context, stateDir string, clamdCfg func() (clam
 			info.YRError = err.Error()
 		} else {
 			info.YRVersion = v
+		}
+		if err == nil && opts.Compile {
 			dir := filepath.Join(stateDir, "rules")
 			set, err := rules.Materialize(filepath.Join(dir, "src"), extra...)
 			if err == nil {
@@ -74,7 +80,7 @@ func DiscoverEngines(ctx context.Context, stateDir string, clamdCfg func() (clam
 		c := &clamav.Client{Socket: cfg.LocalSocket}
 		v, err := c.Version(ctx)
 		// Logo após o boot o clamd leva até alguns minutos carregando as assinaturas antes de abrir o socket.
-		for wait := time.Now().Add(clamdStartupWait); err != nil && time.Now().Before(wait) && ctx.Err() == nil; {
+		for wait := time.Now().Add(opts.ClamdWait); err != nil && time.Now().Before(wait) && ctx.Err() == nil; {
 			select {
 			case <-ctx.Done():
 			case <-time.After(3 * time.Second):

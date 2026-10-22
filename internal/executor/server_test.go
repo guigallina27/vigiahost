@@ -91,7 +91,7 @@ func TestRootSempreAutorizado(t *testing.T) {
 }
 
 func TestExigeHandshakeAntes(t *testing.T) {
-	conn := startConn(t, Cred{UID: 990}, DefaultHandlers(nil))
+	conn := startConn(t, Cred{UID: 990}, DefaultHandlers(nil, ""))
 	err := ipc.NewClient(conn).Call(testCtx(t), ipc.OpCapabilities, nil, nil)
 	assertCode(t, err, ipc.CodeHandshakeRequired)
 }

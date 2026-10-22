@@ -35,7 +35,7 @@ func TestSocketRealComPeerCred(t *testing.T) {
 		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Policy:   Policy{AllowedUIDs: map[uint32]bool{uid: true}},
 		Local:    testHello,
-		Handlers: DefaultHandlers(os.DirFS("/")),
+		Handlers: DefaultHandlers(os.DirFS("/"), t.TempDir()),
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

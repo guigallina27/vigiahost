@@ -5,17 +5,22 @@ After=local-fs.target
 
 [Service]
 Type=notify
-ExecStart=/usr/libexec/vigiahost/vigiahost-executor --socket /run/vigiahost-executor/executor.sock --allow-user vigiahost --socket-group vigiahost
+ExecStart=/usr/libexec/vigiahost/vigiahost-executor --socket /run/vigiahost-executor/executor.sock --allow-user vigiahost --socket-group vigiahost --state /var/lib/vigiahost-executor
 RuntimeDirectory=vigiahost-executor
 RuntimeDirectoryMode=0755
+# Execuções (legíveis pelo grupo do core), cache e regras compiladas.
+StateDirectory=vigiahost-executor
+StateDirectoryMode=0750
 Restart=on-failure
 RestartSec=5s
 UMask=0077
 
-# Roda como root porque precisará ler arquivos de todas as contas e agir sobre eles (Fase 1A em diante).
-# Por isso não usa PrivateTmp nem ProtectHome. As restrições abaixo valem desde já e serão revistas
-# operação a operação, sempre registradas em ADR. Fase 0: só precisa entregar o socket ao grupo do core.
-CapabilityBoundingSet=CAP_CHOWN
+# Roda como root porque cria as execuções (unidades transitórias via D-Bus, que exigem UID 0) e prepara os
+# diretórios delas. A leitura dos arquivos das contas acontece dentro de cada execução, com capacidades próprias
+# (ADR-004). CAP_CHOWN entrega socket e diretórios ao grupo do core; CAP_DAC_OVERRIDE permite conectar ao socket
+# do clamd de outro dono para a tela de saúde dos motores. Sem PrivateTmp nem ProtectHome pelo mesmo motivo das
+# execuções: /tmp e /home precisam ser vistos como são.
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE
 NoNewPrivileges=yes
 ProtectSystem=full
 PrivateDevices=yes

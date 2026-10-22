@@ -48,7 +48,7 @@ func runScan(args []string) int {
 	defer stop()
 
 	started := time.Now().UTC()
-	info := scan.DiscoverEngines(ctx, *state, func() (clamav.Config, bool) { return clamav.Discover(os.DirFS("/")) })
+	info := scan.DiscoverEngines(ctx, *state, scan.DiscoverOptions{Compile: true, ClamdWait: 3 * time.Minute}, func() (clamav.Config, bool) { return clamav.Discover(os.DirFS("/")) })
 	cfg := scan.Config{Request: req, OutDir: *dir, Logger: logger, CachePath: filepath.Join(*state, "cache", "files.gob")}
 	info.Apply(&cfg)
 	for _, w := range []string{info.YRError, info.ClamdError} {

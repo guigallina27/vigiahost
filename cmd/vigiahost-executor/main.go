@@ -32,6 +32,8 @@ func run(args []string) int {
 	socket := fs.String("socket", "/run/vigiahost-executor/executor.sock", "caminho do socket Unix")
 	allow := fs.String("allow-user", "vigiahost", "usuários (separados por vírgula) autorizados além do root")
 	group := fs.String("socket-group", "vigiahost", "grupo dono do socket")
+	state := fs.String("state", defaultStateDir, "diretório de estado (execuções, cache, regras)")
+	localConf := fs.String("config", "/etc/vigiahost/executor.json", "configuração local, alterável só pelo root")
 	showVersion := fs.Bool("version", false, "mostra a versão e sai")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -69,11 +71,30 @@ func run(args []string) int {
 	}
 	defer func() { _ = os.Remove(*socket) }()
 
+	local, err := executor.LoadLocalConfig(*localConf)
+	if err != nil {
+		logger.Error("configuração local inválida", "arquivo", *localConf, "erro", err)
+		return 1
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		logger.Error("caminho do próprio binário indisponível", "erro", err)
+		return 1
+	}
+	runs := &executor.Runs{Logger: logger, StateDir: *state, Exe: exe, CoreGID: gid, Local: local, Hardware: executor.DetectHardware()}
+	if err := runs.Prepare(); err != nil {
+		logger.Error("diretório de estado indisponível", "dir", *state, "erro", err)
+		return 1
+	}
+	defer runs.Close()
+	handlers := executor.DefaultHandlers(os.DirFS("/"), *state)
+	runs.Register(handlers)
+
 	srv := &executor.Server{
 		Logger:   logger,
 		Policy:   executor.Policy{AllowedUIDs: allowed},
 		Local:    ipc.Hello{ProtocolMajor: version.ProtocolMajor, ProtocolMinor: version.ProtocolMinor, Version: version.Version},
-		Handlers: executor.DefaultHandlers(os.DirFS("/")),
+		Handlers: handlers,
 	}
 	logger.Info("executor iniciado", "versao", version.Version, "socket", *socket)
 	_ = sdnotify.Notify(sdnotify.Ready)
