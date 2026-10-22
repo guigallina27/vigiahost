@@ -38,9 +38,9 @@ describe("badges", () => {
 
 describe("PathText", () => {
   it("expõe o truque de inversão bidi e avisa o leitor de tela", () => {
-    const { container } = render(<PathText path={"/var/www/foto‮gpj.php"} />);
+    const { container } = render(<PathText path={"/var/www/foto\u202Egpj.php"} />);
     expect(container.querySelector("mark")).toHaveTextContent("\\u202E");
-    expect(container.textContent).not.toContain("‮");
+    expect(container.textContent).not.toContain("\u202E");
     expect(screen.getByText(/caracteres de controle/)).toBeInTheDocument();
   });
 

@@ -6,9 +6,9 @@ import { escapeHidden, segmentHidden } from "./text";
 
 describe("texto vindo do servidor", () => {
   it("transforma controles e marcas bidi em escapes visíveis", () => {
-    expect(escapeHidden("foto‮gpj.php")).toBe("foto\\u202Egpj.php");
+    expect(escapeHidden("foto\u202Egpj.php")).toBe("foto\\u202Egpj.php");
     expect(escapeHidden("x\n/var/www/limpo.php: OK")).toBe("x\\n/var/www/limpo.php: OK");
-    expect(escapeHidden("a\u0000b\u001bc​d﻿")).toBe("a\\x00b\\x1Bc\\u200Bd\\uFEFF");
+    expect(escapeHidden("a\u0000b\u001bc\u200Bd\uFEFF")).toBe("a\\x00b\\x1Bc\\u200Bd\\uFEFF");
   });
 
   it("mantém acentos, emoji e caracteres comuns", () => {

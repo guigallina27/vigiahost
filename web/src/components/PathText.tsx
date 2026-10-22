@@ -7,7 +7,7 @@ type Props = { path: string };
 /**
  * Caminho de arquivo vindo do servidor analisado. Quebra em qualquer ponto sem estourar o layout
  * e mostra caracteres de controle e de direção de texto como escapes destacados, para que um nome
- * como "foto‮gpj.php" não se disfarce de "fotophp.jpg" (escopo, seção 14.2).
+ * como "foto\u202Egpj.php" não se disfarce de "fotophp.jpg" (escopo, seção 14.2).
  */
 export function PathText({ path }: Props) {
   const { t } = useTranslation();

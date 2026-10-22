@@ -143,7 +143,7 @@ export default function CatalogPage() {
             <PathText path="/home/cliente-com-nome-muito-longo/public_html/wp-content/plugins/plugin-com-nome-extenso/includes/vendor/biblioteca/arquivo-suspeito-com-nome-enorme.php" />
           </li>
           <li>
-            <PathText path={"/var/www/html/uploads/foto‮gpj.php"} />
+            <PathText path={"/var/www/html/uploads/foto\u202Egpj.php"} />
           </li>
           <li>
             <PathText path={"/tmp/x\n/var/www/limpo.php: OK"} />
