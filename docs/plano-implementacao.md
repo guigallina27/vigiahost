@@ -72,6 +72,18 @@ flowchart LR
 
 **Critério de saída**: pacote vazio instala, atualiza, volta de versão e remove nas distribuições do nível 1; CI verde com todos os critérios da seção 4; ADRs aceitos.
 
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E0.1 Repositório e CI | Workflows de CI e CodeQL, lint, `-race`, *fuzzing*, govulncheck, licenças, segredos e revisão de dependências, *actions* fixadas por SHA; Dependabot com espera de 7 dias | Primeira execução no GitHub (depende do envio da branch) |
+| E0.2 Pipeline de release | Pacotes DEB/RPM (nfpm) com unidades systemd, usuário de sistema e scripts de instalação, atualização, retorno e remoção | GoReleaser, assinatura, SBOM e proveniência (dependem do E0.7) |
+| E0.3 Laboratório e corpus | WSL AlmaLinux 9 isolado com systemd, cgroup v2 e PSI; testes de ciclo de vida com systemd e em 10 distribuições por contêiner | VMs ARM64, corpus de controles positivos, corpus benigno e sintético, cenário `memfd` |
+| E0.4 Contrato e esqueleto | Core e executor com protocolo versionado (ADR-014), `SO_PEERCRED`, política, saúde, `doctor`, SQLite com Goose | OpenAPI e cliente TypeScript gerado; sqlc entra com as primeiras consultas reais (1A) |
+| E0.5 Modelo de ameaças e ADRs | [Modelo de ameaças](modelo-ameacas.md) v0.1; ADRs 001–015 em [`adr/`](adr/) | — |
+| E0.6 Design system base | [Glossário](glossario.md) | Tokens claro/escuro, navegação agrupada, componentes base e catálogo com teste de acessibilidade |
+| E0.7 Cerimônia das chaves | — | Tokens comprados e responsáveis indicados |
+
 ### Fase 1A — Detectar e explicar
 
 **Objetivo**: primeira versão útil, somente leitura, usada internamente em servidores próprios.

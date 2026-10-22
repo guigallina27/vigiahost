@@ -185,7 +185,7 @@ O inventário prévio permite **progresso real** (arquivos e bytes elegíveis ×
 |---|---|---|---|
 | Linguagem | Go | **Go 1.27** (mínimo 1.26), `CGO_ENABLED=0` nos binários principais | Cada versão principal é suportada até sair a segunda seguinte; 1.27 saiu em 19/08/2026. Binário estático evita dependência de glibc em sistemas antigos |
 | Recursos da linguagem | — | `os.Root` (acesso limitado a diretório), `http.CrossOriginProtection` (CSRF), `GOMAXPROCS` ciente de cgroup, `testing/synctest`, diretiva `tool` no `go.mod` | Reduzem dependências externas e código próprio de segurança |
-| HTTP/API | net/http + Chi | Mantido | — |
+| HTTP/API | net/http + Chi | **net/http com `ServeMux`** (padrões de método e caminho desde o Go 1.22); Chi só se faltar recurso | Menos dependências no serviço web |
 | Contrato | OpenAPI + oapi-codegen | Mantido (**v2.8.0**, suporte inicial a OpenAPI 3.1) + **cliente TypeScript gerado** do mesmo contrato | Evita divergência entre interface e API; manter 3.0.3 enquanto o suporte a 3.1 for parcial |
 | Banco local | SQLite + modernc.org/sqlite | Mantido, com WAL, `busy_timeout`, um único escritor, tabelas `STRICT`, FTS5 para busca | Concorrência previsível |
 | Consultas / migrações | sqlc / Goose | Mantidos; migrações compatíveis com a versão anterior e backup automático antes de migrar | Permite retornar à versão anterior |
@@ -612,7 +612,7 @@ test/{corpus,vm,golden}
 
 **Pipeline seguro**: *actions* do CI fixadas por SHA de commit, permissões mínimas por *job*, nenhum `pull_request_target` com código não confiável, varredura de segredos (ex.: gitleaks), verificação de licenças das dependências, varredura de segurança do código (SAST) em cada PR, `systemd-analyze security` das unidades como critério e axe-core nos testes E2E.
 
-**Dependências**: Renovate com idade mínima de release; pnpm com `minimumReleaseAge` e scripts de instalação bloqueados por padrão (lista explícita de pacotes autorizados); *lockfiles* obrigatórios; ferramentas Go fixadas pela diretiva `tool`.
+**Dependências**: Dependabot com espera mínima de 7 dias após cada release (*cooldown*); pnpm com `minimumReleaseAge` e scripts de instalação bloqueados por padrão (lista explícita de pacotes autorizados); *lockfiles* obrigatórios; ferramentas Go fixadas pela diretiva `tool`.
 
 **Processo**: repositório público `guigallina27/vigiahost` sob GPL-3.0 (conta pessoal; transferível para uma organização depois, com redirecionamento dos endereços antigos). Proteção de branch é gratuita em repositório público: bloqueio de *push* forçado e de exclusão e checagens obrigatórias do CI desde o início; revisão obrigatória quando houver um segundo mantenedor, porque o autor não pode aprovar o próprio PR. ADRs (seção 24), `SECURITY.md` com canal de divulgação privado, *tags* assinadas e aprovação exigida para *workflows* de colaboradores externos. CI de PRs em *runners* hospedados do GitHub (sem custo para repositório público); testes em VM só em eventos confiáveis (*push* na branch principal e *tags*), nunca em PRs de *forks*, em *runners* efêmeros e isolados do laboratório.
 
