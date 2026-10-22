@@ -19,8 +19,10 @@ import (
 	"github.com/guigallina27/vigiahost/internal/backup"
 	"github.com/guigallina27/vigiahost/internal/core"
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
 	"github.com/guigallina27/vigiahost/internal/sdnotify"
+	"github.com/guigallina27/vigiahost/internal/secrets"
 	"github.com/guigallina27/vigiahost/internal/store"
 	"github.com/guigallina27/vigiahost/internal/version"
 	"github.com/guigallina27/vigiahost/internal/webui"
@@ -106,7 +108,8 @@ func runServe(args []string) int {
 	defer exec.Close()
 	hub := orchestrator.NewHub()
 	authSvc := &auth.Service{DB: db, Logger: logger, FailLog: os.Stderr}
-	orch := &orchestrator.Service{DB: db, Exec: exec, Hub: hub, Logger: logger}
+	notifier := newNotifier(db, filepath.Dir(*dbPath), *socket, logger)
+	orch := &orchestrator.Service{DB: db, Exec: exec, Hub: hub, Logger: logger, Notifier: notifier}
 
 	firstAccess := filepath.Join(filepath.Dir(*dbPath), firstAccessFileName)
 	if err := ensureFirstAccess(ctx, authSvc, firstAccess, logger); err != nil {
@@ -138,7 +141,7 @@ func runServe(args []string) int {
 
 	srv := &core.Server{Logger: logger, Version: version.Version, Probe: core.ProbeExecutor(*socket, localHello()),
 		UI: webui.Handler(), DB: db, Auth: authSvc, Captcha: auth.NewCaptcha(), Orch: orch, Hub: hub, Exec: exec, TrustProxy: *trustProxy,
-		HSTS: validCert, FirstAccessFile: firstAccess, BackupDir: backupDir}
+		HSTS: validCert, FirstAccessFile: firstAccess, BackupDir: backupDir, Notify: notifier}
 	httpSrv := core.NewHTTPServer(*listen, srv.Handler(), logger)
 	httpSrv.TLSConfig = tlsConf
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
@@ -148,7 +151,8 @@ func runServe(args []string) int {
 	}
 
 	go orch.Run(ctx)
-	go housekeeping(ctx, db, backupDir, logger)
+	go notifier.Run(ctx)
+	go housekeeping(ctx, db, backupDir, notifier, logger)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -206,15 +210,39 @@ func ensureFirstAccess(ctx context.Context, a *auth.Service, path string, logger
 	return nil
 }
 
+// newNotifier prepara o envio de notificações. Sem a chave de segredos o produto segue funcionando, mas canais com
+// senha ou segredo ficam sem envio até o problema ser resolvido (o painel mostra o erro de cada mensagem).
+func newNotifier(db *store.DB, dir, socket string, logger *slog.Logger) *notify.Service {
+	n := &notify.Service{DB: db, Logger: logger, Version: version.Version}
+	if h, err := os.Hostname(); err == nil {
+		n.Hostname = h
+	}
+	key, path, err := secrets.LoadKey(dir)
+	if err == nil {
+		n.Box, err = secrets.New(key)
+	}
+	if err != nil {
+		logger.Error("chave de segredos indisponível; canais com senha ou segredo não enviam", "arquivo", path, "erro", err)
+	}
+	probe := core.ProbeExecutor(socket, localHello())
+	n.ExecutorProbe = func(ctx context.Context) error {
+		if st := probe(ctx); !st.Connected {
+			return errors.New(st.Error)
+		}
+		return nil
+	}
+	return n
+}
+
 // housekeeping remove sessões vencidas e faz a cópia automática diária do banco.
-func housekeeping(ctx context.Context, db *store.DB, backupDir string, logger *slog.Logger) {
+func housekeeping(ctx context.Context, db *store.DB, backupDir string, notifier *notify.Service, logger *slog.Logger) {
 	t := time.NewTicker(10 * time.Minute)
 	defer t.Stop()
 	for {
 		if err := db.PurgeExpiredSessions(ctx, 30*time.Minute); err != nil && ctx.Err() == nil {
 			logger.Warn("limpeza de sessões falhou", "erro", err)
 		}
-		dailyBackup(ctx, db, backupDir, logger)
+		dailyBackup(ctx, db, backupDir, notifier, logger)
 		select {
 		case <-ctx.Done():
 			return
@@ -224,10 +252,13 @@ func housekeeping(ctx context.Context, db *store.DB, backupDir string, logger *s
 }
 
 // dailyBackup faz uma cópia automática por dia (VACUUM INTO, sem parar o serviço) e aplica a retenção.
-func dailyBackup(ctx context.Context, db *store.DB, dir string, logger *slog.Logger) {
+func dailyBackup(ctx context.Context, db *store.DB, dir string, notifier *notify.Service, logger *slog.Logger) {
 	list, err := backup.List(dir)
 	if err != nil {
 		logger.Warn("lista de cópias do banco ilegível", "erro", err)
+		if nerr := notifier.Emit(ctx, notify.BackupFailedEvent(err, db.Now())); nerr != nil {
+			logger.Warn("aviso de cópia com falha não entrou na caixa de saída", "erro", nerr)
+		}
 		return
 	}
 	for _, i := range list {
@@ -239,6 +270,9 @@ func dailyBackup(ctx context.Context, db *store.DB, dir string, logger *slog.Log
 	if err != nil {
 		if ctx.Err() == nil {
 			logger.Error("cópia automática do banco falhou", "erro", err)
+			if nerr := notifier.Emit(ctx, notify.BackupFailedEvent(err, db.Now())); nerr != nil {
+				logger.Warn("aviso de cópia com falha não entrou na caixa de saída", "erro", nerr)
+			}
 		}
 		return
 	}

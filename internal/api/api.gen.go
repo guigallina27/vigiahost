@@ -212,6 +212,108 @@ func (e MissedPolicy) Valid() bool {
 	}
 }
 
+// Defines values for NotificationChannelKind.
+const (
+	Email   NotificationChannelKind = "email"
+	Webhook NotificationChannelKind = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the NotificationChannelKind enum.
+func (e NotificationChannelKind) Valid() bool {
+	switch e {
+	case Email:
+		return true
+	case Webhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationEvent.
+const (
+	NotificationEventBackupFailed         NotificationEvent = "backup_failed"
+	NotificationEventEngineSelftestFailed NotificationEvent = "engine_selftest_failed"
+	NotificationEventExecutorUnavailable  NotificationEvent = "executor_unavailable"
+	NotificationEventFindingNew           NotificationEvent = "finding_new"
+	NotificationEventRunFailed            NotificationEvent = "run_failed"
+	NotificationEventRunPartial           NotificationEvent = "run_partial"
+)
+
+// Valid indicates whether the value is a known member of the NotificationEvent enum.
+func (e NotificationEvent) Valid() bool {
+	switch e {
+	case NotificationEventBackupFailed:
+		return true
+	case NotificationEventEngineSelftestFailed:
+		return true
+	case NotificationEventExecutorUnavailable:
+		return true
+	case NotificationEventFindingNew:
+		return true
+	case NotificationEventRunFailed:
+		return true
+	case NotificationEventRunPartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OutboxEvent.
+const (
+	OutboxEventBackupFailed         OutboxEvent = "backup_failed"
+	OutboxEventEngineSelftestFailed OutboxEvent = "engine_selftest_failed"
+	OutboxEventExecutorUnavailable  OutboxEvent = "executor_unavailable"
+	OutboxEventFindingNew           OutboxEvent = "finding_new"
+	OutboxEventRunFailed            OutboxEvent = "run_failed"
+	OutboxEventRunPartial           OutboxEvent = "run_partial"
+	OutboxEventTest                 OutboxEvent = "test"
+)
+
+// Valid indicates whether the value is a known member of the OutboxEvent enum.
+func (e OutboxEvent) Valid() bool {
+	switch e {
+	case OutboxEventBackupFailed:
+		return true
+	case OutboxEventEngineSelftestFailed:
+		return true
+	case OutboxEventExecutorUnavailable:
+		return true
+	case OutboxEventFindingNew:
+		return true
+	case OutboxEventRunFailed:
+		return true
+	case OutboxEventRunPartial:
+		return true
+	case OutboxEventTest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OutboxState.
+const (
+	OutboxFailed  OutboxState = "failed"
+	OutboxPending OutboxState = "pending"
+	OutboxSent    OutboxState = "sent"
+)
+
+// Valid indicates whether the value is a known member of the OutboxState enum.
+func (e OutboxState) Valid() bool {
+	switch e {
+	case OutboxFailed:
+		return true
+	case OutboxPending:
+		return true
+	case OutboxSent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PersistenceEntryChange.
 const (
 	Added   PersistenceEntryChange = "added"
@@ -322,19 +424,19 @@ func (e RunKind) Valid() bool {
 
 // Defines values for RunMetricsSource.
 const (
-	Cgroup RunMetricsSource = "cgroup"
-	None   RunMetricsSource = "none"
-	Rusage RunMetricsSource = "rusage"
+	RunMetricsSourceCgroup RunMetricsSource = "cgroup"
+	RunMetricsSourceNone   RunMetricsSource = "none"
+	RunMetricsSourceRusage RunMetricsSource = "rusage"
 )
 
 // Valid indicates whether the value is a known member of the RunMetricsSource enum.
 func (e RunMetricsSource) Valid() bool {
 	switch e {
-	case Cgroup:
+	case RunMetricsSourceCgroup:
 		return true
-	case None:
+	case RunMetricsSourceNone:
 		return true
-	case Rusage:
+	case RunMetricsSourceRusage:
 		return true
 	default:
 		return false
@@ -422,6 +524,27 @@ func (e Severity) Valid() bool {
 	case Low:
 		return true
 	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SmtpSecurity.
+const (
+	SmtpSecurityNone     SmtpSecurity = "none"
+	SmtpSecurityStarttls SmtpSecurity = "starttls"
+	SmtpSecurityTls      SmtpSecurity = "tls"
+)
+
+// Valid indicates whether the value is a known member of the SmtpSecurity enum.
+func (e SmtpSecurity) Valid() bool {
+	switch e {
+	case SmtpSecurityNone:
+		return true
+	case SmtpSecurityStarttls:
+		return true
+	case SmtpSecurityTls:
 		return true
 	default:
 		return false
@@ -684,6 +807,22 @@ type CurrentUser struct {
 
 // DiskType defines model for DiskType.
 type DiskType string
+
+// EmailSettings defines model for EmailSettings.
+type EmailSettings struct {
+	From string `json:"from"`
+
+	// Host Nome ou IP do servidor SMTP
+	Host string `json:"host"`
+	Port int    `json:"port"`
+
+	// Security starttls: exige STARTTLS (sem queda para texto puro); tls: TLS desde a conexão (465); none: só relé local.
+	Security SmtpSecurity `json:"security"`
+	To       []string     `json:"to"`
+
+	// Username Vazio desliga a autenticação
+	Username *string `json:"username,omitempty"`
+}
 
 // EngineCoverage defines model for EngineCoverage.
 type EngineCoverage struct {
@@ -965,6 +1104,140 @@ type MfaSetup struct {
 
 // MissedPolicy defines model for MissedPolicy.
 type MissedPolicy string
+
+// NotificationChannel defines model for NotificationChannel.
+type NotificationChannel struct {
+	CreatedAt time.Time      `json:"created_at"`
+	CreatedBy string         `json:"created_by"`
+	Email     *EmailSettings `json:"email,omitempty"`
+	Enabled   bool           `json:"enabled"`
+	Id        int64          `json:"id"`
+
+	// IncludeDetails Inclui caminhos e hashes nas mensagens (privacidade)
+	IncludeDetails bool                    `json:"include_details"`
+	Kind           NotificationChannelKind `json:"kind"`
+	LastAt         *time.Time              `json:"last_at,omitempty"`
+	LastError      *string                 `json:"last_error,omitempty"`
+	LastState      *OutboxState            `json:"last_state,omitempty"`
+	Name           string                  `json:"name"`
+
+	// SecretConfigured Há senha SMTP ou segredo do webhook guardado (cifrado). O valor nunca volta pela API.
+	SecretConfigured bool `json:"secret_configured"`
+
+	// SecretReadable O segredo abre com a chave atual (falso depois de trocar a chave ou restaurar o banco em outro servidor)
+	SecretReadable bool             `json:"secret_readable"`
+	UpdatedAt      time.Time        `json:"updated_at"`
+	Webhook        *WebhookSettings `json:"webhook,omitempty"`
+}
+
+// NotificationChannelInput defines model for NotificationChannelInput.
+type NotificationChannelInput struct {
+	Email   *EmailSettings `json:"email,omitempty"`
+	Enabled bool           `json:"enabled"`
+
+	// IncludeDetails Padrão true
+	IncludeDetails *bool                   `json:"include_details,omitempty"`
+	Kind           NotificationChannelKind `json:"kind"`
+	Name           string                  `json:"name"`
+
+	// Secret Senha SMTP ou segredo de assinatura do webhook (24 a 256 bytes; aceita o formato whsec_<base64>). Ausente mantém o atual; vazio apaga (só no e-mail sem usuário).
+	Secret  *string          `json:"secret,omitempty"`
+	Webhook *WebhookSettings `json:"webhook,omitempty"`
+}
+
+// NotificationChannelKind defines model for NotificationChannelKind.
+type NotificationChannelKind string
+
+// NotificationEvent finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha; executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+type NotificationEvent string
+
+// NotificationRule defines model for NotificationRule.
+type NotificationRule struct {
+	ChannelId int64     `json:"channel_id"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DedupMinutes O mesmo achado ou evento não notifica de novo neste canal dentro da janela
+	DedupMinutes int  `json:"dedup_minutes"`
+	Enabled      bool `json:"enabled"`
+
+	// Event finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha; executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+	Event       NotificationEvent `json:"event"`
+	Id          int64             `json:"id"`
+	MinSeverity Severity          `json:"min_severity"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
+
+// NotificationRuleInput defines model for NotificationRuleInput.
+type NotificationRuleInput struct {
+	ChannelId int64 `json:"channel_id"`
+
+	// DedupMinutes Padrão conforme o evento (achados 1440)
+	DedupMinutes *int  `json:"dedup_minutes,omitempty"`
+	Enabled      *bool `json:"enabled,omitempty"`
+
+	// Event finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha; executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+	Event       NotificationEvent `json:"event"`
+	MinSeverity *Severity         `json:"min_severity,omitempty"`
+}
+
+// NotificationTestResult defines model for NotificationTestResult.
+type NotificationTestResult struct {
+	Entry OutboxEntry `json:"entry"`
+
+	// Error Causa da falha
+	Error *string `json:"error,omitempty"`
+	Ok    bool    `json:"ok"`
+}
+
+// OutboxEntry defines model for OutboxEntry.
+type OutboxEntry struct {
+	Attempts int `json:"attempts"`
+
+	// ChannelId Ausente quando o canal foi removido
+	ChannelId   *int64                  `json:"channel_id,omitempty"`
+	ChannelKind NotificationChannelKind `json:"channel_kind"`
+	ChannelName string                  `json:"channel_name"`
+	CreatedAt   time.Time               `json:"created_at"`
+
+	// Event Evento da mensagem (os das regras e test, do botão de teste)
+	Event OutboxEvent `json:"event"`
+	Id    int64       `json:"id"`
+
+	// ItemCount Itens da mensagem (achados agrupados contam um a um)
+	ItemCount int `json:"item_count"`
+
+	// Items Amostra dos itens (até 25)
+	Items          []OutboxItem   `json:"items"`
+	LastError      string         `json:"last_error"`
+	MaxAttempts    int            `json:"max_attempts"`
+	NextAttemptAt  *time.Time     `json:"next_attempt_at,omitempty"`
+	SentAt         *time.Time     `json:"sent_at,omitempty"`
+	SeverityCounts map[string]int `json:"severity_counts"`
+	State          OutboxState    `json:"state"`
+	Summary        string         `json:"summary"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+// OutboxEvent Evento da mensagem (os das regras e test, do botão de teste)
+type OutboxEvent string
+
+// OutboxItem defines model for OutboxItem.
+type OutboxItem struct {
+	At        *time.Time `json:"at,omitempty"`
+	FindingId *int64     `json:"finding_id,omitempty"`
+	RunId     *string    `json:"run_id,omitempty"`
+	Severity  Severity   `json:"severity"`
+	Title     string     `json:"title"`
+}
+
+// OutboxPage defines model for OutboxPage.
+type OutboxPage struct {
+	Entries    []OutboxEntry `json:"entries"`
+	NextBefore *int64        `json:"next_before,omitempty"`
+}
+
+// OutboxState defines model for OutboxState.
+type OutboxState string
 
 // Overview defines model for Overview.
 type Overview struct {
@@ -1404,6 +1677,9 @@ type SeverityCounts struct {
 	Total    int64 `json:"total"`
 }
 
+// SmtpSecurity starttls: exige STARTTLS (sem queda para texto puro); tls: TLS desde a conexão (465); none: só relé local.
+type SmtpSecurity string
+
 // SuggestionBasis defines model for SuggestionBasis.
 type SuggestionBasis struct {
 	// CpuPressure Média de 5 minutos (%)
@@ -1531,6 +1807,15 @@ type UserUpdate struct {
 	Role        *Role   `json:"role,omitempty"`
 }
 
+// WebhookSettings defines model for WebhookSettings.
+type WebhookSettings struct {
+	// AllowPrivateNetwork Libera destino em rede privada ou local (RFC 1918, loopback, CGNAT, ULA). Link-local (169.254.0.0/16, fe80::/10) e endereços de metadados de nuvem são sempre recusados.
+	AllowPrivateNetwork bool `json:"allow_private_network"`
+
+	// Url Só http:// ou https://; redirecionamentos não são seguidos
+	Url string `json:"url"`
+}
+
 // FindingId defines model for FindingId.
 type FindingId = int64
 
@@ -1618,6 +1903,14 @@ type GetProcessInventoryParams struct {
 	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
 }
 
+// ListNotificationOutboxParams defines parameters for ListNotificationOutbox.
+type ListNotificationOutboxParams struct {
+	State     *OutboxState `form:"state,omitempty" json:"state,omitempty"`
+	ChannelId *int64       `form:"channel_id,omitempty" json:"channel_id,omitempty"`
+	Before    *int64       `form:"before,omitempty" json:"before,omitempty"`
+	Limit     *Limit       `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
 // ListRunsParams defines parameters for ListRuns.
 type ListRunsParams struct {
 	Status *[]RunStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -1668,6 +1961,18 @@ type CreateExceptionJSONRequestBody = ExceptionCreate
 
 // TransitionFindingJSONRequestBody defines body for TransitionFinding for application/json ContentType.
 type TransitionFindingJSONRequestBody = FindingTransition
+
+// CreateNotificationChannelJSONRequestBody defines body for CreateNotificationChannel for application/json ContentType.
+type CreateNotificationChannelJSONRequestBody = NotificationChannelInput
+
+// UpdateNotificationChannelJSONRequestBody defines body for UpdateNotificationChannel for application/json ContentType.
+type UpdateNotificationChannelJSONRequestBody = NotificationChannelInput
+
+// CreateNotificationRuleJSONRequestBody defines body for CreateNotificationRule for application/json ContentType.
+type CreateNotificationRuleJSONRequestBody = NotificationRuleInput
+
+// UpdateNotificationRuleJSONRequestBody defines body for UpdateNotificationRule for application/json ContentType.
+type UpdateNotificationRuleJSONRequestBody = NotificationRuleInput
 
 // SaveResourceProfileJSONRequestBody defines body for SaveResourceProfile for application/json ContentType.
 type SaveResourceProfileJSONRequestBody = ResourceProfile
@@ -1782,6 +2087,39 @@ type ServerInterface interface {
 	// GetProcessInventory Processos da última inspeção (ou da execução informada), com segredos da linha de comando mascarados
 	// (GET /api/v1/inventory/processes)
 	GetProcessInventory(w http.ResponseWriter, r *http.Request, params GetProcessInventoryParams)
+	// ListNotificationChannels Canais de notificação (administrador; segredos nunca voltam, só se estão configurados)
+	// (GET /api/v1/notifications/channels)
+	ListNotificationChannels(w http.ResponseWriter, r *http.Request)
+	// CreateNotificationChannel Cria canal de e-mail ou webhook (administrador, com reautenticação)
+	// (POST /api/v1/notifications/channels)
+	CreateNotificationChannel(w http.ResponseWriter, r *http.Request)
+	// DeleteNotificationChannel Remove canal e regras dele; mensagens pendentes viram falha e o histórico fica
+	// (DELETE /api/v1/notifications/channels/{id})
+	DeleteNotificationChannel(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateNotificationChannel Altera canal (o tipo não muda; segredo ausente mantém o atual)
+	// (PUT /api/v1/notifications/channels/{id})
+	UpdateNotificationChannel(w http.ResponseWriter, r *http.Request, id Id)
+	// TestNotificationChannel Envia uma mensagem de teste agora e devolve o resultado real do envio
+	// (POST /api/v1/notifications/channels/{id}/test)
+	TestNotificationChannel(w http.ResponseWriter, r *http.Request, id Id)
+	// ListNotificationOutbox Caixa de saída (mensagens pendentes, enviadas e com falha, da mais nova para a mais antiga)
+	// (GET /api/v1/notifications/outbox)
+	ListNotificationOutbox(w http.ResponseWriter, r *http.Request, params ListNotificationOutboxParams)
+	// RetryNotification Reenvia a mensagem agora (falha definitiva volta com as tentativas zeradas)
+	// (POST /api/v1/notifications/outbox/{id}/retry)
+	RetryNotification(w http.ResponseWriter, r *http.Request, id Id)
+	// ListNotificationRules Regras de envio (qual evento vai para qual canal)
+	// (GET /api/v1/notifications/rules)
+	ListNotificationRules(w http.ResponseWriter, r *http.Request)
+	// CreateNotificationRule Cria regra de envio (administrador, com reautenticação)
+	// (POST /api/v1/notifications/rules)
+	CreateNotificationRule(w http.ResponseWriter, r *http.Request)
+	// DeleteNotificationRule Remove regra de envio
+	// (DELETE /api/v1/notifications/rules/{id})
+	DeleteNotificationRule(w http.ResponseWriter, r *http.Request, id Id)
+	// UpdateNotificationRule Altera regra de envio
+	// (PUT /api/v1/notifications/rules/{id})
+	UpdateNotificationRule(w http.ResponseWriter, r *http.Request, id Id)
 	// GetOverview Resumo para a Visão geral
 	// (GET /api/v1/overview)
 	GetOverview(w http.ResponseWriter, r *http.Request)
@@ -2522,6 +2860,290 @@ func (siw *ServerInterfaceWrapper) GetProcessInventory(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetProcessInventory(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNotificationChannels operation middleware
+func (siw *ServerInterfaceWrapper) ListNotificationChannels(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNotificationChannels(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNotificationChannel operation middleware
+func (siw *ServerInterfaceWrapper) CreateNotificationChannel(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNotificationChannel(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNotificationChannel operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNotificationChannel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNotificationChannel(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNotificationChannel operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNotificationChannel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNotificationChannel(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestNotificationChannel operation middleware
+func (siw *ServerInterfaceWrapper) TestNotificationChannel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestNotificationChannel(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNotificationOutbox operation middleware
+func (siw *ServerInterfaceWrapper) ListNotificationOutbox(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListNotificationOutboxParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "channel_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "channel_id", r.URL.Query(), &params.ChannelId, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "channel_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "channel_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNotificationOutbox(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryNotification operation middleware
+func (siw *ServerInterfaceWrapper) RetryNotification(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryNotification(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListNotificationRules operation middleware
+func (siw *ServerInterfaceWrapper) ListNotificationRules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListNotificationRules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateNotificationRule operation middleware
+func (siw *ServerInterfaceWrapper) CreateNotificationRule(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateNotificationRule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNotificationRule operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNotificationRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNotificationRule(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateNotificationRule operation middleware
+func (siw *ServerInterfaceWrapper) UpdateNotificationRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateNotificationRule(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3366,6 +3988,17 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/processes", wrapper.GetProcessInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/persistence", wrapper.GetPersistenceInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/engines", wrapper.GetEngines)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/notifications/channels", wrapper.ListNotificationChannels)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/notifications/channels", wrapper.CreateNotificationChannel)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/notifications/channels/{id}", wrapper.DeleteNotificationChannel)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/notifications/channels/{id}", wrapper.UpdateNotificationChannel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/notifications/channels/{id}/test", wrapper.TestNotificationChannel)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/notifications/rules", wrapper.ListNotificationRules)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/notifications/rules", wrapper.CreateNotificationRule)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/notifications/rules/{id}", wrapper.DeleteNotificationRule)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/notifications/rules/{id}", wrapper.UpdateNotificationRule)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/notifications/outbox", wrapper.ListNotificationOutbox)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/notifications/outbox/{id}/retry", wrapper.RetryNotification)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/users", wrapper.ListUsers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users", wrapper.CreateUser)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/users/{id}", wrapper.DeleteUser)

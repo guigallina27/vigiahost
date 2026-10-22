@@ -142,7 +142,9 @@ E1.13 concluído ([ADR-020](adr/0020-ajuste-em-tempo-real-e-limitacao-por-pressa
 - **Métricas por execução:** etapas, arquivos/s, MB/s, CPU e pico de memória do cgroup, tempo limitado e vazão por motor, com comparativo das últimas execuções do mesmo tipo. Os dados vêm da migração 00008.
 - **Validação em laboratório:** aprovada com systemd real (ajuste conferido em `cpu.max` e `memory.max`, métricas reais do cgroup).
 
-Faltam E1.10 e E1.12.
+E1.12 implementado ([ADR-021](adr/0021-notificacoes-e-segredos-de-integracoes.md), formato em [notificacoes.md](notificacoes.md)): canais de e-mail (STARTTLS, TLS ou relé local) e webhook assinado no padrão Standard Webhooks; regras por canal e evento (achado novo por severidade mínima, execução com falha ou parcial, motor ou autoteste, executor indisponível, cópia do banco com falha); caixa de saída com recuo, deduplicação, agrupamento e reenvio; segredos cifrados com a chave fora do banco; tela Notificações com botão de teste. Falta validar a entrega real no laboratório com o pacote instalado.
+
+Falta E1.10.
 
 ### Fase 2 — Gestão completa local
 

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/store"
@@ -49,6 +50,12 @@ func (c *Config) defaults() {
 	}
 }
 
+// Notifier recebe os eventos que podem virar notificação (achado novo, fim de execução com problema). Só grava na
+// caixa de saída; o envio roda em outra goroutine e nunca segura o laço da fila.
+type Notifier interface {
+	Emit(ctx context.Context, events ...notify.Event) error
+}
+
 // Service é o orquestrador.
 type Service struct {
 	DB     *store.DB
@@ -56,6 +63,8 @@ type Service struct {
 	Hub    *Hub
 	Logger *slog.Logger
 	Config Config
+	// Notifier nil desliga as notificações (testes e ferramentas de linha de comando).
+	Notifier Notifier
 
 	mu        sync.Mutex
 	hw        *ipc.Hardware
@@ -393,7 +402,9 @@ func (s *Service) start(ctx context.Context, r store.Run) bool {
 		return false
 	default:
 		// Recusa do executor (caminho, limite, pedido inválido): não adianta tentar de novo.
-		_ = s.DB.FinishRun(ctx, r.ID, string(report.StatusFailed), nil, "recusada pelo executor: "+err.Error())
+		if s.DB.FinishRun(ctx, r.ID, string(report.StatusFailed), nil, "recusada pelo executor: "+err.Error()) == nil {
+			s.notifyRun(ctx, r.ID, nil)
+		}
 		s.Logger.Warn("execução recusada pelo executor", "execucao", r.ID, "erro", err)
 	}
 	s.publishRun(ctx, r.ID)
@@ -522,13 +533,50 @@ func (s *Service) ingest(ctx context.Context, runID, dir string) (bool, error) {
 	for _, id := range res.Changed {
 		s.publish(Event{Type: "finding", ID: fmt.Sprint(id)})
 	}
+	s.notifyFindings(ctx, runID, res.Changed)
 	return true, nil
 }
 
+// notifyFindings entrega à caixa de saída os achados novos ou reabertos (as regras filtram por severidade).
+func (s *Service) notifyFindings(ctx context.Context, runID string, ids []int64) {
+	if s.Notifier == nil || len(ids) == 0 {
+		return
+	}
+	events := make([]notify.Event, 0, len(ids))
+	for _, id := range ids {
+		f, err := s.DB.GetFinding(ctx, id)
+		if err != nil {
+			continue
+		}
+		events = append(events, notify.FindingEvent(f, runID))
+	}
+	if err := s.Notifier.Emit(ctx, events...); err != nil {
+		s.Logger.Warn("achados não entraram na caixa de saída de notificações", "execucao", runID, "erro", err)
+	}
+}
+
+// notifyRun avisa falha, interrupção, resultado parcial e problema de motor no fim da execução.
+func (s *Service) notifyRun(ctx context.Context, id string, sum *report.Summary) {
+	if s.Notifier == nil {
+		return
+	}
+	r, err := s.DB.GetRun(ctx, id)
+	if err != nil {
+		return
+	}
+	if err := s.Notifier.Emit(ctx, notify.RunEvents(r, sum)...); err != nil {
+		s.Logger.Warn("fim da execução não entrou na caixa de saída de notificações", "execucao", id, "erro", err)
+	}
+}
+
 func (s *Service) finish(ctx context.Context, r store.Run, status string, sum *report.Summary, msg string) {
-	if err := s.DB.FinishRun(ctx, r.ID, status, sum, msg); err != nil && !errors.Is(err, store.ErrConflict) {
+	err := s.DB.FinishRun(ctx, r.ID, status, sum, msg)
+	if err != nil && !errors.Is(err, store.ErrConflict) {
 		s.Logger.Error("falha ao finalizar execução", "execucao", r.ID, "erro", err)
 		return
+	}
+	if err == nil {
+		s.notifyRun(ctx, r.ID, sum)
 	}
 	s.mu.Lock()
 	delete(s.canceling, r.ID)
@@ -731,7 +779,9 @@ func (s *Service) fireSchedules(ctx context.Context) {
 			s.Logger.Warn("agendamento não pôde gerar execução", "agendamento", sc.ID, "erro", err)
 			run = store.Run{ID: NewRunID(s.DB.Now()), Kind: sc.Kind}
 			if _, ferr := s.DB.FireSchedule(ctx, sc, &run, 0); ferr == nil {
-				_ = s.DB.FinishRun(ctx, run.ID, string(report.StatusFailed), nil, "agendamento inválido: "+err.Error())
+				if s.DB.FinishRun(ctx, run.ID, string(report.StatusFailed), nil, "agendamento inválido: "+err.Error()) == nil {
+					s.notifyRun(ctx, run.ID, nil)
+				}
 			}
 			continue
 		}

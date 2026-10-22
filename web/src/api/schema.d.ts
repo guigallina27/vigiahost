@@ -687,6 +687,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Canais de notificação (administrador; segredos nunca voltam, só se estão configurados) */
+        get: operations["listNotificationChannels"];
+        put?: never;
+        /** Cria canal de e-mail ou webhook (administrador, com reautenticação) */
+        post: operations["createNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Altera canal (o tipo não muda; segredo ausente mantém o atual) */
+        put: operations["updateNotificationChannel"];
+        post?: never;
+        /** Remove canal e regras dele; mensagens pendentes viram falha e o histórico fica */
+        delete: operations["deleteNotificationChannel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/channels/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Envia uma mensagem de teste agora e devolve o resultado real do envio
+         * @description O envio é síncrono, com tempo limite. Falha de envio responde 200 com ok=false e a causa em error (servidor recusou, certificado inválido, destino bloqueado pela política de rede...). O teste fica na caixa de saída e na auditoria.
+         */
+        post: operations["testNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Regras de envio (qual evento vai para qual canal) */
+        get: operations["listNotificationRules"];
+        put?: never;
+        /** Cria regra de envio (administrador, com reautenticação) */
+        post: operations["createNotificationRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Altera regra de envio */
+        put: operations["updateNotificationRule"];
+        post?: never;
+        /** Remove regra de envio */
+        delete: operations["deleteNotificationRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/outbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Caixa de saída (mensagens pendentes, enviadas e com falha, da mais nova para a mais antiga) */
+        get: operations["listNotificationOutbox"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/outbox/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reenvia a mensagem agora (falha definitiva volta com as tentativas zeradas) */
+        post: operations["retryNotification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -1729,6 +1863,152 @@ export interface components {
             broken_at?: number;
             /** Format: int64 */
             next_before?: number;
+        };
+        /**
+         * @description finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha; executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+         * @enum {string}
+         */
+        NotificationEvent: "finding_new" | "run_failed" | "run_partial" | "engine_selftest_failed" | "executor_unavailable" | "backup_failed";
+        /**
+         * @description Evento da mensagem (os das regras e test, do botão de teste)
+         * @enum {string}
+         */
+        OutboxEvent: "finding_new" | "run_failed" | "run_partial" | "engine_selftest_failed" | "executor_unavailable" | "backup_failed" | "test";
+        /** @enum {string} */
+        NotificationChannelKind: "email" | "webhook";
+        /**
+         * @description starttls: exige STARTTLS (sem queda para texto puro); tls: TLS desde a conexão (465); none: só relé local.
+         * @enum {string}
+         */
+        SmtpSecurity: "starttls" | "tls" | "none";
+        EmailSettings: {
+            /** @description Nome ou IP do servidor SMTP */
+            host: string;
+            port: number;
+            security: components["schemas"]["SmtpSecurity"];
+            /** @description Vazio desliga a autenticação */
+            username?: string;
+            from: string;
+            to: string[];
+        };
+        WebhookSettings: {
+            /** @description Só http:// ou https://; redirecionamentos não são seguidos */
+            url: string;
+            /** @description Libera destino em rede privada ou local (RFC 1918, loopback, CGNAT, ULA). Link-local (169.254.0.0/16, fe80::/10) e endereços de metadados de nuvem são sempre recusados. */
+            allow_private_network: boolean;
+        };
+        /** @enum {string} */
+        OutboxState: "pending" | "sent" | "failed";
+        NotificationChannel: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            kind: components["schemas"]["NotificationChannelKind"];
+            enabled: boolean;
+            /** @description Inclui caminhos e hashes nas mensagens (privacidade) */
+            include_details: boolean;
+            email?: components["schemas"]["EmailSettings"];
+            webhook?: components["schemas"]["WebhookSettings"];
+            /** @description Há senha SMTP ou segredo do webhook guardado (cifrado). O valor nunca volta pela API. */
+            secret_configured: boolean;
+            /** @description O segredo abre com a chave atual (falso depois de trocar a chave ou restaurar o banco em outro servidor) */
+            secret_readable: boolean;
+            last_state?: components["schemas"]["OutboxState"];
+            /** Format: date-time */
+            last_at?: string;
+            last_error?: string;
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NotificationChannelInput: {
+            name: string;
+            kind: components["schemas"]["NotificationChannelKind"];
+            enabled: boolean;
+            /** @description Padrão true */
+            include_details?: boolean;
+            email?: components["schemas"]["EmailSettings"];
+            webhook?: components["schemas"]["WebhookSettings"];
+            /** @description Senha SMTP ou segredo de assinatura do webhook (24 a 256 bytes; aceita o formato whsec_<base64>). Ausente mantém o atual; vazio apaga (só no e-mail sem usuário). */
+            secret?: string;
+        };
+        NotificationRule: {
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            channel_id: number;
+            event: components["schemas"]["NotificationEvent"];
+            min_severity: components["schemas"]["Severity"];
+            /** @description O mesmo achado ou evento não notifica de novo neste canal dentro da janela */
+            dedup_minutes: number;
+            enabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        NotificationRuleInput: {
+            /** Format: int64 */
+            channel_id: number;
+            event: components["schemas"]["NotificationEvent"];
+            min_severity?: components["schemas"]["Severity"];
+            /** @description Padrão conforme o evento (achados 1440) */
+            dedup_minutes?: number;
+            enabled?: boolean;
+        };
+        OutboxItem: {
+            severity: components["schemas"]["Severity"];
+            title: string;
+            /** Format: int64 */
+            finding_id?: number;
+            run_id?: string;
+            /** Format: date-time */
+            at?: string;
+        };
+        OutboxEntry: {
+            /** Format: int64 */
+            id: number;
+            /**
+             * Format: int64
+             * @description Ausente quando o canal foi removido
+             */
+            channel_id?: number;
+            channel_name: string;
+            channel_kind: components["schemas"]["NotificationChannelKind"];
+            event: components["schemas"]["OutboxEvent"];
+            summary: string;
+            /** @description Itens da mensagem (achados agrupados contam um a um) */
+            item_count: number;
+            severity_counts: {
+                [key: string]: number;
+            };
+            /** @description Amostra dos itens (até 25) */
+            items: components["schemas"]["OutboxItem"][];
+            state: components["schemas"]["OutboxState"];
+            attempts: number;
+            max_attempts: number;
+            /** Format: date-time */
+            next_attempt_at?: string;
+            last_error: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            sent_at?: string;
+        };
+        OutboxPage: {
+            entries: components["schemas"]["OutboxEntry"][];
+            /** Format: int64 */
+            next_before?: number;
+        };
+        NotificationTestResult: {
+            ok: boolean;
+            /** @description Causa da falha */
+            error?: string;
+            entry: components["schemas"]["OutboxEntry"];
         };
     };
     responses: {
@@ -2904,6 +3184,293 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listNotificationChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Canais por nome */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelInput"];
+            };
+        };
+        responses: {
+            /** @description Canal criado */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelInput"];
+            };
+        };
+        responses: {
+            /** @description Canal */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removido */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    testNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resultado do envio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationTestResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listNotificationRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regras */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRule"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createNotificationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Regra criada */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    updateNotificationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationRuleInput"];
+            };
+        };
+        responses: {
+            /** @description Regra */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRule"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteNotificationRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removida */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listNotificationOutbox: {
+        parameters: {
+            query?: {
+                state?: components["schemas"]["OutboxState"];
+                channel_id?: number;
+                before?: number;
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página da caixa de saída */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboxPage"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    retryNotification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Mensagem de volta à fila de envio */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OutboxEntry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listUsers: {

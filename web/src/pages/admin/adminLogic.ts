@@ -145,6 +145,14 @@ export const knownAuditActions = [
   "run_limits_changed",
   "finding_transition",
   "backup_created",
+  "notification_channel_created",
+  "notification_channel_updated",
+  "notification_channel_deleted",
+  "notification_test",
+  "notification_rule_created",
+  "notification_rule_updated",
+  "notification_rule_deleted",
+  "notification_retry",
 ] as const;
 
 export type KnownAuditAction = (typeof knownAuditActions)[number];

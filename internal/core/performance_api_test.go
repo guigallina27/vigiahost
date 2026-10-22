@@ -78,7 +78,7 @@ func TestAjusteComparativoESugestaoPelaAPI(t *testing.T) {
 	}
 	detail := decodeBody[api.RunDetail](t, a.do(t, "GET", "/api/v1/runs/"+run.Id, "", operator, ""))
 	m := detail.Run.Summary.Metrics
-	if m == nil || m.Source != api.Cgroup || m.CpuSecondsPerGb == nil || *m.CpuSecondsPerGb != 6 || len(m.Throttle.Events) != 1 {
+	if m == nil || m.Source != api.RunMetricsSourceCgroup || m.CpuSecondsPerGb == nil || *m.CpuSecondsPerGb != 6 || len(m.Throttle.Events) != 1 {
 		t.Fatalf("métricas no detalhe: %+v", m)
 	}
 	if e := detail.Engines[0]; e.FilesPerSecond == nil || *e.FilesPerSecond != 10 || e.MbPerSecond == nil || *e.MbPerSecond != 10 {

@@ -90,6 +90,23 @@
 | Perda de dados na remoção | Dados preservados; só o *purge* apaga | Implementado e testado |
 | Banco incompatível após retorno de versão | Migrações expandir/contrair; binário antigo segue sem migrar | Implementado e testado |
 
+### 3.7 Core → destinos de notificação (SMTP e webhook)
+
+Formato e verificação do webhook em [notificacoes.md](notificacoes.md); decisão no [ADR-021](adr/0021-notificacoes-e-segredos-de-integracoes.md).
+
+| Ameaça | Controle | Situação |
+|---|---|---|
+| Webhook usado para alcançar a rede interna ou o serviço de metadados (SSRF) | Só `http`/`https`, sem proxy, sem seguir redirecionamento; link-local (169.254.0.0/16, fe80::/10) e metadados (100.100.100.200, fd00:ec2::254) sempre recusados; rede privada e loopback só com opção explícita do administrador no canal; SMTP também recusa link-local e metadados | Implementado e testado (E1.12) |
+| Troca de DNS entre a validação e o envio (*rebinding*) | IP conferido no `connect` pelo controle do `net.Dialer`, para cada endereço resolvido | Implementado e testado (E1.12) |
+| Receptor aceitando mensagem forjada ou repetida | HMAC-SHA256 no padrão Standard Webhooks sobre id, carimbo de tempo e corpo; tolerância de 5 minutos e `webhook-id` estável documentados para o receptor | Implementado e testado (E1.12) |
+| Senha SMTP ou segredo do webhook vazando | Cifrados com AES-256-GCM, chave fora do banco (`LoadCredential` ou `secrets.key` 0600); API devolve só "configurado"; nunca em log nem auditoria (a auditoria guarda só esquema e servidor do webhook) | Implementado e testado (E1.12) |
+| Senha SMTP em texto puro na rede | `starttls` sem queda para texto puro; `none` só para relé em localhost; certificado sempre verificado | Implementado e testado (E1.12) |
+| Nome de arquivo hostil injetando cabeçalho de e-mail ou enganando quem lê (bidi, quebras de linha) | Assunto codificado em MIME, corpo em *quoted-printable*; controles e marcas de direção viram escapes visíveis; textos truncados | Implementado e testado (E1.12) |
+| Destino lento ou fora do ar travando a fila ou derrubando o core | Caixa de saída no banco; envio fora do caminho da fila, com tempo limite de 20 s, resposta lida até 512 bytes, recuo exponencial e no máximo 8 tentativas | Implementado e testado (E1.12) |
+| Enxurrada de mensagens (500 achados, evento que oscila) | Deduplicação por chave dentro de uma janela por regra; achados agrupados em resumo | Implementado e testado (E1.12) |
+| Exposição de caminhos e hashes de clientes a terceiros | Opção por canal "Incluir caminhos e hashes"; conteúdo de arquivo nunca enviado | Implementado (E1.12) |
+| Alteração indevida de canal para desviar alertas | Só administrador, reautenticação recente para criar, alterar e remover; toda alteração, teste e reenvio auditados | Implementado e testado (E1.12) |
+
 ## 4. Riscos aceitos na Fase 0
 
 - **Interface sem TLS**: escuta só em `127.0.0.1` (acesso por túnel SSH) até o certificado da 1A.

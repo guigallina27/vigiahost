@@ -24,3 +24,4 @@
 | [017](adr/0017-base-da-interface.md) | Base da interface: contrato gerado, design system e cadeia de suprimentos do front-end | 6.3, 14, 19 |
 | [018](adr/0018-arquivos-aos-motores-por-descritor.md) | Arquivos entregues aos motores por descritor, nunca por nome | 7, 13 |
 | [020](adr/0020-ajuste-em-tempo-real-e-limitacao-por-pressao.md) | Ajuste em tempo real pelo executor e limitação por pressão dentro da execução | 12, 12.1 |
+| [021](adr/0021-notificacoes-e-segredos-de-integracoes.md) | Notificações com caixa de saída no banco, webhook no padrão Standard Webhooks e segredos cifrados | 13, 16 |

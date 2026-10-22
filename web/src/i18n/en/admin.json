@@ -199,7 +199,15 @@
         "run_resumed": "Resumed run",
         "run_limits_changed": "Changed run limits",
         "finding_transition": "Changed a finding's state",
-        "backup_created": "Backed up the database"
+        "backup_created": "Backed up the database",
+        "notification_channel_created": "Created notification channel",
+        "notification_channel_updated": "Changed notification channel",
+        "notification_channel_deleted": "Removed notification channel",
+        "notification_test": "Sent notification test",
+        "notification_rule_created": "Created sending rule",
+        "notification_rule_updated": "Changed sending rule",
+        "notification_rule_deleted": "Removed sending rule",
+        "notification_retry": "Resent notification"
       }
     },
     "account": {

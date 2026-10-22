@@ -14,6 +14,9 @@ StateDirectoryMode=0700
 Restart=on-failure
 RestartSec=5s
 UMask=0077
+# Chave dos segredos de integrações (ADR-021). Sem esta linha, o core cria e usa
+# /var/lib/vigiahost/secrets.key (0600). Para guardá-la fora do diretório de estado, use num drop-in:
+#LoadCredential=vigiahost-secrets-key:/etc/vigiahost/secrets.key
 
 # Sem privilégios: tudo que exige root passa pelo executor.
 NoNewPrivileges=yes
