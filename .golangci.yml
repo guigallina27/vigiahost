@@ -1,0 +1,34 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - gosec
+    - errorlint
+    - bodyclose
+    - noctx
+    - nilerr
+  settings:
+    errcheck:
+      # Erros que não mudam o resultado: prazos de conexão já encerrada e fechamento em defer.
+      exclude-functions:
+        - (net.Conn).SetDeadline
+        - (net.Conn).SetReadDeadline
+        - (net.Conn).SetWriteDeadline
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (*database/sql.DB).Close
+        - (*github.com/guigallina27/vigiahost/internal/ipc.Client).Close
+    gosec:
+      excludes:
+        # Coberto pelo errcheck, que respeita a lista de exceções acima.
+        - G104
+  exclusions:
+    rules:
+      # Testes usam caminhos e permissões de arquivos temporários de propósito.
+      - path: _test\.go
+        linters: [gosec, errcheck, noctx]
+
+formatters:
+  enable:
+    - gofmt
