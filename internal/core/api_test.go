@@ -24,8 +24,10 @@ import (
 	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/auth"
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
 	"github.com/guigallina27/vigiahost/internal/report"
+	"github.com/guigallina27/vigiahost/internal/secrets"
 	"github.com/guigallina27/vigiahost/internal/store"
 )
 
@@ -90,7 +92,12 @@ func newTestAPI(t *testing.T) *testAPI {
 	hub := orchestrator.NewHub()
 	captcha := auth.NewCaptcha()
 	captcha.Cost, captcha.CounterMin, captcha.CounterMax = 10, 5, 20
-	s := &Server{Captcha: captcha, Logger: logger, Version: "0.0.1", DB: db, Hub: hub, Exec: fx,
+	box, err := secrets.New(make([]byte, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{Notify: &notify.Service{DB: db, Box: box, Logger: logger, Hostname: "web01", Timeout: 5 * time.Second},
+		Captcha: captcha, Logger: logger, Version: "0.0.1", DB: db, Hub: hub, Exec: fx,
 		BackupDir: filepath.Join(t.TempDir(), "backups"),
 		Probe:     func(context.Context) ExecutorStatus { return ExecutorStatus{Connected: true} },
 		Auth:      &auth.Service{DB: db, Logger: logger, FailLog: io.Discard, Config: auth.Config{Sleep: func(time.Duration) {}}},

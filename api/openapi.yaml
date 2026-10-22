@@ -4,7 +4,7 @@
 openapi: 3.0.3
 info:
   title: VigiaHost
-  version: 0.2.0
+  version: 0.3.0
   description: >
     API do serviço web do VigiaHost. Todas as rotas ficam sob /api/v1. A interface autentica por cookie de sessão
     (__Host-vh_session); automações usam token de API no cabeçalho Authorization (Bearer). Ações sensíveis exigem
@@ -693,6 +693,195 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/EngineStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/notifications/channels:
+    get:
+      operationId: listNotificationChannels
+      summary: Canais de notificação (administrador; segredos nunca voltam, só se estão configurados)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Canais por nome
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NotificationChannel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createNotificationChannel
+      summary: Cria canal de e-mail ou webhook (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationChannelInput" }
+      responses:
+        "201":
+          description: Canal criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationChannel" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/channels/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateNotificationChannel
+      summary: Altera canal (o tipo não muda; segredo ausente mantém o atual)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationChannelInput" }
+      responses:
+        "200":
+          description: Canal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationChannel" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteNotificationChannel
+      summary: Remove canal e regras dele; mensagens pendentes viram falha e o histórico fica
+      tags: [configuracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/notifications/channels/{id}/test:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: testNotificationChannel
+      summary: Envia uma mensagem de teste agora e devolve o resultado real do envio
+      description: >
+        O envio é síncrono, com tempo limite. Falha de envio responde 200 com ok=false e a causa em error (servidor
+        recusou, certificado inválido, destino bloqueado pela política de rede...). O teste fica na caixa de saída e na
+        auditoria.
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Resultado do envio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationTestResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/rules:
+    get:
+      operationId: listNotificationRules
+      summary: Regras de envio (qual evento vai para qual canal)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Regras
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NotificationRule" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createNotificationRule
+      summary: Cria regra de envio (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationRuleInput" }
+      responses:
+        "201":
+          description: Regra criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/rules/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateNotificationRule
+      summary: Altera regra de envio
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationRuleInput" }
+      responses:
+        "200":
+          description: Regra
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteNotificationRule
+      summary: Remove regra de envio
+      tags: [configuracao]
+      responses:
+        "204": { description: Removida }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/notifications/outbox:
+    get:
+      operationId: listNotificationOutbox
+      summary: Caixa de saída (mensagens pendentes, enviadas e com falha, da mais nova para a mais antiga)
+      tags: [configuracao]
+      parameters:
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/OutboxState" } }
+        - { name: channel_id, in: query, schema: { type: integer, format: int64 } }
+        - { name: before, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página da caixa de saída
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OutboxPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/notifications/outbox/{id}/retry:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: retryNotification
+      summary: Reenvia a mensagem agora (falha definitiva volta com as tentativas zeradas)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Mensagem de volta à fila de envio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OutboxEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
 
   /api/v1/users:
     get:
@@ -1778,3 +1967,170 @@ components:
         chain_ok: { type: boolean }
         broken_at: { type: integer, format: int64 }
         next_before: { type: integer, format: int64 }
+    NotificationEvent:
+      type: string
+      description: >
+        finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou
+        interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha;
+        executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+      enum: [finding_new, run_failed, run_partial, engine_selftest_failed, executor_unavailable, backup_failed]
+    OutboxEvent:
+      type: string
+      description: Evento da mensagem (os das regras e test, do botão de teste)
+      enum: [finding_new, run_failed, run_partial, engine_selftest_failed, executor_unavailable, backup_failed, test]
+    NotificationChannelKind:
+      type: string
+      enum: [email, webhook]
+    SmtpSecurity:
+      type: string
+      description: "starttls: exige STARTTLS (sem queda para texto puro); tls: TLS desde a conexão (465); none: só relé local."
+      enum: [starttls, tls, none]
+    EmailSettings:
+      type: object
+      additionalProperties: false
+      required: [host, port, security, from, to]
+      properties:
+        host: { type: string, maxLength: 253, description: Nome ou IP do servidor SMTP, sem esquema nem porta }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        security: { $ref: "#/components/schemas/SmtpSecurity" }
+        username: { type: string, maxLength: 256, description: Vazio desliga a autenticação }
+        from: { type: string, maxLength: 320 }
+        to:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, maxLength: 320 }
+    WebhookSettings:
+      type: object
+      additionalProperties: false
+      required: [url, allow_private_network]
+      properties:
+        url: { type: string, maxLength: 2048, description: "Só http:// ou https://; redirecionamentos não são seguidos" }
+        allow_private_network:
+          type: boolean
+          description: >
+            Libera destino em rede privada ou local (RFC 1918, loopback, CGNAT, ULA). Link-local (169.254.0.0/16,
+            fe80::/10) e endereços de metadados de nuvem são sempre recusados.
+    OutboxState:
+      type: string
+      enum: [pending, sent, failed]
+      x-enum-varnames: [OutboxPending, OutboxSent, OutboxFailed]
+    NotificationChannel:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, enabled, include_details, secret_configured, secret_readable, created_by, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        enabled: { type: boolean }
+        include_details: { type: boolean, description: Inclui caminhos e hashes nas mensagens (privacidade) }
+        email: { $ref: "#/components/schemas/EmailSettings" }
+        webhook: { $ref: "#/components/schemas/WebhookSettings" }
+        secret_configured:
+          type: boolean
+          description: Há senha SMTP ou segredo do webhook guardado (cifrado). O valor nunca volta pela API.
+        secret_readable:
+          type: boolean
+          description: O segredo abre com a chave atual (falso depois de trocar a chave ou restaurar o banco em outro servidor)
+        last_state: { $ref: "#/components/schemas/OutboxState" }
+        last_at: { type: string, format: date-time }
+        last_error: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotificationChannelInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, enabled]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        enabled: { type: boolean }
+        include_details: { type: boolean, description: Padrão true }
+        email: { $ref: "#/components/schemas/EmailSettings" }
+        webhook: { $ref: "#/components/schemas/WebhookSettings" }
+        secret:
+          type: string
+          maxLength: 512
+          writeOnly: true
+          description: >
+            Senha SMTP ou segredo de assinatura do webhook (24 a 256 bytes; aceita o formato whsec_<base64>). Ausente
+            mantém o atual; vazio apaga (só no e-mail sem usuário).
+    NotificationRule:
+      type: object
+      additionalProperties: false
+      required: [id, channel_id, event, min_severity, dedup_minutes, enabled, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        channel_id: { type: integer, format: int64 }
+        event: { $ref: "#/components/schemas/NotificationEvent" }
+        min_severity: { $ref: "#/components/schemas/Severity" }
+        dedup_minutes: { type: integer, description: O mesmo achado ou evento não notifica de novo neste canal dentro da janela }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotificationRuleInput:
+      type: object
+      additionalProperties: false
+      required: [channel_id, event]
+      properties:
+        channel_id: { type: integer, format: int64 }
+        event: { $ref: "#/components/schemas/NotificationEvent" }
+        min_severity: { $ref: "#/components/schemas/Severity" }
+        dedup_minutes: { type: integer, minimum: 0, maximum: 10080, description: Padrão conforme o evento (achados 1440) }
+        enabled: { type: boolean }
+    OutboxItem:
+      type: object
+      additionalProperties: false
+      required: [severity, title]
+      properties:
+        severity: { $ref: "#/components/schemas/Severity" }
+        title: { type: string }
+        finding_id: { type: integer, format: int64 }
+        run_id: { type: string }
+        at: { type: string, format: date-time }
+    OutboxEntry:
+      type: object
+      additionalProperties: false
+      required: [id, channel_name, channel_kind, event, summary, item_count, severity_counts, items, state, attempts, max_attempts, last_error, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        channel_id: { type: integer, format: int64, description: Ausente quando o canal foi removido }
+        channel_name: { type: string }
+        channel_kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        event: { $ref: "#/components/schemas/OutboxEvent" }
+        summary: { type: string }
+        item_count: { type: integer, description: Itens da mensagem (achados agrupados contam um a um) }
+        severity_counts:
+          type: object
+          additionalProperties: { type: integer }
+        items:
+          type: array
+          description: Amostra dos itens (até 25)
+          items: { $ref: "#/components/schemas/OutboxItem" }
+        state: { $ref: "#/components/schemas/OutboxState" }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        next_attempt_at: { type: string, format: date-time }
+        last_error: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        sent_at: { type: string, format: date-time }
+    OutboxPage:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/OutboxEntry" }
+        next_before: { type: integer, format: int64 }
+    NotificationTestResult:
+      type: object
+      additionalProperties: false
+      required: [ok, entry]
+      properties:
+        ok: { type: boolean }
+        error: { type: string, description: Causa da falha, como o servidor respondeu }
+        entry: { $ref: "#/components/schemas/OutboxEntry" }

@@ -84,6 +84,18 @@ var routes = map[string]rule{
 	"GET /api/v1/backups":                          {access: accessAdmin},
 	"POST /api/v1/backups":                         {access: accessAdmin, reauth: true},
 	"GET /api/v1/audit":                            {access: accessAudit},
+	// Notificações: só administrador; trocar destino ou silenciar alertas exige reautenticação.
+	"GET /api/v1/notifications/channels":            {access: accessAdmin},
+	"POST /api/v1/notifications/channels":           {access: accessAdmin, reauth: true},
+	"PUT /api/v1/notifications/channels/{id}":       {access: accessAdmin, reauth: true},
+	"DELETE /api/v1/notifications/channels/{id}":    {access: accessAdmin, reauth: true},
+	"POST /api/v1/notifications/channels/{id}/test": {access: accessAdmin},
+	"GET /api/v1/notifications/rules":               {access: accessAdmin},
+	"POST /api/v1/notifications/rules":              {access: accessAdmin, reauth: true},
+	"PUT /api/v1/notifications/rules/{id}":          {access: accessAdmin, reauth: true},
+	"DELETE /api/v1/notifications/rules/{id}":       {access: accessAdmin, reauth: true},
+	"GET /api/v1/notifications/outbox":              {access: accessAdmin},
+	"POST /api/v1/notifications/outbox/{id}/retry":  {access: accessAdmin},
 }
 
 func allowed(a access, role string) bool {

@@ -16,6 +16,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/auth"
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
 	"github.com/guigallina27/vigiahost/internal/store"
 	"github.com/guigallina27/vigiahost/internal/sysinfo"
@@ -77,6 +78,8 @@ type Server struct {
 	FirstAccessFile string
 	// BackupDir guarda as cópias do banco (automáticas, manuais e de antes de migrar ou restaurar).
 	BackupDir string
+	// Notify envia notificações (canais, regras, teste e caixa de saída); nil deixa as rotas indisponíveis.
+	Notify *notify.Service
 
 	engMu    sync.Mutex
 	engCache *engineCache
