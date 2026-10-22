@@ -1,0 +1,8 @@
+# Configuração do oapi-codegen: tipos e interface de servidor para net/http (ServeMux do Go 1.22+).
+package: api
+output: api.gen.go
+generate:
+  models: true
+  std-http-server: true
+output-options:
+  skip-prune: false

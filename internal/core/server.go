@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/sysinfo"
 )
@@ -44,35 +46,68 @@ func ProbeExecutor(socketPath string, local ipc.Hello) ExecutorProbe {
 	}
 }
 
+// Server implementa api.ServerInterface, gerada de api/openapi.yaml.
 type Server struct {
 	Logger  *slog.Logger
 	Version string
 	Probe   ExecutorProbe
+	// UI serve a interface embarcada; nil deixa só a API.
+	UI http.Handler
 }
 
-type healthResponse struct {
-	Status   string         `json:"status"`
-	Version  string         `json:"version"`
-	Executor ExecutorStatus `json:"executor"`
-}
+var _ api.ServerInterface = (*Server)(nil)
 
 // Handler monta as rotas com os cabeçalhos de segurança e a proteção contra requisições de outra origem.
+// A interface fica em "GET /" para que métodos errados nas rotas da API continuem recebendo 405.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/health", s.health)
+	api.HandlerFromMux(s, mux)
+	mux.HandleFunc("GET /", s.fallback)
 	return securityHeaders(http.NewCrossOriginProtection().Handler(mux))
 }
 
-func (s *Server) health(w http.ResponseWriter, r *http.Request) {
+// fallback responde JSON para rotas inexistentes da API e entrega o resto à interface.
+func (s *Server) fallback(w http.ResponseWriter, r *http.Request) {
+	if s.UI == nil || r.URL.Path == "/api" || strings.HasPrefix(r.URL.Path, "/api/") {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "rota não encontrada"})
+		return
+	}
+	s.UI.ServeHTTP(w, r)
+}
+
+// GetHealth responde 200 com o executor conectado e 503 sem ele; o corpo é o mesmo nos dois casos.
+func (s *Server) GetHealth(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
-	resp := healthResponse{Status: "ok", Version: s.Version, Executor: s.Probe(ctx)}
+	resp := api.Health{Status: api.Ok, Version: s.Version, Executor: toAPIStatus(s.Probe(ctx))}
 	code := http.StatusOK
 	if !resp.Executor.Connected {
-		resp.Status = "degraded"
+		resp.Status = api.Degraded
 		code = http.StatusServiceUnavailable
 	}
 	writeJSON(w, code, resp)
+}
+
+func toAPIStatus(st ExecutorStatus) api.ExecutorStatus {
+	out := api.ExecutorStatus{Connected: st.Connected, Version: optional(st.Version), Protocol: optional(st.Protocol), Error: optional(st.Error)}
+	if c := st.System; c != nil {
+		out.System = &api.SystemCapabilities{
+			DistroId: c.DistroID, DistroVersion: c.DistroVersion, DistroName: c.DistroName,
+			Kernel: c.Kernel, Arch: c.Arch, Systemd: c.Systemd, CgroupV2: c.CgroupV2, Psi: c.PSI,
+		}
+		if len(c.DistroLike) > 0 {
+			like := c.DistroLike
+			out.System.DistroLike = &like
+		}
+	}
+	return out
+}
+
+func optional(v string) *string {
+	if v == "" {
+		return nil
+	}
+	return &v
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {
@@ -84,6 +119,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		// Sem 'unsafe-inline': a interface não usa script nem estilo embutido no HTML.
 		h.Set("Content-Security-Policy", "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")

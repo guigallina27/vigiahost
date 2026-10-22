@@ -1,0 +1,101 @@
+# Contrato da API do core. Fonte única dos tipos do servidor (oapi-codegen) e do cliente da interface (openapi-typescript).
+# Mantido em OpenAPI 3.0.3 enquanto o suporte do oapi-codegen a 3.1 for parcial (escopo, seção 6.3).
+# Depois de alterar: make generate (o CI e o laboratório conferem se o código gerado está em dia).
+openapi: 3.0.3
+info:
+  title: VigiaHost
+  version: 0.1.0
+  description: API do serviço web do VigiaHost. Todas as rotas ficam sob /api/v1.
+  license:
+    name: GPL-3.0-only
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+servers:
+  - url: /
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Saúde do core e da conexão com o executor
+      description: >
+        Responde 200 quando o executor está conectado e 503 quando não está; o corpo é o mesmo nos dois casos.
+        Não exige autenticação e não expõe dados de varredura.
+      tags: [sistema]
+      responses:
+        "200":
+          description: Core e executor operacionais
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Core no ar, mas sem conexão com o executor
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+components:
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version, executor]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: "ok: executor conectado; degraded: core sem executor."
+        version:
+          type: string
+          description: Versão do core.
+          example: 0.1.0
+        executor:
+          $ref: "#/components/schemas/ExecutorStatus"
+    ExecutorStatus:
+      type: object
+      additionalProperties: false
+      required: [connected]
+      properties:
+        connected:
+          type: boolean
+        version:
+          type: string
+          description: Versão do executor informada no handshake.
+        protocol:
+          type: string
+          description: Versão do protocolo core–executor (maior.menor).
+          example: "1.0"
+        error:
+          type: string
+          description: Motivo da falha de conexão ou da consulta de capacidades.
+        system:
+          $ref: "#/components/schemas/SystemCapabilities"
+    SystemCapabilities:
+      type: object
+      additionalProperties: false
+      description: Sistema detectado pelo executor (escopo, seção 5.3).
+      required: [distro_id, distro_version, distro_name, kernel, arch, systemd, cgroup_v2, psi]
+      properties:
+        distro_id:
+          type: string
+          example: almalinux
+        distro_version:
+          type: string
+          example: "9.8"
+        distro_name:
+          type: string
+          example: AlmaLinux 9.8 (Olive Jaguar)
+        distro_like:
+          type: array
+          items: { type: string }
+        kernel:
+          type: string
+        arch:
+          type: string
+          example: amd64
+        systemd:
+          type: boolean
+          description: systemd é o init em execução.
+        cgroup_v2:
+          type: boolean
+          description: Hierarquia unificada do cgroup v2 disponível (necessária para os perfis de recursos).
+        psi:
+          type: boolean
+          description: Pressure Stall Information disponível (pausa por pressão).

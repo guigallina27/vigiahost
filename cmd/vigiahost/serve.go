@@ -18,6 +18,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/sdnotify"
 	"github.com/guigallina27/vigiahost/internal/store"
 	"github.com/guigallina27/vigiahost/internal/version"
+	"github.com/guigallina27/vigiahost/internal/webui"
 )
 
 const (
@@ -74,7 +75,7 @@ func runServe(args []string) int {
 		logger.Info("banco migrado", "de", mig.From, "para", mig.To)
 	}
 
-	srv := &core.Server{Logger: logger, Version: version.Version, Probe: core.ProbeExecutor(*socket, localHello())}
+	srv := &core.Server{Logger: logger, Version: version.Version, Probe: core.ProbeExecutor(*socket, localHello()), UI: webui.Handler()}
 	httpSrv := core.NewHTTPServer(*listen, srv.Handler(), logger)
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", *listen)
 	if err != nil {
