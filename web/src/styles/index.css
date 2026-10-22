@@ -16,42 +16,44 @@
       color-scheme: light;
     }
 
-    /* Superfícies e texto. Claro: papel quente; escuro: grafite esverdeado. Contraste conferido nos testes (axe). */
-    --vh-bg: light-dark(oklch(97.4% 0.006 95), oklch(17.5% 0.012 175));
-    --vh-surface: light-dark(oklch(99.4% 0.003 95), oklch(21.5% 0.014 175));
-    --vh-sunken: light-dark(oklch(94.6% 0.008 95), oklch(15% 0.01 175));
-    --vh-ink: light-dark(oklch(22% 0.02 175), oklch(94% 0.008 95));
-    --vh-ink-muted: light-dark(oklch(43% 0.02 175), oklch(76% 0.012 95));
+    /* Identidade "torre de vigia à noite": tinta azul-grafite, ação em azul-cobalto e o âmbar do farol só como sinal
+       da marca (logotipo e item ativo da navegação). Verde fica reservado ao estado "ok". Contraste conferido (axe). */
+    --vh-bg: light-dark(oklch(97.6% 0.005 260), oklch(16.5% 0.022 266));
+    --vh-surface: light-dark(oklch(99.5% 0.002 260), oklch(20.5% 0.026 266));
+    --vh-sunken: light-dark(oklch(94.8% 0.008 260), oklch(14% 0.02 266));
+    --vh-ink: light-dark(oklch(21% 0.03 266), oklch(94.5% 0.008 260));
+    --vh-ink-muted: light-dark(oklch(44% 0.03 264), oklch(76% 0.025 262));
     /* Separadores decorativos; bordas que delimitam controles usam --vh-line-strong (≥ 3:1, WCAG 1.4.11). */
-    --vh-line: light-dark(oklch(87% 0.01 95), oklch(31% 0.015 175));
-    --vh-line-strong: light-dark(oklch(55% 0.02 175), oklch(60% 0.02 175));
+    --vh-line: light-dark(oklch(88% 0.012 260), oklch(30% 0.03 266));
+    --vh-line-strong: light-dark(oklch(56% 0.03 264), oklch(60% 0.035 264));
 
-    --vh-accent: light-dark(oklch(40% 0.08 175), oklch(80% 0.1 170));
-    --vh-accent-ink: light-dark(oklch(99% 0.003 95), oklch(17% 0.02 175));
-    --vh-accent-soft: light-dark(oklch(93% 0.03 175), oklch(28% 0.04 175));
-    --vh-signal: oklch(79% 0.15 70);
-    --vh-focus: light-dark(oklch(47% 0.2 262), oklch(80% 0.13 230));
+    --vh-accent: light-dark(oklch(47% 0.19 264), oklch(77% 0.12 266));
+    --vh-accent-ink: light-dark(oklch(99% 0.003 260), oklch(17% 0.04 266));
+    --vh-accent-soft: light-dark(oklch(93.5% 0.035 264), oklch(28% 0.07 266));
+    --vh-signal: oklch(81% 0.155 75);
+    --vh-focus: light-dark(oklch(44% 0.21 268), oklch(85% 0.14 78));
 
-    /* Barra lateral escura nos dois temas: o "console" do operador. */
-    --vh-nav-bg: light-dark(oklch(23% 0.025 175), oklch(13% 0.01 175));
-    --vh-nav-ink: oklch(91% 0.01 150);
-    --vh-nav-muted: oklch(72% 0.02 160);
-    --vh-nav-active: oklch(33% 0.04 175);
-    --vh-nav-focus: oklch(82% 0.13 230);
+    /* Barra lateral em tinta escura nos dois temas: o "console" do operador. */
+    --vh-nav-bg: light-dark(oklch(20% 0.04 268), oklch(12.5% 0.03 268));
+    --vh-nav-ink: oklch(94% 0.01 262);
+    --vh-nav-muted: oklch(74% 0.035 264);
+    --vh-nav-active: oklch(29% 0.065 268);
+    --vh-nav-focus: oklch(85% 0.14 78);
 
-    /* Tons de estado: texto (fg) sobre fundo (bg), sempre acompanhados de ícone e texto (WCAG 1.4.1). */
-    --vh-critical-fg: light-dark(oklch(45% 0.18 25), oklch(82% 0.11 25));
-    --vh-critical-bg: light-dark(oklch(94.5% 0.035 25), oklch(29% 0.07 25));
-    --vh-high-fg: light-dark(oklch(47% 0.14 45), oklch(83% 0.1 55));
-    --vh-high-bg: light-dark(oklch(94.5% 0.04 60), oklch(29% 0.055 50));
-    --vh-medium-fg: light-dark(oklch(46% 0.1 80), oklch(86% 0.11 85));
-    --vh-medium-bg: light-dark(oklch(95% 0.06 90), oklch(29% 0.045 85));
-    --vh-low-fg: light-dark(oklch(46% 0.12 255), oklch(83% 0.08 245));
-    --vh-low-bg: light-dark(oklch(94.5% 0.03 250), oklch(29% 0.05 250));
+    /* Tons de estado: texto (fg) sobre fundo (bg), sempre acompanhados de ícone e texto (WCAG 1.4.1).
+       "Baixo" usa azul-aço (matiz 225), distante do cobalto das ações. */
+    --vh-critical-fg: light-dark(oklch(46% 0.19 25), oklch(81% 0.11 22));
+    --vh-critical-bg: light-dark(oklch(94.5% 0.035 25), oklch(29% 0.075 25));
+    --vh-high-fg: light-dark(oklch(48% 0.15 45), oklch(83% 0.11 55));
+    --vh-high-bg: light-dark(oklch(94.5% 0.045 60), oklch(29% 0.06 50));
+    --vh-medium-fg: light-dark(oklch(46% 0.1 80), oklch(87% 0.12 88));
+    --vh-medium-bg: light-dark(oklch(95% 0.065 92), oklch(29% 0.05 85));
+    --vh-low-fg: light-dark(oklch(45% 0.1 228), oklch(84% 0.08 222));
+    --vh-low-bg: light-dark(oklch(94.5% 0.03 225), oklch(29% 0.05 228));
     --vh-ok-fg: light-dark(oklch(43% 0.1 150), oklch(84% 0.1 150));
     --vh-ok-bg: light-dark(oklch(94.5% 0.04 150), oklch(28% 0.05 150));
-    --vh-neutral-fg: light-dark(oklch(41% 0.015 175), oklch(82% 0.01 95));
-    --vh-neutral-bg: light-dark(oklch(93% 0.006 95), oklch(27% 0.01 175));
+    --vh-neutral-fg: light-dark(oklch(42% 0.02 264), oklch(82% 0.015 262));
+    --vh-neutral-bg: light-dark(oklch(93.5% 0.008 260), oklch(27% 0.02 266));
 
     accent-color: var(--vh-accent);
     scrollbar-color: var(--vh-line-strong) transparent;
@@ -190,8 +192,18 @@
 
   .vh-dialog {
     &::backdrop {
-      background: oklch(15% 0.02 175 / 0.55);
+      background: oklch(14% 0.04 268 / 0.6);
     }
+  }
+
+  /* Fundo das telas de acesso: céu noturno com o facho do farol vindo do alto e anéis de varredura discretos. */
+  .vh-night {
+    background-color: var(--vh-nav-bg);
+    background-image:
+      radial-gradient(60rem 28rem at 50% -6rem, oklch(81% 0.155 75 / 0.16), transparent 70%),
+      repeating-radial-gradient(circle at 50% -6rem, transparent 0 46px, oklch(94% 0.01 262 / 0.045) 46px 47px),
+      linear-gradient(180deg, oklch(24% 0.06 268), var(--vh-nav-bg) 60%);
+    color: var(--vh-nav-ink);
   }
 }
 

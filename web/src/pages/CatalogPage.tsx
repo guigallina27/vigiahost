@@ -1,5 +1,6 @@
 import { FolderSearch } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { Brand, BrandMark } from "../components/BrandMark";
 import { Button } from "../components/Button";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { CoverageBar } from "../components/CoverageBar";
@@ -25,8 +26,9 @@ const tokens = [
   ["--vh-ink", "Texto"],
   ["--vh-ink-muted", "Texto secundário"],
   ["--vh-line-strong", "Borda de controle (≥ 3:1)"],
-  ["--vh-accent", "Destaque"],
-  ["--vh-signal", "Sinal (item ativo)"],
+  ["--vh-accent", "Ação (azul-cobalto)"],
+  ["--vh-accent-soft", "Fundo de destaque"],
+  ["--vh-signal", "Farol (só marca e item ativo)"],
   ["--vh-focus", "Foco"],
   ["--vh-nav-bg", "Navegação"],
 ] as const;
@@ -49,7 +51,23 @@ export default function CatalogPage() {
   const [dialog, setDialog] = useState<null | "simple" | "reauth" | "batch">(null);
   return (
     <>
-      <PageHeader title="Catálogo de componentes" subtitle="Design system base (E0.6): tokens, variantes, estados e notas de acessibilidade" />
+      <PageHeader title="Catálogo de componentes" subtitle="Kit visual vivo (docs/kit-visual.md): marca, tokens, variantes, estados e notas de acessibilidade" />
+
+      <Section
+        id="cat-marca"
+        title="Marca"
+        notes="Torre de vigia com o farol aceso. O âmbar do farol é exclusivo da marca e do item ativo da navegação; nunca vira cor de estado."
+      >
+        <div className="flex flex-wrap items-center gap-6">
+          <span className="rounded-panel bg-nav p-4 text-nav-ink">
+            <Brand size="lg" />
+          </span>
+          <span className="rounded-panel border border-line bg-surface p-4">
+            <Brand />
+          </span>
+          <BrandMark className="size-16" />
+        </div>
+      </Section>
 
       <Section
         id="cat-tokens"

@@ -3,22 +3,10 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { NavLink, Outlet, useLocation } from "react-router";
 import { useCurrentUser } from "../auth/session";
+import { Brand } from "../components/BrandMark";
 import { useLogout } from "../auth/useLogout";
 import { useLiveEvents, type LiveState } from "../lib/useLiveEvents";
 import { visibleNavigation } from "./navigation";
-
-function Brand() {
-  return (
-    <span className="flex items-center gap-2.5">
-      <svg aria-hidden="true" viewBox="0 0 32 32" className="size-8 shrink-0">
-        <rect width="32" height="32" rx="7" fill="oklch(33% 0.04 175)" />
-        <path d="M7 9l9 16 9-16" fill="none" stroke="oklch(95% 0.01 150)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="16" cy="9.5" r="2.6" fill="var(--vh-signal)" />
-      </svg>
-      <span className="text-lg font-bold tracking-tight">VigiaHost</span>
-    </span>
-  );
-}
 
 /** Usuário da sessão, estado das atualizações ao vivo e saída. */
 function UserBox({ live }: { live: LiveState }) {
