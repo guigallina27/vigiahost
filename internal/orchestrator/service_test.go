@@ -9,11 +9,13 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/store"
@@ -86,6 +88,15 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 		set(l)
 	case ipc.OpRunCleanup:
 		delete(f.states, in.(ipc.RunRef).RunID)
+	case ipc.OpAccounts:
+		set(ipc.AccountList{UIDMin: 1000, UIDMax: 60000, Accounts: []accounts.Account{
+			{UID: 0, Name: "root", Home: "/root", System: true, HomeOK: true},
+			{UID: 998, Name: "nginx", Home: "/var/lib/nginx", System: true, HomeOK: true},
+			{UID: 1001, Name: "ana", Home: "/home/ana", HomeOK: true},
+			{UID: 1002, Name: "bia", Home: "/home/bia", HomeOK: true},
+			{UID: 1003, Name: "cris", Home: "/home/ana/cris", HomeOK: true}, // aninhado no de ana
+			{UID: 1004, Name: "sem-home", Home: "/home/x"},
+		}})
 	default:
 		return &ipc.Error{Code: ipc.CodeUnsupportedOp, Message: string(op)}
 	}
@@ -338,5 +349,49 @@ func TestLeituraDeAchadosLimitaConteudo(t *testing.T) {
 	}
 	if _, n, _, _ := readFindings(filepath.Join(dir, "nao-existe"), 7); n != 7 {
 		t.Fatal(fmt.Sprint("arquivo ausente mantém o offset: ", n))
+	}
+}
+
+func TestVerificacaoPorContaMontaEscopoEFiltroDeDono(t *testing.T) {
+	ctx := context.Background()
+	s, fx, _ := newService(t)
+	run, err := s.Enqueue(ctx, RunRequest{Kind: report.KindFiles, Accounts: store.AccountSelection{All: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Todas: contas humanas com diretório pessoal (sem root, nginx e a conta sem diretório); o diretório aninhado
+	// de cris já está dentro do de ana.
+	if !slices.Equal(run.Accounts, []uint32{1001, 1002, 1003}) {
+		t.Fatalf("contas: %v", run.Accounts)
+	}
+	wantPaths := []string{"/home/ana", "/home/bia", "/tmp", "/var/tmp", "/dev/shm"}
+	if !slices.Equal(run.Paths, wantPaths) {
+		t.Fatalf("caminhos: %v", run.Paths)
+	}
+	if !slices.Equal(run.Owners["/tmp"], run.Accounts) || len(run.Owners) != 3 || run.Owners["/home/ana"] != nil {
+		t.Fatalf("filtro de dono: %v", run.Owners)
+	}
+	s.Step(ctx)
+	if len(fx.started) != 1 || !slices.Equal(fx.started[0].Owners["/dev/shm"], run.Accounts) {
+		t.Fatalf("pedido ao executor sem o filtro de dono: %+v", fx.started)
+	}
+
+	one, err := s.Enqueue(ctx, RunRequest{Kind: report.KindFiles, Accounts: store.AccountSelection{UIDs: []uint32{1002}},
+		Paths: []string{"/srv/site-da-bia"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(one.Paths, []string{"/srv/site-da-bia", "/home/bia", "/tmp", "/var/tmp", "/dev/shm"}) ||
+		!slices.Equal(one.Owners["/var/tmp"], []uint32{1002}) {
+		t.Fatalf("uma conta mais caminho extra: %v %v", one.Paths, one.Owners)
+	}
+	for name, sel := range map[string]store.AccountSelection{
+		"inexistente":   {UIDs: []uint32{4242}},
+		"root":          {UIDs: []uint32{0}},
+		"sem diretório": {UIDs: []uint32{1004}},
+	} {
+		if _, err := s.Enqueue(ctx, RunRequest{Kind: report.KindFiles, Accounts: sel}); !errors.Is(err, ErrInvalid) {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }

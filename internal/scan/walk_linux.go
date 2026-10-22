@@ -81,6 +81,9 @@ type walker struct {
 	warn     func(string)
 	stop     func() bool
 	visited  map[[2]uint64]bool // diretórios já vistos (dev, ino): protege contra laços de bind mount
+	// owners, quando não nil, restringe a raiz atual aos arquivos destes donos (verificação por conta em /tmp...).
+	// Arquivos de outros donos ficam fora do escopo: nem contam como vistos nem como ignorados.
+	owners map[uint32]bool
 }
 
 func (w *walker) excluded(p string) bool {
@@ -92,9 +95,18 @@ func (w *walker) excluded(p string) bool {
 	return false
 }
 
-// walkRoot percorre uma raiz do escopo. A raiz em si é resolvida normalmente (é configuração do administrador);
+// walkRootOwned percorre uma raiz do escopo. A raiz em si é resolvida normalmente (é configuração do administrador);
 // a partir dela nenhum link é seguido.
-func (w *walker) walkRoot(root string) error {
+// Com uids, só os arquivos desses donos entram (nil = todos).
+func (w *walker) walkRootOwned(root string, uids []uint32) error {
+	w.owners = nil
+	if len(uids) > 0 {
+		w.owners = make(map[uint32]bool, len(uids))
+		for _, u := range uids {
+			w.owners[u] = true
+		}
+	}
+	defer func() { w.owners = nil }()
 	fd, err := unix.Open(root, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return err
@@ -155,16 +167,22 @@ func (w *walker) entry(dirfd int, dirPath, name string, rootDev uint64, depth in
 	if dirPath == "/" {
 		full = "/" + name
 	}
-	w.seen()
 	if w.excluded(full) {
+		w.seen()
 		w.skip(report.SkipExcluded, full)
 		return
 	}
 	var st unix.Stat_t
 	if err := unix.Fstatat(dirfd, name, &st, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		w.seen()
 		w.skip(report.SkipPermission, full)
 		return
 	}
+	// Diretórios de outros donos ainda são percorridos: podem guardar arquivos da conta.
+	if w.owners != nil && st.Mode&unix.S_IFMT != unix.S_IFDIR && !w.owners[st.Uid] {
+		return
+	}
+	w.seen()
 	switch st.Mode & unix.S_IFMT {
 	case unix.S_IFDIR:
 		if st.Dev != rootDev {

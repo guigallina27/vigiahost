@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -47,6 +48,15 @@ var runIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,39}$`)
 // Raízes que nunca entram numa varredura de arquivos.
 var deniedRoots = []string{"/proc", "/sys", "/dev", "/run/user"}
 
+// allowedUnderDenied são exceções dentro das áreas recusadas: /dev/shm é tmpfs de arquivos comuns e lugar onde
+// malware costuma ficar (escopo, seção 9.1).
+var allowedUnderDenied = []string{"/dev/shm"}
+
+func under(p, dir string) bool { return p == dir || strings.HasPrefix(p, dir+"/") }
+
+// MaxPaths limita raízes por execução e contas por filtro de dono.
+const MaxPaths = 10000
+
 // ValidateRequest confere identificador, tipo e caminhos do pedido. O executor não confia no core.
 func ValidateRequest(req *report.Request, extraDenied []string) error {
 	bad := func(code, format string, args ...any) error {
@@ -57,8 +67,17 @@ func ValidateRequest(req *report.Request, extraDenied []string) error {
 	}
 	switch req.Kind {
 	case report.KindFiles:
-		if len(req.Paths) == 0 || len(req.Paths) > 64 {
-			return bad(ipc.CodeBadRequest, "informe de 1 a 64 caminhos")
+		// Até 64 caminhos escolhidos à mão; a verificação de várias contas manda um diretório pessoal por conta.
+		if len(req.Paths) == 0 || len(req.Paths) > MaxPaths {
+			return bad(ipc.CodeBadRequest, "informe de 1 a %d caminhos", MaxPaths)
+		}
+		for root, uids := range req.Owners {
+			if !slices.Contains(req.Paths, root) {
+				return bad(ipc.CodeBadRequest, "filtro de dono para %q, que não é raiz da execução", root)
+			}
+			if len(uids) == 0 || len(uids) > MaxPaths {
+				return bad(ipc.CodeBadRequest, "filtro de dono de %q com %d contas", root, len(uids))
+			}
 		}
 	case report.KindProcesses:
 		if len(req.Paths) != 0 {
@@ -75,8 +94,9 @@ func ValidateRequest(req *report.Request, extraDenied []string) error {
 		if err := checkPath(p); err != nil {
 			return bad(ipc.CodePathRefused, "caminho %q recusado: %v", p, err)
 		}
+		allowed := slices.ContainsFunc(allowedUnderDenied, func(a string) bool { return under(p, a) })
 		for _, d := range denied {
-			if p == d || strings.HasPrefix(p, d+"/") {
+			if under(p, d) && !(allowed && slices.Contains(deniedRoots, d)) {
 				return bad(ipc.CodePathRefused, "caminho %q recusado: área que não é varrida", p)
 			}
 		}

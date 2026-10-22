@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -59,6 +60,8 @@ type Service struct {
 	mu        sync.Mutex
 	hw        *ipc.Hardware
 	hwAt      time.Time
+	accts     *ipc.AccountList
+	acctsAt   time.Time
 	canceling map[string]bool
 	lastSweep time.Time
 	wake      chan struct{}
@@ -92,6 +95,9 @@ type RunRequest struct {
 	Priority       int
 	RequestedBy    string
 	IdempotencyKey string
+	// Accounts escolhe contas do servidor: os caminhos vêm delas (diretório pessoal e arquivos do UID nas áreas
+	// temporárias) e somam-se aos Paths informados.
+	Accounts store.AccountSelection
 }
 
 // CleanPaths valida caminhos absolutos e remove repetições. O executor revalida com a política dele.
@@ -152,8 +158,20 @@ func (s *Service) buildRun(ctx context.Context, req RunRequest) (store.Run, erro
 		if err != nil {
 			return run, err
 		}
+		if !req.Accounts.Empty() {
+			uids, apaths, owners, err := s.accountScope(ctx, req.Accounts)
+			if err != nil {
+				return run, err
+			}
+			for _, p := range apaths {
+				if !slices.Contains(paths, p) {
+					paths = append(paths, p)
+				}
+			}
+			run.Accounts, run.Owners = uids, owners
+		}
 		if len(paths) == 0 {
-			return run, invalid("informe ao menos um caminho")
+			return run, invalid("informe ao menos um caminho ou uma conta")
 		}
 		excl, err := CleanPaths(req.Exclude, 256)
 		if err != nil {
@@ -357,7 +375,7 @@ func (s *Service) dispatch(ctx context.Context) {
 // start entrega a execução ao executor; devolve false quando o executor está fora (a execução volta para a fila).
 func (s *Service) start(ctx context.Context, r store.Run) bool {
 	req := report.Request{RunID: r.ID, Kind: r.Kind, Paths: r.Paths, Exclude: r.Exclude, Incremental: r.Incremental,
-		Profile: r.Profile}
+		Profile: r.Profile, Owners: r.Owners}
 	var st ipc.RunState
 	err := s.Exec.Call(ctx, ipc.OpRunStart, ipc.RunStart{Request: req}, &st)
 	switch {
@@ -608,7 +626,8 @@ func (s *Service) fireSchedules(ctx context.Context) {
 	}
 	for _, sc := range due {
 		run, err := s.buildRun(ctx, RunRequest{Kind: sc.Kind, Paths: sc.Paths, Exclude: sc.Exclude,
-			Incremental: sc.Incremental, Profile: sc.Profile, RequestedBy: "agendamento: " + sc.Name})
+			Incremental: sc.Incremental, Profile: sc.Profile, RequestedBy: "agendamento: " + sc.Name,
+			Accounts: sc.Accounts})
 		if err != nil {
 			// Agendamento com dado que não vale mais (perfil apagado): registra e avança para não repetir sem parar.
 			s.Logger.Warn("agendamento não pôde gerar execução", "agendamento", sc.ID, "erro", err)

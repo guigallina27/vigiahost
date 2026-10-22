@@ -67,6 +67,13 @@ func toAPIRun(r store.Run) api.Run {
 		FinishedAt: optTime(r.FinishedAt), Phase: r.Phase, Paused: r.Paused, FilesSeen: r.FilesSeen,
 		FilesEligible: r.FilesEligible, FilesProcessed: r.FilesProcessed, BytesEligible: r.BytesEligible,
 		BytesProcessed: r.BytesProcessed, FindingsCount: r.FindingsCount, Error: r.Error}
+	if len(r.Accounts) > 0 {
+		uids := make([]int64, 0, len(r.Accounts))
+		for _, u := range r.Accounts {
+			uids = append(uids, int64(u))
+		}
+		out.Accounts = &uids
+	}
 	if sm := r.Summary; sm != nil {
 		sum := api.RunSummary{Status: api.RunStatus(sm.Status), Error: optional(sm.Error), StartedAt: timePtr(sm.StartedAt),
 			FinishedAt: timePtr(sm.FinishedAt), FilesSeen: sm.FilesSeen, FilesEligible: sm.FilesEligible,

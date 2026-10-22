@@ -151,7 +151,7 @@ func (s *Server) toAPISchedule(sc store.Schedule) api.Schedule {
 		Paths: nonNil(sc.Paths), Exclude: nonNil(sc.Exclude), Incremental: sc.Incremental, Profile: sc.Profile,
 		MissedPolicy: api.MissedPolicy(sc.MissedPolicy), Enabled: sc.Enabled, NextRunAt: optTime(sc.NextRunAt),
 		LastRunAt: optTime(sc.LastRunAt), CreatedBy: sc.CreatedBy, CreatedAt: sc.CreatedAt, UpdatedAt: sc.UpdatedAt,
-		Upcoming: upcoming(sc, s.now(), 5)}
+		Upcoming: upcoming(sc, s.now(), 5), Accounts: toAPISelection(sc.Accounts)}
 }
 
 // ListSchedules lista agendamentos.
@@ -214,11 +214,14 @@ func (s *Server) scheduleFrom(ctx context.Context, in api.ScheduleInput, sc *sto
 	if sc.Exclude, err = orchestrator.CleanPaths(excl, 256); err != nil {
 		return err
 	}
-	if sc.Kind == report.KindFiles && len(sc.Paths) == 0 {
-		return errors.New("informe ao menos um caminho para a varredura de arquivos")
+	if sc.Accounts, err = selectionFrom(in.Accounts); err != nil {
+		return err
+	}
+	if sc.Kind == report.KindFiles && len(sc.Paths) == 0 && sc.Accounts.Empty() {
+		return errors.New("informe ao menos um caminho ou uma conta para a varredura de arquivos")
 	}
 	if sc.Kind == report.KindProcesses {
-		sc.Paths, sc.Exclude = nil, nil
+		sc.Paths, sc.Exclude, sc.Accounts = nil, nil, store.AccountSelection{}
 	}
 	if _, err := s.Orch.ResolveProfile(ctx, sc.Profile); err != nil {
 		return err

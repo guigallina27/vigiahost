@@ -36,7 +36,18 @@ type Schedule struct {
 	CreatedBy    string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	// Accounts escolhe contas em vez de caminhos: resolvidas a cada disparo (contas novas entram sozinhas).
+	Accounts AccountSelection
 }
+
+// AccountSelection escolhe contas do servidor para uma execução ou agendamento.
+type AccountSelection struct {
+	All  bool     `json:"all,omitempty"`
+	UIDs []uint32 `json:"uids,omitempty"`
+}
+
+// Empty diz se nenhuma conta foi escolhida.
+func (a AccountSelection) Empty() bool { return !a.All && len(a.UIDs) == 0 }
 
 var cronParser = cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor)
 
@@ -67,15 +78,15 @@ func (s Schedule) NextAfter(t time.Time) (time.Time, error) {
 }
 
 const scheduleColumns = `id, name, kind, cron, timezone, paths, exclude, incremental, profile, missed_policy, enabled,
-	next_run_at, last_run_at, created_by, created_at, updated_at`
+	next_run_at, last_run_at, created_by, created_at, updated_at, accounts`
 
 func scanSchedule(s scanner) (Schedule, error) {
 	var sc Schedule
-	var kind, paths, exclude, created, updated string
+	var kind, paths, exclude, created, updated, accounts string
 	var incr, enabled int
 	var next, last sql.NullString
 	err := s.Scan(&sc.ID, &sc.Name, &kind, &sc.Cron, &sc.Timezone, &paths, &exclude, &incr, &sc.Profile,
-		&sc.MissedPolicy, &enabled, &next, &last, &sc.CreatedBy, &created, &updated)
+		&sc.MissedPolicy, &enabled, &next, &last, &sc.CreatedBy, &created, &updated, &accounts)
 	if errors.Is(err, sql.ErrNoRows) {
 		return sc, ErrNotFound
 	}
@@ -87,6 +98,7 @@ func scanSchedule(s scanner) (Schedule, error) {
 	sc.Incremental, sc.Enabled = incr == 1, enabled == 1
 	sc.NextRunAt, sc.LastRunAt = parseNullTS(next), parseNullTS(last)
 	sc.CreatedAt, sc.UpdatedAt = parseTS(created), parseTS(updated)
+	sc.Accounts = fromJSON[AccountSelection](accounts)
 	return sc, nil
 }
 
@@ -112,16 +124,17 @@ func (d *DB) SaveSchedule(ctx context.Context, s *Schedule) error {
 	if s.ID == 0 {
 		s.CreatedAt = now
 		return d.QueryRowContext(ctx, `INSERT INTO schedules (name, kind, cron, timezone, paths, exclude, incremental,
-			profile, missed_policy, enabled, next_run_at, created_by, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			profile, missed_policy, enabled, next_run_at, created_by, created_at, updated_at, accounts)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 			s.Name, string(s.Kind), s.Cron, s.Timezone, toJSON(nonNil(s.Paths)), toJSON(nonNil(s.Exclude)),
 			boolInt(s.Incremental), s.Profile, s.MissedPolicy, boolInt(s.Enabled), nullTS(s.NextRunAt), s.CreatedBy,
-			ts(now), ts(now)).Scan(&s.ID)
+			ts(now), ts(now), toJSON(s.Accounts)).Scan(&s.ID)
 	}
 	res, err := d.ExecContext(ctx, `UPDATE schedules SET name = ?, kind = ?, cron = ?, timezone = ?, paths = ?,
-		exclude = ?, incremental = ?, profile = ?, missed_policy = ?, enabled = ?, next_run_at = ?, updated_at = ?
-		WHERE id = ?`, s.Name, string(s.Kind), s.Cron, s.Timezone, toJSON(nonNil(s.Paths)), toJSON(nonNil(s.Exclude)),
-		boolInt(s.Incremental), s.Profile, s.MissedPolicy, boolInt(s.Enabled), nullTS(s.NextRunAt), ts(now), s.ID)
+		exclude = ?, incremental = ?, profile = ?, missed_policy = ?, enabled = ?, next_run_at = ?, updated_at = ?,
+		accounts = ? WHERE id = ?`, s.Name, string(s.Kind), s.Cron, s.Timezone, toJSON(nonNil(s.Paths)),
+		toJSON(nonNil(s.Exclude)), boolInt(s.Incremental), s.Profile, s.MissedPolicy, boolInt(s.Enabled),
+		nullTS(s.NextRunAt), ts(now), toJSON(s.Accounts), s.ID)
 	if err != nil {
 		return err
 	}
@@ -196,14 +209,20 @@ func (d *DB) FireSchedule(ctx context.Context, s Schedule, run *Run, grace time.
 			if run.CreatedAt.IsZero() {
 				run.CreatedAt = now
 			}
-			_, err := tx.ExecContext(ctx, `INSERT INTO runs (id, kind, status, origin, requested_by, schedule_id,
-				scheduled_for, paths, exclude, incremental, profile, priority, created_at)
-				VALUES (?, ?, 'queued', 'schedule', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			res, err := tx.ExecContext(ctx, `INSERT INTO runs (id, kind, status, origin, requested_by, schedule_id,
+				scheduled_for, paths, exclude, incremental, profile, priority, created_at, accounts, owners)
+				VALUES (?, ?, 'queued', 'schedule', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 				ON CONFLICT (schedule_id, scheduled_for) WHERE schedule_id IS NOT NULL DO NOTHING`,
 				run.ID, string(run.Kind), run.RequestedBy, s.ID, ts(slot), toJSON(nonNil(run.Paths)),
-				toJSON(nonNil(run.Exclude)), boolInt(run.Incremental), toJSON(run.Profile), run.Priority, ts(run.CreatedAt))
+				toJSON(nonNil(run.Exclude)), boolInt(run.Incremental), toJSON(run.Profile), run.Priority, ts(run.CreatedAt),
+				accountsJSON(run.Accounts), ownersJSON(run.Owners))
 			if err != nil {
 				return err
+			}
+			if n, _ := res.RowsAffected(); n > 0 {
+				if err := insertRunAccounts(ctx, tx, run.ID, run.Accounts); err != nil {
+					return err
+				}
 			}
 			fired = true
 		}

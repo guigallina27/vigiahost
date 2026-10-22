@@ -12,5 +12,5 @@ var (
 // campos ou operações novas e opcionais incrementam ProtocolMinor.
 const (
 	ProtocolMajor = 1
-	ProtocolMinor = 0
+	ProtocolMinor = 1
 )

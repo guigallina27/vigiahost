@@ -23,6 +23,7 @@ tags:
   - name: execucoes
   - name: achados
   - name: inventario
+  - name: contas
   - name: configuracao
   - name: administracao
 paths:
@@ -254,6 +255,7 @@ paths:
       parameters:
         - { name: status, in: query, schema: { type: array, items: { $ref: "#/components/schemas/RunStatus" } }, style: form, explode: true }
         - { name: kind, in: query, schema: { $ref: "#/components/schemas/RunKind" } }
+        - { name: account, in: query, description: Somente execuções que cobriram esta conta (UID), schema: { type: integer, format: int64 } }
         - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
       responses:
@@ -380,6 +382,37 @@ paths:
         "409": { $ref: "#/components/responses/Conflict" }
         "503": { $ref: "#/components/responses/ExecutorUnavailable" }
 
+  /api/v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: Contas do servidor com achados abertos, última verificação, processos e persistência
+      tags: [contas]
+      parameters:
+        - { name: system, in: query, description: Incluir contas de sistema (root, serviços), schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Contas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/accounts/{uid}:
+    parameters:
+      - { name: uid, in: path, required: true, schema: { type: integer, format: int64, minimum: 0 } }
+    get:
+      operationId: getAccount
+      summary: Uma conta do servidor com o resumo de risco
+      tags: [contas]
+      responses:
+        "200":
+          description: Conta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
   /api/v1/findings:
     get:
       operationId: listFindings
@@ -391,6 +424,7 @@ paths:
         - { name: kind, in: query, schema: { type: array, items: { $ref: "#/components/schemas/FindingKind" } }, style: form, explode: true }
         - { name: category, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
         - { name: run, in: query, description: Somente achados vistos nesta execução, schema: { type: string } }
+        - { name: account, in: query, description: "Somente achados da conta (UID): arquivos do UID ou no diretório pessoal, processos do UID e persistência da conta", schema: { type: integer, format: int64 } }
         - { name: q, in: query, description: Trecho do caminho, da assinatura ou o SHA-256, schema: { type: string, maxLength: 512 } }
         - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: integer, format: int64 } }
         - { $ref: "#/components/parameters/Limit" }
@@ -1218,6 +1252,7 @@ components:
         schedule_id: { type: integer, format: int64 }
         scheduled_for: { type: string, format: date-time }
         paths: { type: array, items: { type: string } }
+        accounts: { type: array, description: Contas (UID) cobertas pela execução, items: { type: integer, format: int64 } }
         exclude: { type: array, items: { type: string } }
         incremental: { type: boolean }
         profile: { $ref: "#/components/schemas/ResourceProfile" }
@@ -1284,6 +1319,7 @@ components:
       properties:
         kind: { $ref: "#/components/schemas/RunKind" }
         paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
         exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
         incremental: { type: boolean, default: true }
         profile: { type: string, description: "Nome do perfil de recursos (padrão: padrao)" }
@@ -1509,6 +1545,7 @@ components:
         cron: { type: string }
         timezone: { type: string }
         paths: { type: array, items: { type: string } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
         exclude: { type: array, items: { type: string } }
         incremental: { type: boolean }
         profile: { type: string }
@@ -1532,6 +1569,7 @@ components:
         cron: { type: string, maxLength: 128, description: "5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly" }
         timezone: { type: string, default: UTC, description: Fuso IANA (ex. America/Sao_Paulo) }
         paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
         exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
         incremental: { type: boolean, default: true }
         profile: { type: string, default: padrao }
@@ -1673,6 +1711,50 @@ components:
         backups:
           type: array
           items: { $ref: "#/components/schemas/BackupInfo" }
+    AccountSelection:
+      type: object
+      additionalProperties: false
+      description: Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+      properties:
+        all: { type: boolean }
+        uids: { type: array, maxItems: 10000, items: { type: integer, format: int64, minimum: 0 } }
+    AccountRun:
+      type: object
+      additionalProperties: false
+      required: [id, status, created_at, files_processed, files_eligible]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        files_processed: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+    Account:
+      type: object
+      additionalProperties: false
+      required: [uid, name, home, shell, system, home_ok, open_findings, processes, persistence_items]
+      properties:
+        uid: { type: integer, format: int64 }
+        name: { type: string }
+        home: { type: string }
+        shell: { type: string }
+        system: { type: boolean, description: Conta de sistema (fora da faixa UID_MIN..UID_MAX) }
+        home_ok: { type: boolean, description: O diretório pessoal existe e é um diretório }
+        open_findings: { $ref: "#/components/schemas/SeverityCounts" }
+        last_run: { $ref: "#/components/schemas/AccountRun" }
+        processes: { type: integer, description: "Processos da conta na última inspeção (-1: nenhuma inspeção ainda)" }
+        persistence_items: { type: integer, description: "Itens de persistência da conta na última inspeção (-1: nenhuma inspeção ainda)" }
+    AccountList:
+      type: object
+      additionalProperties: false
+      required: [uid_min, uid_max, accounts]
+      properties:
+        uid_min: { type: integer, format: int64 }
+        uid_max: { type: integer, format: int64 }
+        inventory_at: { type: string, format: date-time, description: Horário da inspeção de processos usada nas contagens }
+        accounts:
+          type: array
+          items: { $ref: "#/components/schemas/Account" }
     AuditEntry:
       type: object
       additionalProperties: false

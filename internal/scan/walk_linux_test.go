@@ -12,6 +12,11 @@ import (
 
 func collect(t *testing.T, root string, exclude ...string) (files []string, skips map[report.SkipReason]int) {
 	t.Helper()
+	return collectOwned(t, root, nil, exclude...)
+}
+
+func collectOwned(t *testing.T, root string, owners []uint32, exclude ...string) (files []string, skips map[report.SkipReason]int) {
+	t.Helper()
 	skips = map[report.SkipReason]int{}
 	w := &walker{
 		exclude: exclude, maxDepth: 64, visited: map[[2]uint64]bool{},
@@ -24,11 +29,30 @@ func collect(t *testing.T, root string, exclude ...string) (files []string, skip
 			_ = fl.f.Close()
 		},
 	}
-	if err := w.walkRoot(root); err != nil {
+	if err := w.walkRootOwned(root, owners); err != nil {
 		t.Fatal(err)
 	}
 	slices.Sort(files)
 	return files, skips
+}
+
+func TestWalkComFiltroDeDonoSoPegaArquivosDaConta(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "sessao"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(root, "sessao", "x.php"), []byte("<?php"), 0o644)
+	_ = os.Symlink("/etc/passwd", filepath.Join(root, "link"))
+	me := uint32(os.Geteuid()) //nolint:gosec // UID não negativo
+	files, _ := collectOwned(t, root, []uint32{me})
+	if len(files) != 1 {
+		t.Fatalf("arquivos do próprio dono: %q", files)
+	}
+	// Outra conta: nada entra, e o que é de outro dono nem conta como ignorado (fica fora do escopo).
+	files, skips := collectOwned(t, root, []uint32{me + 1})
+	if len(files) != 0 || len(skips) != 0 {
+		t.Fatalf("arquivos de outro dono entraram: %q %v", files, skips)
+	}
 }
 
 func TestWalkNaoSegueLinksNemAbreEspeciais(t *testing.T) {

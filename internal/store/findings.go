@@ -320,8 +320,9 @@ type FindingFilter struct {
 	Categories []string
 	Kinds      []string
 	RunID      string
-	Query      string // trecho do caminho, assinatura ou hash
-	BeforeID   int64  // cursor
+	Account    *AccountScope // só achados atribuídos a esta conta
+	Query      string        // trecho do caminho, assinatura ou hash
+	BeforeID   int64         // cursor
 	Limit      int
 }
 
@@ -343,6 +344,11 @@ func (d *DB) ListFindings(ctx context.Context, f FindingFilter) ([]Finding, erro
 	if f.RunID != "" {
 		q += ` AND f.id IN (SELECT finding_id FROM finding_runs WHERE run_id = ?)`
 		args = append(args, f.RunID)
+	}
+	if f.Account != nil {
+		cq, cargs := accountClause(*f.Account)
+		q += ` AND ` + cq
+		args = append(args, cargs...)
 	}
 	if s := strings.TrimSpace(f.Query); s != "" {
 		like := "%" + strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(s) + "%"

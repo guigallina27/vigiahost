@@ -361,6 +361,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contas do servidor com achados abertos, última verificação, processos e persistência */
+        get: operations["listAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/accounts/{uid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: number;
+            };
+            cookie?: never;
+        };
+        /** Uma conta do servidor com o resumo de risco */
+        get: operations["getAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/findings": {
         parameters: {
             query?: never;
@@ -978,6 +1014,8 @@ export interface components {
             /** Format: date-time */
             scheduled_for?: string;
             paths: string[];
+            /** @description Contas (UID) cobertas pela execução */
+            accounts?: number[];
             exclude: string[];
             incremental: boolean;
             profile: components["schemas"]["ResourceProfile"];
@@ -1041,6 +1079,7 @@ export interface components {
         RunCreate: {
             kind: components["schemas"]["RunKind"];
             paths?: string[];
+            accounts?: components["schemas"]["AccountSelection"];
             exclude?: string[];
             /** @default true */
             incremental: boolean;
@@ -1250,6 +1289,7 @@ export interface components {
             cron: string;
             timezone: string;
             paths: string[];
+            accounts?: components["schemas"]["AccountSelection"];
             exclude: string[];
             incremental: boolean;
             profile: string;
@@ -1277,6 +1317,7 @@ export interface components {
              */
             timezone: string;
             paths?: string[];
+            accounts?: components["schemas"]["AccountSelection"];
             exclude?: string[];
             /** @default true */
             incremental: boolean;
@@ -1392,6 +1433,52 @@ export interface components {
             /** @description Quantas cópias automáticas diárias ficam guardadas */
             keep_automatic: number;
             backups: components["schemas"]["BackupInfo"][];
+        };
+        /** @description Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução. */
+        AccountSelection: {
+            all?: boolean;
+            uids?: number[];
+        };
+        AccountRun: {
+            id: string;
+            status: components["schemas"]["RunStatus"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: int64 */
+            files_processed: number;
+            /** Format: int64 */
+            files_eligible: number;
+        };
+        Account: {
+            /** Format: int64 */
+            uid: number;
+            name: string;
+            home: string;
+            shell: string;
+            /** @description Conta de sistema (fora da faixa UID_MIN..UID_MAX) */
+            system: boolean;
+            /** @description O diretório pessoal existe e é um diretório */
+            home_ok: boolean;
+            open_findings: components["schemas"]["SeverityCounts"];
+            last_run?: components["schemas"]["AccountRun"];
+            /** @description Processos da conta na última inspeção (-1: nenhuma inspeção ainda) */
+            processes: number;
+            /** @description Itens de persistência da conta na última inspeção (-1: nenhuma inspeção ainda) */
+            persistence_items: number;
+        };
+        AccountList: {
+            /** Format: int64 */
+            uid_min: number;
+            /** Format: int64 */
+            uid_max: number;
+            /**
+             * Format: date-time
+             * @description Horário da inspeção de processos usada nas contagens
+             */
+            inventory_at?: string;
+            accounts: components["schemas"]["Account"][];
         };
         AuditEntry: {
             /** Format: int64 */
@@ -1829,6 +1916,8 @@ export interface operations {
             query?: {
                 status?: components["schemas"]["RunStatus"][];
                 kind?: components["schemas"]["RunKind"];
+                /** @description Somente execuções que cobriram esta conta (UID) */
+                account?: number;
                 /** @description Cursor (next_before da página anterior) */
                 before?: string;
                 limit?: components["parameters"]["Limit"];
@@ -2018,6 +2107,56 @@ export interface operations {
             503: components["responses"]["ExecutorUnavailable"];
         };
     };
+    listAccounts: {
+        parameters: {
+            query?: {
+                /** @description Incluir contas de sistema (root */
+                system?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Contas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    getAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uid: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Conta */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
     listFindings: {
         parameters: {
             query?: {
@@ -2027,6 +2166,8 @@ export interface operations {
                 category?: string[];
                 /** @description Somente achados vistos nesta execução */
                 run?: string;
+                /** @description Somente achados da conta (UID): arquivos do UID ou no diretório pessoal, processos do UID e persistência da conta */
+                account?: number;
                 /** @description Trecho do caminho */
                 q?: string;
                 /** @description Cursor (next_before da página anterior) */

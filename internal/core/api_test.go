@@ -20,6 +20,7 @@ import (
 
 	altcha "github.com/altcha-org/altcha-lib-go/v2"
 
+	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/auth"
 	"github.com/guigallina27/vigiahost/internal/ipc"
@@ -47,6 +48,12 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 		set(ipc.RunState{RunID: id, Active: "active"})
 	case ipc.OpRunStatus:
 		set(ipc.RunState{RunID: in.(ipc.RunRef).RunID, Active: "active"})
+	case ipc.OpAccounts:
+		set(ipc.AccountList{UIDMin: 1000, UIDMax: 60000, Accounts: []accounts.Account{
+			{UID: 0, Name: "root", Home: "/root", System: true, HomeOK: true},
+			{UID: 1001, Name: "ana", Home: "/home/ana", HomeOK: true},
+			{UID: 1002, Name: "bia", Home: "/home/bia", HomeOK: true},
+		}})
 	case ipc.OpEngines:
 		set(map[string]any{"yr": "/usr/bin/yr", "yr_version": "1.21.0", "clamscan": "/usr/bin/clamscan",
 			"clam_version": map[string]any{"Engine": "1.4.6", "Database": "27800"}})
@@ -479,5 +486,64 @@ func TestSSEEntregaEventos(t *testing.T) {
 			}
 			return
 		}
+	}
+}
+
+func TestContasPelaAPIComAtribuicaoEVerificacao(t *testing.T) {
+	a := newTestAPI(t)
+	ctx := context.Background()
+	if err := a.db.InsertRun(ctx, &store.Run{ID: "r1", Kind: report.KindFiles, Origin: "manual", Paths: []string{"/home"}}); err != nil {
+		t.Fatal(err)
+	}
+	ana := report.Finding{Engine: "yara-x", Signature: "vh_webshell", Category: report.CategoryWebshell,
+		Severity: report.SeverityCritical, SHA256: strings.Repeat("a", 64),
+		Location: &report.Location{Path: "/home/ana/public_html/x.php", UID: 1001}}
+	// Arquivo de root dentro do diretório de bia: conta para bia pelo caminho.
+	bia := report.Finding{Engine: "clamav", Signature: "Php.Malware", Category: report.CategoryMalware,
+		Severity: report.SeverityHigh, SHA256: strings.Repeat("b", 64), Location: &report.Location{Path: "/home/bia/y.php"}}
+	if _, err := a.db.IngestFindings(ctx, "r1", []report.Finding{ana, bia}, 1); err != nil {
+		t.Fatal(err)
+	}
+	reader := a.sessionFor(t, store.RoleReader, false)
+	rec := a.do(t, "GET", "/api/v1/accounts", "", reader, "")
+	list := decodeBody[api.AccountList](t, rec)
+	if rec.Code != http.StatusOK || len(list.Accounts) != 2 || list.UidMin != 1000 {
+		t.Fatalf("contas: %d %+v", rec.Code, list)
+	}
+	for _, acc := range list.Accounts {
+		want := map[string]int64{"ana": 1, "bia": 1}[acc.Name]
+		if acc.OpenFindings.Total != want || acc.Processes != -1 {
+			t.Errorf("%s: %+v", acc.Name, acc)
+		}
+	}
+	rec = a.do(t, "GET", "/api/v1/accounts?system=true", "", reader, "")
+	if l := decodeBody[api.AccountList](t, rec); len(l.Accounts) != 3 {
+		t.Fatalf("com contas de sistema: %d", len(l.Accounts))
+	}
+	rec = a.do(t, "GET", "/api/v1/accounts/1002", "", reader, "")
+	if acc := decodeBody[api.Account](t, rec); rec.Code != http.StatusOK || acc.OpenFindings.High != 1 {
+		t.Fatalf("detalhe de bia: %d %+v", rec.Code, acc)
+	}
+	if rec = a.do(t, "GET", "/api/v1/accounts/4242", "", reader, ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("conta inexistente: %d", rec.Code)
+	}
+	rec = a.do(t, "GET", "/api/v1/findings?account=1002", "", reader, "")
+	if page := decodeBody[api.FindingPage](t, rec); len(page.Findings) != 1 || page.Findings[0].Signature != "Php.Malware" {
+		t.Fatalf("achados de bia: %+v", page.Findings)
+	}
+
+	// Verificar todas as contas: escopo montado pelo core, com o filtro de dono nas áreas temporárias.
+	op := a.sessionFor(t, store.RoleOperator, false)
+	rec = a.do(t, "POST", "/api/v1/runs", `{"kind":"files","accounts":{"all":true}}`, op, "")
+	run := decodeBody[api.Run](t, rec)
+	if rec.Code >= 300 || run.Accounts == nil || len(*run.Accounts) != 2 || run.Paths[0] != "/home/ana" {
+		t.Fatalf("verificação de todas: %d %+v", rec.Code, run)
+	}
+	rec = a.do(t, "GET", "/api/v1/runs?account=1001", "", reader, "")
+	if page := decodeBody[api.RunPage](t, rec); len(page.Runs) != 1 || page.Runs[0].Id != run.Id {
+		t.Fatalf("execuções da conta ana: %+v", page.Runs)
+	}
+	if rec = a.do(t, "POST", "/api/v1/runs", `{"kind":"files","accounts":{"uids":[0]}}`, op, ""); rec.Code != http.StatusBadRequest {
+		t.Fatalf("root por conta deveria ser recusado: %d %s", rec.Code, rec.Body)
 	}
 }

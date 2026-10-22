@@ -79,6 +79,8 @@ var routes = map[string]rule{
 	"GET /api/v1/tokens":                           {access: accessView},
 	"POST /api/v1/tokens":                          {access: accessView, reauth: true},
 	"DELETE /api/v1/tokens/{id}":                   {access: accessView},
+	"GET /api/v1/accounts":                         {access: accessView},
+	"GET /api/v1/accounts/{uid}":                   {access: accessView},
 	"GET /api/v1/backups":                          {access: accessAdmin},
 	"POST /api/v1/backups":                         {access: accessAdmin, reauth: true},
 	"GET /api/v1/audit":                            {access: accessAudit},

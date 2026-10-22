@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"strings"
 
@@ -31,6 +32,13 @@ func (s *Server) ListRuns(w http.ResponseWriter, r *http.Request, params api.Lis
 	}
 	if params.Before != nil {
 		f.Before = *params.Before
+	}
+	if params.Account != nil {
+		if *params.Account < 0 || *params.Account > math.MaxUint32 {
+			writeError(w, http.StatusBadRequest, "UID fora da faixa", "bad_request")
+			return
+		}
+		f.Account = ptr(uint32(*params.Account))
 	}
 	runs, err := s.DB.ListRuns(r.Context(), f)
 	if err != nil {
@@ -67,6 +75,12 @@ func (s *Server) CreateRun(w http.ResponseWriter, r *http.Request, params api.Cr
 	if in.Priority != nil {
 		req.Priority = *in.Priority
 	}
+	sel, err := selectionFrom(in.Accounts)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error(), "bad_request")
+		return
+	}
+	req.Accounts = sel
 	if k := params.IdempotencyKey; k != nil && strings.TrimSpace(*k) != "" {
 		// A chave vale por usuário: dois operadores com a mesma chave não se confundem.
 		req.IdempotencyKey = fmt.Sprintf("%d:%s", p.UserID, strings.TrimSpace(*k))
@@ -76,8 +90,11 @@ func (s *Server) CreateRun(w http.ResponseWriter, r *http.Request, params api.Cr
 		s.storeError(w, err)
 		return
 	}
-	s.audit(r, "run_created", run.ID, fmt.Sprintf("tipo %s, perfil %s, caminhos %s", run.Kind, run.Profile.Name,
-		strings.Join(run.Paths, ", ")))
+	detail := fmt.Sprintf("tipo %s, perfil %s, caminhos %s", run.Kind, run.Profile.Name, strings.Join(run.Paths, ", "))
+	if len(run.Accounts) > 0 {
+		detail = fmt.Sprintf("tipo %s, perfil %s, %d conta(s): %v", run.Kind, run.Profile.Name, len(run.Accounts), run.Accounts)
+	}
+	s.audit(r, "run_created", run.ID, detail)
 	writeJSON(w, http.StatusCreated, toAPIRun(run))
 }
 
@@ -166,6 +183,14 @@ func (s *Server) ListFindings(w http.ResponseWriter, r *http.Request, params api
 	}
 	if params.Q != nil {
 		f.Query = *params.Q
+	}
+	if params.Account != nil {
+		sc, err := s.accountScope(r.Context(), *params.Account)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error(), "bad_request")
+			return
+		}
+		f.Account = &sc
 	}
 	if params.Before != nil {
 		f.BeforeID = *params.Before

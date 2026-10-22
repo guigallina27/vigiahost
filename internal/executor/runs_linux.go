@@ -16,6 +16,7 @@ import (
 	sddbus "github.com/coreos/go-systemd/v22/dbus"
 	"github.com/godbus/dbus/v5"
 
+	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
@@ -455,6 +456,16 @@ func (r *Runs) Register(h map[ipc.Op]Handler) {
 	h[ipc.OpRunList] = r.List
 	h[ipc.OpRunCleanup] = r.Cleanup
 	h[ipc.OpHardware] = r.HardwareInfo
+	h[ipc.OpAccounts] = r.Accounts
+}
+
+// Accounts lista as contas do servidor com os diretórios pessoais conferidos (o core não enxerga /home).
+func (r *Runs) Accounts(ctx context.Context, _ json.RawMessage) (any, error) {
+	list, lo, hi, err := accounts.Discover(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ipc.AccountList{UIDMin: lo, UIDMax: hi, Accounts: list}, nil
 }
 
 func leadingInt(s string) int {

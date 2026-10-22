@@ -36,6 +36,9 @@ type Request struct {
 	Kind    Kind     `json:"kind"`
 	Paths   []string `json:"paths,omitempty"`
 	Exclude []string `json:"exclude,omitempty"`
+	// Owners restringe raízes de Paths a arquivos destes donos: na verificação por conta, /tmp, /var/tmp e /dev/shm
+	// entram só com os arquivos do UID da conta (escopo, seção 9.1).
+	Owners map[string][]uint32 `json:"owners,omitempty"`
 	// Incremental reaproveita o cache: objeto inalterado já analisado com as mesmas versões não é relido.
 	Incremental bool    `json:"incremental"`
 	Profile     Profile `json:"profile"`

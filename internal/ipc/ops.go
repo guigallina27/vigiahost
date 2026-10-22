@@ -1,6 +1,16 @@
 package ipc
 
-import "github.com/guigallina27/vigiahost/internal/report"
+import (
+	"github.com/guigallina27/vigiahost/internal/accounts"
+	"github.com/guigallina27/vigiahost/internal/report"
+)
+
+// AccountList é a resposta de OpAccounts: contas e a faixa de UID das contas humanas/de hospedagem.
+type AccountList struct {
+	UIDMin   uint32             `json:"uid_min"`
+	UIDMax   uint32             `json:"uid_max"`
+	Accounts []accounts.Account `json:"accounts"`
+}
 
 // Operações das execuções (Fase 1A). Volumes grandes (achados, progresso) ficam em arquivos no diretório da
 // execução; pelo socket só passa controle (ADR-014).
@@ -15,6 +25,8 @@ const (
 	OpEngines    Op = "engines.status"
 	OpHardware   Op = "hardware"
 	OpRunCleanup Op = "run.cleanup"
+	// OpAccounts lista as contas do servidor (protocolo 1.1; executores 1.0 respondem "operação desconhecida").
+	OpAccounts Op = "accounts.list"
 )
 
 // Códigos de erro das operações de execução.

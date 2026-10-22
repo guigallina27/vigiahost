@@ -156,7 +156,7 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 		},
 	}
 	for _, root := range cfg.Request.Paths {
-		if err := w.walkRoot(root); err != nil {
+		if err := w.walkRootOwned(root, cfg.Request.Owners[root]); err != nil {
 			r.warn(fmt.Sprintf("raiz %s não pôde ser percorrida: %v", quote(root), err))
 		}
 	}

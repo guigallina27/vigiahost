@@ -69,18 +69,22 @@ type Run struct {
 	FindingsOffset int64
 	Summary        *report.Summary
 	Error          string
+	// Accounts são as contas (UID) que a execução cobre; Owners restringe raízes compartilhadas (/tmp...) aos
+	// arquivos desses donos.
+	Accounts []uint32
+	Owners   map[string][]uint32
 }
 
 const runColumns = `id, kind, status, origin, requested_by, schedule_id, scheduled_for, COALESCE(idempotency_key, ''),
 	paths, exclude, incremental, profile, priority, attempts, lease_until, heartbeat_at, created_at, started_at,
 	finished_at, phase, paused, files_seen, files_eligible, files_processed, bytes_eligible, bytes_processed,
-	findings_count, findings_offset, summary, error`
+	findings_count, findings_offset, summary, error, accounts, owners`
 
 type scanner interface{ Scan(...any) error }
 
 func scanRun(s scanner) (Run, error) {
 	var r Run
-	var kind, paths, exclude, prof string
+	var kind, paths, exclude, prof, accounts, owners string
 	var schedID sql.NullInt64
 	var schedFor, lease, hb, started, finished, summary sql.NullString
 	var created string
@@ -88,7 +92,7 @@ func scanRun(s scanner) (Run, error) {
 	err := s.Scan(&r.ID, &kind, &r.Status, &r.Origin, &r.RequestedBy, &schedID, &schedFor, &r.IdempotencyKey,
 		&paths, &exclude, &incr, &prof, &r.Priority, &r.Attempts, &lease, &hb, &created, &started,
 		&finished, &r.Phase, &paused, &r.FilesSeen, &r.FilesEligible, &r.FilesProcessed, &r.BytesEligible,
-		&r.BytesProcessed, &r.FindingsCount, &r.FindingsOffset, &summary, &r.Error)
+		&r.BytesProcessed, &r.FindingsCount, &r.FindingsOffset, &summary, &r.Error, &accounts, &owners)
 	if errors.Is(err, sql.ErrNoRows) {
 		return r, ErrNotFound
 	}
@@ -105,6 +109,7 @@ func scanRun(s scanner) (Run, error) {
 	r.CreatedAt = parseTS(created)
 	r.Paths, r.Exclude = fromJSON[[]string](paths), fromJSON[[]string](exclude)
 	r.Profile = fromJSON[report.Profile](prof)
+	r.Accounts, r.Owners = fromJSON[[]uint32](accounts), fromJSON[map[string][]uint32](owners)
 	r.Incremental, r.Paused = incr == 1, paused == 1
 	if summary.Valid && summary.String != "" {
 		s := fromJSON[report.Summary](summary.String)
@@ -125,15 +130,46 @@ func (d *DB) InsertRun(ctx context.Context, r *Run) error {
 	if r.IdempotencyKey != "" {
 		idem = r.IdempotencyKey
 	}
-	_, err := d.ExecContext(ctx, `INSERT INTO runs (id, kind, status, origin, requested_by, schedule_id, scheduled_for,
-		idempotency_key, paths, exclude, incremental, profile, priority, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		r.ID, string(r.Kind), r.Status, r.Origin, r.RequestedBy, r.ScheduleID, nullTS(r.ScheduledFor), idem,
-		toJSON(nonNil(r.Paths)), toJSON(nonNil(r.Exclude)), boolInt(r.Incremental), toJSON(r.Profile), r.Priority, ts(r.CreatedAt))
+	err := d.tx(ctx, func(tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO runs (id, kind, status, origin, requested_by, schedule_id,
+			scheduled_for, idempotency_key, paths, exclude, incremental, profile, priority, created_at, accounts, owners)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			r.ID, string(r.Kind), r.Status, r.Origin, r.RequestedBy, r.ScheduleID, nullTS(r.ScheduledFor), idem,
+			toJSON(nonNil(r.Paths)), toJSON(nonNil(r.Exclude)), boolInt(r.Incremental), toJSON(r.Profile), r.Priority,
+			ts(r.CreatedAt), accountsJSON(r.Accounts), ownersJSON(r.Owners))
+		if err != nil {
+			return err
+		}
+		return insertRunAccounts(ctx, tx, r.ID, r.Accounts)
+	})
 	if err != nil && strings.Contains(err.Error(), "UNIQUE") {
 		return ErrDuplicate
 	}
 	return err
+}
+
+func accountsJSON(a []uint32) string {
+	if a == nil {
+		return "[]"
+	}
+	return toJSON(a)
+}
+
+func ownersJSON(o map[string][]uint32) string {
+	if o == nil {
+		return "{}"
+	}
+	return toJSON(o)
+}
+
+// insertRunAccounts indexa as contas da execução (para "última verificação" e o filtro por conta).
+func insertRunAccounts(ctx context.Context, tx *sql.Tx, runID string, uids []uint32) error {
+	for _, uid := range uids {
+		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO run_accounts (run_id, uid) VALUES (?, ?)`, runID, int64(uid)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func nonNil(s []string) []string {
@@ -152,7 +188,8 @@ func (d *DB) GetRun(ctx context.Context, id string) (Run, error) {
 type RunFilter struct {
 	Statuses []string
 	Kind     string
-	Before   string // cursor: created_at da última execução da página anterior
+	Account  *uint32 // só execuções que cobriram esta conta
+	Before   string  // cursor: created_at da última execução da página anterior
 	Limit    int
 }
 
@@ -169,6 +206,10 @@ func (d *DB) ListRuns(ctx context.Context, f RunFilter) ([]Run, error) {
 	if f.Kind != "" {
 		q += ` AND kind = ?`
 		args = append(args, f.Kind)
+	}
+	if f.Account != nil {
+		q += ` AND id IN (SELECT run_id FROM run_accounts WHERE uid = ?)`
+		args = append(args, int64(*f.Account))
 	}
 	if f.Before != "" {
 		q += ` AND created_at < ?`

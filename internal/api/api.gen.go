@@ -365,6 +365,54 @@ func (e Severity) Valid() bool {
 	}
 }
 
+// Account defines model for Account.
+type Account struct {
+	Home string `json:"home"`
+
+	// HomeOk O diretório pessoal existe e é um diretório
+	HomeOk       bool           `json:"home_ok"`
+	LastRun      *AccountRun    `json:"last_run,omitempty"`
+	Name         string         `json:"name"`
+	OpenFindings SeverityCounts `json:"open_findings"`
+
+	// PersistenceItems Itens de persistência da conta na última inspeção (-1: nenhuma inspeção ainda)
+	PersistenceItems int `json:"persistence_items"`
+
+	// Processes Processos da conta na última inspeção (-1: nenhuma inspeção ainda)
+	Processes int    `json:"processes"`
+	Shell     string `json:"shell"`
+
+	// System Conta de sistema (fora da faixa UID_MIN..UID_MAX)
+	System bool  `json:"system"`
+	Uid    int64 `json:"uid"`
+}
+
+// AccountList defines model for AccountList.
+type AccountList struct {
+	Accounts []Account `json:"accounts"`
+
+	// InventoryAt Horário da inspeção de processos usada nas contagens
+	InventoryAt *time.Time `json:"inventory_at,omitempty"`
+	UidMax      int64      `json:"uid_max"`
+	UidMin      int64      `json:"uid_min"`
+}
+
+// AccountRun defines model for AccountRun.
+type AccountRun struct {
+	CreatedAt      time.Time  `json:"created_at"`
+	FilesEligible  int64      `json:"files_eligible"`
+	FilesProcessed int64      `json:"files_processed"`
+	FinishedAt     *time.Time `json:"finished_at,omitempty"`
+	Id             string     `json:"id"`
+	Status         RunStatus  `json:"status"`
+}
+
+// AccountSelection Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+type AccountSelection struct {
+	All  *bool    `json:"all,omitempty"`
+	Uids *[]int64 `json:"uids,omitempty"`
+}
+
 // ApiToken defines model for ApiToken.
 type ApiToken struct {
 	CreatedAt time.Time  `json:"created_at"`
@@ -881,6 +929,8 @@ type Role string
 
 // Run defines model for Run.
 type Run struct {
+	// Accounts Contas (UID) cobertas pela execução
+	Accounts       *[]int64        `json:"accounts,omitempty"`
 	Attempts       int             `json:"attempts"`
 	BytesEligible  int64           `json:"bytes_eligible"`
 	BytesProcessed int64           `json:"bytes_processed"`
@@ -914,11 +964,13 @@ type RunOrigin string
 
 // RunCreate defines model for RunCreate.
 type RunCreate struct {
-	Exclude     *[]string `json:"exclude,omitempty"`
-	Incremental *bool     `json:"incremental,omitempty"`
-	Kind        RunKind   `json:"kind"`
-	Paths       *[]string `json:"paths,omitempty"`
-	Priority    *int      `json:"priority,omitempty"`
+	// Accounts Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+	Accounts    *AccountSelection `json:"accounts,omitempty"`
+	Exclude     *[]string         `json:"exclude,omitempty"`
+	Incremental *bool             `json:"incremental,omitempty"`
+	Kind        RunKind           `json:"kind"`
+	Paths       *[]string         `json:"paths,omitempty"`
+	Priority    *int              `json:"priority,omitempty"`
 
 	// Profile Nome do perfil de recursos (padrão: padrao)
 	Profile *string `json:"profile,omitempty"`
@@ -967,27 +1019,32 @@ type RunSummary struct {
 
 // Schedule defines model for Schedule.
 type Schedule struct {
-	CreatedAt    time.Time    `json:"created_at"`
-	CreatedBy    string       `json:"created_by"`
-	Cron         string       `json:"cron"`
-	Enabled      bool         `json:"enabled"`
-	Exclude      []string     `json:"exclude"`
-	Id           int64        `json:"id"`
-	Incremental  bool         `json:"incremental"`
-	Kind         RunKind      `json:"kind"`
-	LastRunAt    *time.Time   `json:"last_run_at,omitempty"`
-	MissedPolicy MissedPolicy `json:"missed_policy"`
-	Name         string       `json:"name"`
-	NextRunAt    *time.Time   `json:"next_run_at,omitempty"`
-	Paths        []string     `json:"paths"`
-	Profile      string       `json:"profile"`
-	Timezone     string       `json:"timezone"`
-	Upcoming     []time.Time  `json:"upcoming"`
-	UpdatedAt    time.Time    `json:"updated_at"`
+	// Accounts Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+	Accounts     *AccountSelection `json:"accounts,omitempty"`
+	CreatedAt    time.Time         `json:"created_at"`
+	CreatedBy    string            `json:"created_by"`
+	Cron         string            `json:"cron"`
+	Enabled      bool              `json:"enabled"`
+	Exclude      []string          `json:"exclude"`
+	Id           int64             `json:"id"`
+	Incremental  bool              `json:"incremental"`
+	Kind         RunKind           `json:"kind"`
+	LastRunAt    *time.Time        `json:"last_run_at,omitempty"`
+	MissedPolicy MissedPolicy      `json:"missed_policy"`
+	Name         string            `json:"name"`
+	NextRunAt    *time.Time        `json:"next_run_at,omitempty"`
+	Paths        []string          `json:"paths"`
+	Profile      string            `json:"profile"`
+	Timezone     string            `json:"timezone"`
+	Upcoming     []time.Time       `json:"upcoming"`
+	UpdatedAt    time.Time         `json:"updated_at"`
 }
 
 // ScheduleInput defines model for ScheduleInput.
 type ScheduleInput struct {
+	// Accounts Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+	Accounts *AccountSelection `json:"accounts,omitempty"`
+
 	// Cron 5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly
 	Cron         string        `json:"cron"`
 	Enabled      *bool         `json:"enabled,omitempty"`
@@ -1136,6 +1193,12 @@ type TooManyRequests = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// ListAccountsParams defines parameters for ListAccounts.
+type ListAccountsParams struct {
+	// System Incluir contas de sistema (root
+	System *bool `form:"system,omitempty" json:"system,omitempty"`
+}
+
 // ListAuditParams defines parameters for ListAudit.
 type ListAuditParams struct {
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
@@ -1157,6 +1220,9 @@ type ListFindingsParams struct {
 
 	// Run Somente achados vistos nesta execução
 	Run *string `form:"run,omitempty" json:"run,omitempty"`
+
+	// Account Somente achados da conta (UID): arquivos do UID ou no diretório pessoal, processos do UID e persistência da conta
+	Account *int64 `form:"account,omitempty" json:"account,omitempty"`
 
 	// Q Trecho do caminho
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
@@ -1182,6 +1248,9 @@ type GetProcessInventoryParams struct {
 type ListRunsParams struct {
 	Status *[]RunStatus `form:"status,omitempty" json:"status,omitempty"`
 	Kind   *RunKind     `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Account Somente execuções que cobriram esta conta (UID)
+	Account *int64 `form:"account,omitempty" json:"account,omitempty"`
 
 	// Before Cursor (next_before da página anterior)
 	Before *string `form:"before,omitempty" json:"before,omitempty"`
@@ -1250,6 +1319,12 @@ type UpdateUserJSONRequestBody = UserUpdate
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAccounts Contas do servidor com achados abertos, última verificação, processos e persistência
+	// (GET /api/v1/accounts)
+	ListAccounts(w http.ResponseWriter, r *http.Request, params ListAccountsParams)
+	// GetAccount Uma conta do servidor com o resumo de risco
+	// (GET /api/v1/accounts/{uid})
+	GetAccount(w http.ResponseWriter, r *http.Request, uid int64)
 	// ListAudit Auditoria (administrador e auditor) com conferência da cadeia
 	// (GET /api/v1/audit)
 	ListAudit(w http.ResponseWriter, r *http.Request, params ListAuditParams)
@@ -1407,6 +1482,65 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAccounts operation middleware
+func (siw *ServerInterfaceWrapper) ListAccounts(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountsParams
+
+	// ------------- Optional query parameter "system" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "system", r.URL.Query(), &params.System, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "system"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "system", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccounts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccount operation middleware
+func (siw *ServerInterfaceWrapper) GetAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "uid" -------------
+	var uid int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "uid", r.PathValue("uid"), &uid, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "uid", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccount(w, r, uid)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // ListAudit operation middleware
 func (siw *ServerInterfaceWrapper) ListAudit(w http.ResponseWriter, r *http.Request) {
@@ -1811,6 +1945,19 @@ func (siw *ServerInterfaceWrapper) ListFindings(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// ------------- Optional query parameter "account" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "account", r.URL.Query(), &params.Account, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "account"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "account", Err: err})
+		}
+		return
+	}
+
 	// ------------- Optional query parameter "q" -------------
 
 	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
@@ -2104,6 +2251,19 @@ func (siw *ServerInterfaceWrapper) ListRuns(w http.ResponseWriter, r *http.Reque
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "account" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "account", r.URL.Query(), &params.Account, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "account"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "account", Err: err})
 		}
 		return
 	}
@@ -2711,6 +2871,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/pause", wrapper.PauseRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/resume", wrapper.ResumeRun)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/runs/{runId}/limits", wrapper.SetRunLimits)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/accounts", wrapper.ListAccounts)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/accounts/{uid}", wrapper.GetAccount)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/findings", wrapper.ListFindings)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/findings/{findingId}", wrapper.GetFinding)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/findings/{findingId}/transition", wrapper.TransitionFinding)
