@@ -31,6 +31,7 @@ const pages: RouteObject[] = [
   { path: "agendamentos", element: page(() => import("./pages/config/SchedulesPage").then((m) => m.SchedulesPage)) },
   { path: "recursos", element: page(() => import("./pages/config/ResourcesPage").then((m) => m.ResourcesPage)) },
   { path: "motores", element: page(() => import("./pages/config/EnginesPage").then((m) => m.EnginesPage)) },
+  { path: "regras", element: page(() => import("./pages/config/RulesPage").then((m) => m.RulesPage)) },
   { path: "usuarios", element: page(() => import("./pages/admin/UsersPage").then((m) => m.UsersPage)) },
   { path: "tokens", element: page(() => import("./pages/admin/TokensPage").then((m) => m.TokensPage)) },
   { path: "auditoria", element: page(() => import("./pages/admin/AuditPage").then((m) => m.AuditPage)) },

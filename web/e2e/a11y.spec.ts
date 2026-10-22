@@ -434,7 +434,52 @@ const engines: S["EngineStatus"] = {
       detail: "Assinaturas com mais de 3 dias",
       last_selftest: { run_id: FILES_RUN, passed: true, detail: "EICAR detectado", at: "2026-10-21T03:00:06Z" },
     },
+    { id: "lmd", name: "LMD", state: "disabled", version: "2.0.1", signatures_version: "2026052490478", signatures_date: "2026-05-24" },
   ],
+};
+
+const rulesOverview: S["RulesOverview"] = {
+  yara: {
+    user_dir: "/etc/vigiahost/rules.d",
+    compiling: true,
+    yr_version: "1.9.0",
+    last_compile: { at: "2026-10-22T08:00:00Z", trigger: "manual", ok: true, set_version: "9f2c41d07a5be318", yr_version: "1.9.0", selftest: true },
+    sources: [
+      { name: "controle", origin: "builtin", enabled: true, mandatory: true, files: 1, rules: 1, bytes: 412, state: "ok", license: "GPL-3.0-only", hash: "1".repeat(64) },
+      { name: "vigiahost", origin: "builtin", enabled: true, mandatory: false, files: 1, rules: 15, bytes: 18234, state: "ok", license: "GPL-3.0-only", hash: "2".repeat(64) },
+      {
+        name: "loja-regras",
+        origin: "local",
+        enabled: true,
+        mandatory: false,
+        files: 3,
+        rules: 27,
+        bytes: 40960,
+        state: "error",
+        problem: "wordpress.yar:12: identificador $a duplicado",
+        path: "/etc/vigiahost/rules.d/loja-regras",
+        description: "Regras escritas pela equipe para a loja virtual",
+        license: "Proprietária",
+        version: "2026.10",
+        hash: "3".repeat(64),
+        updated_at: "2026-10-21T17:40:00Z",
+      },
+      { name: "antiga", origin: "local", enabled: false, mandatory: false, files: 1, rules: 3, bytes: 2048, state: "disabled", path: "/etc/vigiahost/rules.d/antiga" },
+      { name: "aberta", origin: "local", enabled: true, mandatory: false, files: 0, rules: 0, bytes: 0, state: "refused", problem: "permissões inseguras: gravável por outros usuários" },
+    ],
+  },
+  clamav: { state: "degraded", version: "1.4.3", signatures_version: "27794", signatures_date: "2026-10-18", mode: "clamd", lmd_signatures: ["/var/lib/clamav/rfxn.hdb", "/var/lib/clamav/rfxn.ndb"] },
+  lmd: {
+    installed: true,
+    usable: true,
+    enabled: false,
+    state: "disabled",
+    path: "/usr/local/maldetect",
+    version: "2.0.1",
+    signatures_version: "2026052490478",
+    signatures_date: "2026-05-24",
+    signatures: { md5: 0, sha256: 42634, hex: 2373, csig: 86, yara: 3706, user: 0 },
+  },
 };
 
 const overview = (executor: S["ExecutorStatus"]): S["Overview"] => ({
@@ -647,6 +692,7 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
     if (path === "/schedules") return route.fulfill({ json: schedules });
     if (path === "/resources") return route.fulfill({ json: resources });
     if (path === "/engines") return route.fulfill({ json: engines });
+    if (path === "/rules") return route.fulfill({ json: rulesOverview });
     if (path === "/inventory/processes") return route.fulfill({ json: processInventory });
     if (path === "/inventory/persistence") return route.fulfill({ json: persistenceInventory });
     if (path === "/users") return route.fulfill({ json: users });
@@ -687,13 +733,14 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "agendamentos", path: "/agendamentos", ready: "Varredura noturna" },
   { name: "recursos", path: "/recursos", ready: "noturno" },
   { name: "motores", path: "/motores", ready: "Assinaturas com mais de 3 dias" },
+  { name: "regras e fontes", path: "/regras", ready: "identificador $a duplicado" },
   { name: "usuários", path: "/usuarios", ready: "Equipe de suporte" },
   { name: "tokens", path: "/tokens", ready: "Monitoramento Zabbix" },
   { name: "auditoria", path: "/auditoria", ready: "198.51.100.20" },
   { name: "backup", path: "/backup", ready: "vigiahost-20261022-030000.db" },
   { name: "configurações", path: "/configuracoes", ready: "Aparência" },
   { name: "catálogo", path: "/catalogo", ready: "ConfirmDialog" },
-  { name: "página planejada", path: "/regras", ready: "Planejada · 1A" },
+  { name: "página planejada", path: "/integridade", ready: "Planejada · 2" },
   { name: "página inexistente", path: "/nao-existe", ready: "Ir para a visão geral" },
   { name: "login", path: "/", mock: { session: "anonymous" }, ready: "Não sou um robô" },
   { name: "login sem HTTPS", path: "/", mock: { session: "insecure" }, ready: "Esta conexão não é HTTPS" },
@@ -800,6 +847,7 @@ const reflow: { path: string; mock?: Mock }[] = [
   { path: `/execucoes/${FILES_RUN}` },
   { path: "/processos" },
   { path: "/auditoria" },
+  { path: "/regras" },
   { path: "/catalogo" },
   { path: "/configuracoes" },
   { path: "/", mock: { session: "anonymous" } },

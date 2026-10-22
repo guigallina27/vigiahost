@@ -73,7 +73,9 @@
     "label": "Saúde do motor",
     "operational": "Operacional",
     "degraded": "Degradado",
-    "unavailable": "Indisponível"
+    "unavailable": "Indisponível",
+    "disabled": "Desligado",
+    "not_installed": "Não instalado"
   },
   "engineUpdate": {
     "label": "Atualização",

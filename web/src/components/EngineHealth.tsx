@@ -1,15 +1,18 @@
-import { CircleCheck, CircleX, Clock, RefreshCw, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleX, Clock, PowerOff, RefreshCw, TriangleAlert, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Badge, type Tone } from "./Badge";
 import { Timestamp } from "./Timestamp";
 
-export type Health = "operational" | "degraded" | "unavailable";
+/** disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (não é falha). */
+export type Health = "operational" | "degraded" | "unavailable" | "disabled" | "not_installed";
 export type UpdateState = "current" | "late";
 
 const health: Record<Health, { tone: Tone; icon: LucideIcon }> = {
   operational: { tone: "ok", icon: CircleCheck },
   degraded: { tone: "medium", icon: TriangleAlert },
   unavailable: { tone: "critical", icon: CircleX },
+  disabled: { tone: "neutral", icon: PowerOff },
+  not_installed: { tone: "neutral", icon: CircleDashed },
 };
 
 type Props = {

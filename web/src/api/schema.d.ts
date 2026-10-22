@@ -632,6 +632,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fontes de regras YARA, assinaturas do ClamAV e do LMD, com o estado da última compilação */
+        get: operations["getRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/compile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Recompila o conjunto de regras com validação (cada fonte compilada sozinha, controle positivo no conjunto), numa unidade isolada do executor; responde na hora com compiling=true (administrador) */
+        post: operations["compileRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/sources/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Ativa ou desativa uma fonte de regras YARA e pede nova compilação (administrador, com reautenticação) */
+        put: operations["setRuleSource"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/lmd": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Liga ou desliga o LMD como fonte adicional de assinaturas nas varreduras de arquivos (administrador, com reautenticação); ligar exige o LMD 2.x instalado */
+        put: operations["setLmd"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -1335,10 +1405,10 @@ export interface components {
             next: string[];
         };
         /**
-         * @description Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+         * @description Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
          * @enum {string}
          */
-        EngineState: "operational" | "degraded" | "unavailable";
+        EngineState: "operational" | "degraded" | "unavailable" | "disabled" | "not_installed";
         LastSelfTest: {
             run_id: string;
             passed: boolean;
@@ -1348,7 +1418,7 @@ export interface components {
         };
         EngineHealth: {
             /** @enum {string} */
-            id: "yara-x" | "clamav";
+            id: "yara-x" | "clamav" | "lmd";
             name: string;
             state: components["schemas"]["EngineState"];
             version?: string;
@@ -1359,6 +1429,98 @@ export interface components {
             mode?: string;
             detail?: string;
             last_selftest?: components["schemas"]["LastSelfTest"];
+        };
+        ToggleInput: {
+            enabled: boolean;
+        };
+        /**
+         * @description ok: compilada no conjunto; error: não compilou e ficou fora; refused: recusada antes de compilar (permissões, include, limites); disabled: desativada; pending: alterada ou ativada depois da última compilação.
+         * @enum {string}
+         */
+        RuleSourceState: "ok" | "error" | "refused" | "disabled" | "pending";
+        RuleSource: {
+            name: string;
+            /** @enum {string} */
+            origin: "builtin" | "local";
+            enabled: boolean;
+            /** @description O controle positivo não pode ser desativado */
+            mandatory: boolean;
+            path?: string;
+            description?: string;
+            license?: string;
+            author?: string;
+            url?: string;
+            version?: string;
+            files: number;
+            rules: number;
+            /** Format: int64 */
+            bytes: number;
+            /** @description SHA-256 do conteúdo */
+            hash?: string;
+            /** Format: date-time */
+            updated_at?: string;
+            state: components["schemas"]["RuleSourceState"];
+            /** @description Motivo da recusa ou erro de compilação */
+            problem?: string;
+        };
+        RulesCompileResult: {
+            /** Format: date-time */
+            at: string;
+            /** @enum {string} */
+            trigger: "scan" | "inspect" | "manual";
+            ok: boolean;
+            error?: string;
+            set_version?: string;
+            yr_version?: string;
+            /** @description Controle positivo detectado pelo conjunto (só na compilação manual) */
+            selftest?: boolean;
+            detail?: string;
+        };
+        YaraRules: {
+            yr_version?: string;
+            /** @description Diretório das fontes locais (só o root grava) */
+            user_dir: string;
+            compiling: boolean;
+            last_compile?: components["schemas"]["RulesCompileResult"];
+            sources: components["schemas"]["RuleSource"][];
+        };
+        ClamavSignatures: {
+            state: components["schemas"]["EngineState"];
+            version?: string;
+            signatures_version?: string;
+            signatures_date?: string;
+            mode?: string;
+            detail?: string;
+            /** @description Assinaturas do LMD (rfxn.*) nos diretórios do ClamAV, carregadas pelo clamd */
+            lmd_signatures: string[];
+        };
+        LmdSignatureCounts: {
+            md5: number;
+            sha256: number;
+            hex: number;
+            csig: number;
+            yara: number;
+            user: number;
+        };
+        LmdStatus: {
+            installed: boolean;
+            /** @description Versão 2.x com instalação só gravável pelo root */
+            usable: boolean;
+            enabled: boolean;
+            state: components["schemas"]["EngineState"];
+            path: string;
+            version?: string;
+            signatures_version?: string;
+            signatures_date?: string;
+            signatures?: components["schemas"]["LmdSignatureCounts"];
+            detail?: string;
+            last_selftest?: components["schemas"]["LastSelfTest"];
+        };
+        RulesOverview: {
+            yara: components["schemas"]["YaraRules"];
+            clamav: components["schemas"]["ClamavSignatures"];
+            lmd: components["schemas"]["LmdStatus"];
+            executor_error?: string;
         };
         EngineStatus: {
             engines: components["schemas"]["EngineHealth"][];
@@ -2593,6 +2755,109 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regras e fontes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    compileRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Compilação iniciada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesOverview"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            503: components["responses"]["ExecutorUnavailable"];
+        };
+    };
+    setRuleSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleInput"];
+            };
+        };
+        responses: {
+            /** @description Regras atualizadas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesOverview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setLmd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleInput"];
+            };
+        };
+        responses: {
+            /** @description Regras atualizadas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RulesOverview"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
         };
     };
     listUsers: {

@@ -44,6 +44,7 @@ func (e BackupInfoOrigin) Valid() bool {
 // Defines values for EngineHealthId.
 const (
 	Clamav EngineHealthId = "clamav"
+	Lmd    EngineHealthId = "lmd"
 	YaraX  EngineHealthId = "yara-x"
 )
 
@@ -51,6 +52,8 @@ const (
 func (e EngineHealthId) Valid() bool {
 	switch e {
 	case Clamav:
+		return true
+	case Lmd:
 		return true
 	case YaraX:
 		return true
@@ -61,15 +64,21 @@ func (e EngineHealthId) Valid() bool {
 
 // Defines values for EngineState.
 const (
-	EngineStateDegraded    EngineState = "degraded"
-	EngineStateOperational EngineState = "operational"
-	EngineStateUnavailable EngineState = "unavailable"
+	EngineStateDegraded     EngineState = "degraded"
+	EngineStateDisabled     EngineState = "disabled"
+	EngineStateNotInstalled EngineState = "not_installed"
+	EngineStateOperational  EngineState = "operational"
+	EngineStateUnavailable  EngineState = "unavailable"
 )
 
 // Valid indicates whether the value is a known member of the EngineState enum.
 func (e EngineState) Valid() bool {
 	switch e {
 	case EngineStateDegraded:
+		return true
+	case EngineStateDisabled:
+		return true
+	case EngineStateNotInstalled:
 		return true
 	case EngineStateOperational:
 		return true
@@ -233,6 +242,72 @@ func (e Role) Valid() bool {
 	case Operator:
 		return true
 	case Reader:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuleSourceOrigin.
+const (
+	Builtin RuleSourceOrigin = "builtin"
+	Local   RuleSourceOrigin = "local"
+)
+
+// Valid indicates whether the value is a known member of the RuleSourceOrigin enum.
+func (e RuleSourceOrigin) Valid() bool {
+	switch e {
+	case Builtin:
+		return true
+	case Local:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RuleSourceState.
+const (
+	RuleSourceStateDisabled RuleSourceState = "disabled"
+	RuleSourceStateError    RuleSourceState = "error"
+	RuleSourceStateOk       RuleSourceState = "ok"
+	RuleSourceStatePending  RuleSourceState = "pending"
+	RuleSourceStateRefused  RuleSourceState = "refused"
+)
+
+// Valid indicates whether the value is a known member of the RuleSourceState enum.
+func (e RuleSourceState) Valid() bool {
+	switch e {
+	case RuleSourceStateDisabled:
+		return true
+	case RuleSourceStateError:
+		return true
+	case RuleSourceStateOk:
+		return true
+	case RuleSourceStatePending:
+		return true
+	case RuleSourceStateRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RulesCompileResultTrigger.
+const (
+	RulesCompileResultTriggerInspect RulesCompileResultTrigger = "inspect"
+	RulesCompileResultTriggerManual  RulesCompileResultTrigger = "manual"
+	RulesCompileResultTriggerScan    RulesCompileResultTrigger = "scan"
+)
+
+// Valid indicates whether the value is a known member of the RulesCompileResultTrigger enum.
+func (e RulesCompileResultTrigger) Valid() bool {
+	switch e {
+	case RulesCompileResultTriggerInspect:
+		return true
+	case RulesCompileResultTriggerManual:
+		return true
+	case RulesCompileResultTriggerScan:
 		return true
 	default:
 		return false
@@ -492,6 +567,21 @@ type BackupList struct {
 	KeepAutomatic int `json:"keep_automatic"`
 }
 
+// ClamavSignatures defines model for ClamavSignatures.
+type ClamavSignatures struct {
+	Detail *string `json:"detail,omitempty"`
+
+	// LmdSignatures Assinaturas do LMD (rfxn.*) nos diretórios do ClamAV, carregadas pelo clamd
+	LmdSignatures     []string `json:"lmd_signatures"`
+	Mode              *string  `json:"mode,omitempty"`
+	SignaturesDate    *string  `json:"signatures_date,omitempty"`
+	SignaturesVersion *string  `json:"signatures_version,omitempty"`
+
+	// State Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
+	State   EngineState `json:"state"`
+	Version *string     `json:"version,omitempty"`
+}
+
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	// Code Código TOTP de 6 dígitos ou código de recuperação
@@ -551,7 +641,7 @@ type EngineHealth struct {
 	SignaturesDate    *string `json:"signatures_date,omitempty"`
 	SignaturesVersion *string `json:"signatures_version,omitempty"`
 
-	// State Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+	// State Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
 	State   EngineState `json:"state"`
 	Version *string     `json:"version,omitempty"`
 }
@@ -559,7 +649,7 @@ type EngineHealth struct {
 // EngineHealthId defines model for EngineHealth.Id.
 type EngineHealthId string
 
-// EngineState Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+// EngineState Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
 type EngineState string
 
 // EngineStatus defines model for EngineStatus.
@@ -731,6 +821,35 @@ type LastSelfTest struct {
 	Detail string     `json:"detail"`
 	Passed bool       `json:"passed"`
 	RunId  string     `json:"run_id"`
+}
+
+// LmdSignatureCounts defines model for LmdSignatureCounts.
+type LmdSignatureCounts struct {
+	Csig   int `json:"csig"`
+	Hex    int `json:"hex"`
+	Md5    int `json:"md5"`
+	Sha256 int `json:"sha256"`
+	User   int `json:"user"`
+	Yara   int `json:"yara"`
+}
+
+// LmdStatus defines model for LmdStatus.
+type LmdStatus struct {
+	Detail            *string             `json:"detail,omitempty"`
+	Enabled           bool                `json:"enabled"`
+	Installed         bool                `json:"installed"`
+	LastSelftest      *LastSelfTest       `json:"last_selftest,omitempty"`
+	Path              string              `json:"path"`
+	Signatures        *LmdSignatureCounts `json:"signatures,omitempty"`
+	SignaturesDate    *string             `json:"signatures_date,omitempty"`
+	SignaturesVersion *string             `json:"signatures_version,omitempty"`
+
+	// State Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
+	State EngineState `json:"state"`
+
+	// Usable Versão 2.x com instalação só gravável pelo root
+	Usable  bool    `json:"usable"`
+	Version *string `json:"version,omitempty"`
 }
 
 // Location defines model for Location.
@@ -926,6 +1045,66 @@ type Resources struct {
 
 // Role defines model for Role.
 type Role string
+
+// RuleSource defines model for RuleSource.
+type RuleSource struct {
+	Author      *string `json:"author,omitempty"`
+	Bytes       int64   `json:"bytes"`
+	Description *string `json:"description,omitempty"`
+	Enabled     bool    `json:"enabled"`
+	Files       int     `json:"files"`
+
+	// Hash SHA-256 do conteúdo
+	Hash    *string `json:"hash,omitempty"`
+	License *string `json:"license,omitempty"`
+
+	// Mandatory O controle positivo não pode ser desativado
+	Mandatory bool             `json:"mandatory"`
+	Name      string           `json:"name"`
+	Origin    RuleSourceOrigin `json:"origin"`
+	Path      *string          `json:"path,omitempty"`
+
+	// Problem Motivo da recusa ou erro de compilação
+	Problem *string `json:"problem,omitempty"`
+	Rules   int     `json:"rules"`
+
+	// State ok: compilada no conjunto; error: não compilou e ficou fora; refused: recusada antes de compilar (permissões, include, limites); disabled: desativada; pending: alterada ou ativada depois da última compilação.
+	State     RuleSourceState `json:"state"`
+	UpdatedAt *time.Time      `json:"updated_at,omitempty"`
+	Url       *string         `json:"url,omitempty"`
+	Version   *string         `json:"version,omitempty"`
+}
+
+// RuleSourceOrigin defines model for RuleSource.Origin.
+type RuleSourceOrigin string
+
+// RuleSourceState ok: compilada no conjunto; error: não compilou e ficou fora; refused: recusada antes de compilar (permissões, include, limites); disabled: desativada; pending: alterada ou ativada depois da última compilação.
+type RuleSourceState string
+
+// RulesCompileResult defines model for RulesCompileResult.
+type RulesCompileResult struct {
+	At     time.Time `json:"at"`
+	Detail *string   `json:"detail,omitempty"`
+	Error  *string   `json:"error,omitempty"`
+	Ok     bool      `json:"ok"`
+
+	// Selftest Controle positivo detectado pelo conjunto (só na compilação manual)
+	Selftest   *bool                     `json:"selftest,omitempty"`
+	SetVersion *string                   `json:"set_version,omitempty"`
+	Trigger    RulesCompileResultTrigger `json:"trigger"`
+	YrVersion  *string                   `json:"yr_version,omitempty"`
+}
+
+// RulesCompileResultTrigger defines model for RulesCompileResult.Trigger.
+type RulesCompileResultTrigger string
+
+// RulesOverview defines model for RulesOverview.
+type RulesOverview struct {
+	Clamav        ClamavSignatures `json:"clamav"`
+	ExecutorError *string          `json:"executor_error,omitempty"`
+	Lmd           LmdStatus        `json:"lmd"`
+	Yara          YaraRules        `json:"yara"`
+}
 
 // Run defines model for Run.
 type Run struct {
@@ -1130,6 +1309,11 @@ type SystemCapabilities struct {
 	Systemd bool `json:"systemd"`
 }
 
+// ToggleInput defines model for ToggleInput.
+type ToggleInput struct {
+	Enabled bool `json:"enabled"`
+}
+
 // User defines model for User.
 type User struct {
 	CreatedAt   time.Time  `json:"created_at"`
@@ -1155,6 +1339,17 @@ type UserUpdate struct {
 	Disabled    *bool   `json:"disabled,omitempty"`
 	DisplayName *string `json:"display_name,omitempty"`
 	Role        *Role   `json:"role,omitempty"`
+}
+
+// YaraRules defines model for YaraRules.
+type YaraRules struct {
+	Compiling   bool                `json:"compiling"`
+	LastCompile *RulesCompileResult `json:"last_compile,omitempty"`
+	Sources     []RuleSource        `json:"sources"`
+
+	// UserDir Diretório das fontes locais (só o root grava)
+	UserDir   string  `json:"user_dir"`
+	YrVersion *string `json:"yr_version,omitempty"`
 }
 
 // FindingId defines model for FindingId.
@@ -1293,6 +1488,12 @@ type TransitionFindingJSONRequestBody = FindingTransition
 // SaveResourceProfileJSONRequestBody defines body for SaveResourceProfile for application/json ContentType.
 type SaveResourceProfileJSONRequestBody = ResourceProfile
 
+// SetLmdJSONRequestBody defines body for SetLmd for application/json ContentType.
+type SetLmdJSONRequestBody = ToggleInput
+
+// SetRuleSourceJSONRequestBody defines body for SetRuleSource for application/json ContentType.
+type SetRuleSourceJSONRequestBody = ToggleInput
+
 // CreateRunJSONRequestBody defines body for CreateRun for application/json ContentType.
 type CreateRunJSONRequestBody = RunCreate
 
@@ -1412,6 +1613,18 @@ type ServerInterface interface {
 	// SaveResourceProfile Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo)
 	// (PUT /api/v1/resources/profiles/{name})
 	SaveResourceProfile(w http.ResponseWriter, r *http.Request, name string)
+	// GetRules Fontes de regras YARA, assinaturas do ClamAV e do LMD, com o estado da última compilação
+	// (GET /api/v1/rules)
+	GetRules(w http.ResponseWriter, r *http.Request)
+	// CompileRules Recompila o conjunto de regras com validação (cada fonte compilada sozinha, controle positivo no conjunto), numa unidade isolada do executor; responde na hora com compiling=true (administrador)
+	// (POST /api/v1/rules/compile)
+	CompileRules(w http.ResponseWriter, r *http.Request)
+	// SetLmd Liga ou desliga o LMD como fonte adicional de assinaturas nas varreduras de arquivos (administrador, com reautenticação); ligar exige o LMD 2.x instalado
+	// (PUT /api/v1/rules/lmd)
+	SetLmd(w http.ResponseWriter, r *http.Request)
+	// SetRuleSource Ativa ou desativa uma fonte de regras YARA e pede nova compilação (administrador, com reautenticação)
+	// (PUT /api/v1/rules/sources/{name})
+	SetRuleSource(w http.ResponseWriter, r *http.Request, name string)
 	// ListRuns Lista execuções (mais recentes primeiro)
 	// (GET /api/v1/runs)
 	ListRuns(w http.ResponseWriter, r *http.Request, params ListRunsParams)
@@ -2220,6 +2433,74 @@ func (siw *ServerInterfaceWrapper) SaveResourceProfile(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetRules operation middleware
+func (siw *ServerInterfaceWrapper) GetRules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompileRules operation middleware
+func (siw *ServerInterfaceWrapper) CompileRules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompileRules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetLmd operation middleware
+func (siw *ServerInterfaceWrapper) SetLmd(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetLmd(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetRuleSource operation middleware
+func (siw *ServerInterfaceWrapper) SetRuleSource(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "name", r.PathValue("name"), &name, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "name", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetRuleSource(w, r, name)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListRuns operation middleware
 func (siw *ServerInterfaceWrapper) ListRuns(w http.ResponseWriter, r *http.Request) {
 
@@ -2890,6 +3171,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/processes", wrapper.GetProcessInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/persistence", wrapper.GetPersistenceInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/engines", wrapper.GetEngines)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/rules", wrapper.GetRules)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/rules/compile", wrapper.CompileRules)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/rules/sources/{name}", wrapper.SetRuleSource)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/rules/lmd", wrapper.SetLmd)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/users", wrapper.ListUsers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users", wrapper.CreateUser)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/users/{id}", wrapper.DeleteUser)

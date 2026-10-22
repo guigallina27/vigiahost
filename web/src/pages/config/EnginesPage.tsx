@@ -22,14 +22,20 @@ export type EngineGuidance =
   | "selftestFailed"
   | "yaraMissing"
   | "clamavMissing"
+  | "lmdMissing"
+  | "lmdDisabled"
+  | "lmdUnavailable"
   | null;
 
 export function engineGuidance(e: Engine, executorError: string | undefined): EngineGuidance {
   if (executorError) return "executorDown";
   if (e.state === "operational") return null;
+  // LMD é opcional: desligado ou ausente não é falha; a tela Regras e fontes traz a orientação completa.
+  if (e.state === "not_installed") return "lmdMissing";
+  if (e.state === "disabled") return "lmdDisabled";
   if (e.last_selftest && !e.last_selftest.passed) return "selftestFailed";
   if (e.id === "clamav" && e.mode === "clamscan") return "clamdFallback";
-  if (e.state === "unavailable") return e.id === "clamav" ? "clamavMissing" : "yaraMissing";
+  if (e.state === "unavailable") return e.id === "clamav" ? "clamavMissing" : e.id === "lmd" ? "lmdUnavailable" : "yaraMissing";
   return null;
 }
 
@@ -148,7 +154,7 @@ function EngineCard({ engine: e, executorError }: { engine: Engine; executorErro
               {e.rules_version ? <code>{e.rules_version}</code> : <span className="text-ink-muted">{t("config.engines.rulesUnknown")}</span>}
             </Row>
           )}
-          {e.id === "clamav" && (
+          {(e.id === "clamav" || e.id === "lmd") && (
             <>
               <Row label={t("config.engines.signaturesVersion")}>
                 {e.signatures_version ? <code>{e.signatures_version}</code> : <span className="text-ink-muted">{t("config.engines.unknown")}</span>}
@@ -163,6 +169,7 @@ function EngineCard({ engine: e, executorError }: { engine: Engine; executorErro
                   <span className="text-ink-muted">{t("config.engines.unknown")}</span>
                 )}
               </Row>
+              {e.id === "clamav" && (
               <Row label={t("config.engines.mode")}>
                 {e.mode === "clamd"
                   ? t("config.engines.modeClamd")
@@ -170,6 +177,7 @@ function EngineCard({ engine: e, executorError }: { engine: Engine; executorErro
                     ? t("config.engines.modeClamscan")
                     : <span className="text-ink-muted">{t("config.engines.unknown")}</span>}
               </Row>
+              )}
             </>
           )}
           <Row label={t("config.engines.selftest")}>
@@ -206,6 +214,14 @@ function EngineCard({ engine: e, executorError }: { engine: Engine; executorErro
         {guidance && guidance !== "executorDown" && (
           <p className="m-0 rounded-control border border-line-strong bg-sunken p-3 text-sm">
             {t(`config.engines.guidance.${guidance}`)}
+            {e.id === "lmd" && (
+              <>
+                {" "}
+                <Link to="/regras" className="font-semibold text-accent underline underline-offset-4">
+                  {t("config.engines.openRules")}
+                </Link>
+              </>
+            )}
           </p>
         )}
       </div>

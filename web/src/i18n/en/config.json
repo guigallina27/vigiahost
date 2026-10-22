@@ -211,8 +211,12 @@
         "clamdFallback": "The clamd service did not respond and scanning is using clamscan, which is much slower. Check that the clamd service is active on the server; the detail above shows the reported error.",
         "selftestFailed": "The last scan's self-test failed: the engine may not be detecting threats. Open the run shown to see why and scan again after fixing it.",
         "yaraMissing": "YARA-X is not available to the executor. The detail above shows why (yr program missing or rules with errors).",
-        "clamavMissing": "ClamAV is not available to the executor: neither clamd nor clamscan responded. The detail above shows why."
-      }
+        "clamavMissing": "ClamAV is not available to the executor: neither clamd nor clamscan responded. The detail above shows why.",
+        "lmdMissing": "LMD is optional and not installed (or cannot be used); scans continue with YARA-X and ClamAV.",
+        "lmdDisabled": "LMD is installed and turned off; the administrator can turn it on as an additional signature source.",
+        "lmdUnavailable": "LMD is on, but the installation cannot be used: scans record an engine failure until it is fixed or turned off."
+      },
+      "openRules": "Open Rules and sources"
     }
   }
 }

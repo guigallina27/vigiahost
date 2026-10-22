@@ -9,7 +9,7 @@ import { TableScroll } from "../../components/TableScroll";
 
 type EngineCoverage = Schemas["EngineCoverage"];
 
-const ENGINE_NAMES: Record<string, string> = { "yara-x": "YARA-X", clamav: "ClamAV" };
+const ENGINE_NAMES: Record<string, string> = { "yara-x": "YARA-X", clamav: "ClamAV", lmd: "LMD" };
 
 export function engineName(id: string): string {
   return ENGINE_NAMES[id] ?? id;

@@ -1,0 +1,104 @@
+{
+  "rules": {
+    "title": "Regras e fontes",
+    "subtitle": "Fontes de regras YARA, assinaturas do ClamAV e do LMD, com o resultado da última compilação.",
+    "refresh": "Atualizar estado",
+    "compile": "Compilar regras",
+    "compiling": "Compilando as regras…",
+    "compileStarted": "Compilação iniciada. O resultado aparece aqui quando terminar.",
+    "compileBusy": "Já há uma compilação de regras em andamento.",
+    "executorDown": "O executor não respondeu: fontes e assinaturas podem estar incompletas.",
+    "adminOnly": "Só o administrador compila regras, ativa ou desativa fontes e liga o LMD.",
+    "lastCompile": {
+      "title": "Última compilação",
+      "none": "Nenhuma compilação registrada. A primeira varredura ou o botão Compilar regras compila o conjunto.",
+      "when": "Quando",
+      "trigger": "Origem",
+      "triggers": {
+        "scan": "Varredura de arquivos",
+        "inspect": "Inspeção de processos",
+        "manual": "Pedido do administrador"
+      },
+      "result": "Resultado",
+      "ok": "Conjunto compilado",
+      "failed": "Falhou",
+      "setVersion": "Versão do conjunto",
+      "yrVersion": "YARA-X",
+      "selftest": "Controle positivo",
+      "selftestPassed": "Detectado",
+      "selftestFailed": "Não detectado",
+      "selftestNotRun": "Só é testado na compilação pedida pelo administrador"
+    },
+    "sources": {
+      "title": "Fontes YARA",
+      "caption": "Fontes de regras YARA",
+      "colSource": "Fonte",
+      "colLicense": "Licença",
+      "colRules": "Regras",
+      "colUpdated": "Atualização",
+      "colHash": "Hash",
+      "colState": "Estado",
+      "colActions": "Ações",
+      "origin": {
+        "builtin": "Embarcada",
+        "local": "Local"
+      },
+      "mandatory": "Obrigatória",
+      "rulesFiles_one": "{{rules}} regras em {{count}} arquivo",
+      "rulesFiles_other": "{{rules}} regras em {{count}} arquivos",
+      "version": "versão {{version}}",
+      "noLicense": "Não informada",
+      "states": {
+        "ok": "Compilada",
+        "error": "Com erro",
+        "refused": "Recusada",
+        "disabled": "Desativada",
+        "pending": "Pendente"
+      },
+      "enable": "Ativar fonte",
+      "disable": "Desativar fonte",
+      "enableTitle": "Ativar a fonte de regras",
+      "disableTitle": "Desativar a fonte de regras",
+      "enableImpact": "As regras desta fonte voltam a valer a partir da próxima compilação; a compilação começa agora, com validação de cada fonte.",
+      "disableImpact": "As regras desta fonte deixam de ser usadas nas próximas varreduras. Achados já registrados continuam como estão.",
+      "toggled": "Fonte {{name}} atualizada; a compilação foi pedida.",
+      "userDir": "Para acrescentar uma fonte, crie um subdiretório em {{dir}} com arquivos .yar e, se quiser, um source.json com descrição, licença, autor, endereço e versão. Só o root grava ali; fontes com permissões abertas, include ou acima dos limites são recusadas.",
+      "empty": "Nenhuma fonte informada pelo executor.",
+      "emptyDescription": "Confira se o executor está em funcionamento e atualize o estado."
+    },
+    "clamav": {
+      "title": "Assinaturas do ClamAV",
+      "mode": "Modo",
+      "lmdLinked": "As assinaturas do LMD (rfxn) já estão nos diretórios do ClamAV e são carregadas pelo clamd:",
+      "lmdLinkedNote": "Ligar o LMD acrescenta só os tipos que o ClamAV não usa (SHA-256 e assinaturas compostas)."
+    },
+    "lmd": {
+      "title": "Linux Malware Detect (LMD)",
+      "role": "Fonte adicional de assinaturas (MD5, SHA-256, HEX, compostas e YARA do projeto rfxn), aplicada à mesma lista de arquivos da varredura. O LMD roda sem quarentena e sem o estágio do ClamAV: o VigiaHost só lê.",
+      "installed": "Instalação",
+      "path": "Diretório",
+      "notInstalled": "Não encontrada",
+      "signaturesVersion": "Versão das assinaturas",
+      "signaturesDate": "Data das assinaturas",
+      "signatures": "Assinaturas",
+      "counts": "{{md5}} MD5 · {{sha256}} SHA-256 · {{hex}} HEX · {{csig}} compostas · {{yara}} YARA · {{user}} do usuário",
+      "enabled": "Nas varreduras",
+      "on": "Ligado",
+      "off": "Desligado",
+      "enable": "Ligar o LMD",
+      "disable": "Desligar o LMD",
+      "enableTitle": "Ligar o LMD nas varreduras de arquivos",
+      "disableTitle": "Desligar o LMD nas varreduras de arquivos",
+      "enableImpact": "As próximas varreduras de arquivos também passam pelo LMD, com quarentena desligada. A varredura fica mais demorada.",
+      "disableImpact": "As próximas varreduras de arquivos deixam de usar o LMD. Achados já registrados continuam como estão.",
+      "toggledOn": "LMD ligado para as próximas varreduras de arquivos.",
+      "toggledOff": "LMD desligado.",
+      "guidance": {
+        "missing": "O LMD 2.x não está instalado. Para usá-lo, instale a versão 2.0 ou mais nova pelo pacote oficial do projeto rfxn (github.com/rfxn/linux-malware-detect) e confira a assinatura do arquivo. O VigiaHost não instala ferramentas de terceiros.",
+        "unusable": "O LMD foi encontrado, mas não pode ser usado: o detalhe acima traz o motivo (versão anterior à 2.0 ou arquivos graváveis por outros usuários).",
+        "unavailable": "O LMD está ligado, mas a instalação não pode ser usada: as varreduras registram falha do motor até corrigir ou desligar.",
+        "selftestFailed": "O autoteste do LMD falhou na última varredura. Abra a execução indicada para ver o motivo."
+      }
+    }
+  }
+}

@@ -418,9 +418,14 @@ func (s *Server) engineHealth(ctx context.Context) ([]api.EngineHealth, *string)
 
 	yr := api.EngineHealth{Id: api.YaraX, Name: "YARA-X", State: api.EngineStateUnavailable, LastSelftest: selftest(scan.EngineYARA)}
 	clam := api.EngineHealth{Id: api.Clamav, Name: "ClamAV", State: api.EngineStateUnavailable, LastSelftest: selftest(scan.EngineClamAV)}
+	lmdOn, lerr := s.DB.LMDEnabled(ctx)
+	if lerr != nil {
+		s.Logger.Warn("configuração do LMD não lida", "erro", lerr)
+	}
+	lmdH := lmdHealth(info, err, lmdOn, selftest(scan.EngineLMD))
 	if err != nil {
 		yr.Detail, clam.Detail = ptr("executor indisponível"), ptr("executor indisponível")
-		return []api.EngineHealth{yr, clam}, execErr
+		return []api.EngineHealth{yr, clam, lmdH}, execErr
 	}
 	if info.YRVersion != "" {
 		yr.State, yr.Version = api.EngineStateOperational, ptr(info.YRVersion)
@@ -448,7 +453,7 @@ func (s *Server) engineHealth(ctx context.Context) ([]api.EngineHealth, *string)
 	if clam.LastSelftest != nil && !clam.LastSelftest.Passed && clam.State == api.EngineStateOperational {
 		clam.State, clam.Detail = api.EngineStateDegraded, ptr("o autoteste da última execução falhou")
 	}
-	return []api.EngineHealth{yr, clam}, execErr
+	return []api.EngineHealth{yr, clam, lmdH}, execErr
 }
 
 // GetEngines devolve a saúde dos motores.
