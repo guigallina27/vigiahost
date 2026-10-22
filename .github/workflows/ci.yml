@@ -147,3 +147,32 @@ jobs:
         run: sudo bash test/lab/test-lifecycle.sh "$PWD/pkgs" 0.0.1 0.0.2
       - name: Ciclo de vida em contêineres (níveis 1 e 2)
         run: sudo bash test/lab/test-distros.sh "$PWD/pkgs" 0.0.1 0.0.2
+
+  # ARM64 nativo: no laboratório x86_64 os testes rodam sob qemu de modo usuário (test/lab/test-arm64.sh), que não
+  # exercita o detector de race nem o systemd; aqui os dois rodam numa máquina aarch64 de verdade.
+  arm64:
+    name: ARM64 (testes com race e ciclo de vida com systemd)
+    needs: [go, web]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: corepack enable pnpm
+      - run: make test-race
+      - name: Gera pacotes arm64 de duas versões
+        run: |
+          mkdir -p pkgs
+          for v in 0.0.1 0.0.2; do
+            make package GOARCH=arm64 VERSION=$v
+            cp dist/*.deb dist/*.rpm pkgs/
+            rm -rf dist
+          done
+      - name: Ciclo de vida com systemd real (Ubuntu 24.04 arm64)
+        run: sudo bash test/lab/test-lifecycle.sh "$PWD/pkgs" 0.0.1 0.0.2

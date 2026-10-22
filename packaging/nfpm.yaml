@@ -1,6 +1,6 @@
-# Pacotes DEB e RPM do VigiaHost. Variáveis vindas do Makefile: VERSION, GOARCH, MAINTAINER.
+# Pacotes DEB e RPM do VigiaHost. Variáveis vindas do Makefile: VERSION, PKG_ARCH (valor do GOARCH), MAINTAINER.
 name: vigiahost
-arch: ${GOARCH}
+arch: ${PKG_ARCH}
 platform: linux
 version: ${VERSION}
 version_schema: semver

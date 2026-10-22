@@ -53,10 +53,12 @@ vuln:
 	go tool govulncheck ./...
 
 # O pacote sempre leva a interface. O nfpm não expande variáveis nos caminhos de origem; os binários vão para dist/stage.
+# A arquitetura chega ao nfpm como PKG_ARCH, e GOARCH é esvaziado: o make exporta variáveis da linha de comando, e com
+# GOARCH=arm64 o próprio nfpm seria compilado para arm64 e não rodaria no host.
 package: web build
 	rm -rf dist/stage && mkdir -p dist/stage && cp dist/$(GOARCH)/* dist/stage/
 	for fmt in deb rpm; do \
-		VERSION=$(VERSION) GOARCH=$(GOARCH) MAINTAINER="$(MAINTAINER)" \
+		VERSION=$(VERSION) PKG_ARCH=$(GOARCH) GOARCH= MAINTAINER="$(MAINTAINER)" \
 			go tool nfpm package -f packaging/nfpm.yaml -p $$fmt -t dist/ || exit 1; \
 	done
 

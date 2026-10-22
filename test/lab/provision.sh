@@ -10,12 +10,12 @@ with_podman=1
 log() { printf '[provision] %s\n' "$*"; }
 
 if command -v dnf >/dev/null 2>&1; then
-	pkgs=(git tar gzip xz make gcc gnupg2 rpm-sign jq procps-ng iproute findutils diffutils file curl)
+	pkgs=(git tar gzip xz make gcc gnupg2 rpm-sign jq procps-ng iproute findutils diffutils file curl cpio binutils)
 	((with_podman)) && pkgs+=(podman)
 	log "instalando pacotes com dnf"
 	dnf -y -q install "${pkgs[@]}"
 elif command -v apt-get >/dev/null 2>&1; then
-	pkgs=(git tar gzip xz-utils make gcc gnupg jq procps iproute2 findutils diffutils file curl ca-certificates)
+	pkgs=(git tar gzip xz-utils make gcc gnupg jq procps iproute2 findutils diffutils file curl ca-certificates cpio binutils rpm)
 	((with_podman)) && pkgs+=(podman)
 	log "instalando pacotes com apt"
 	export DEBIAN_FRONTEND=noninteractive
