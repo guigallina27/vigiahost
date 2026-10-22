@@ -25,6 +25,7 @@
       "selftest": "Engine self-test",
       "inventory": "Listing files",
       "scanning": "Scanning files",
+      "lmd": "LMD scan",
       "large_files": "Scanning large files",
       "inspect": "Inspecting processes and persistence",
       "done": "Finished"

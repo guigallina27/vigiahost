@@ -751,6 +751,80 @@ paths:
               schema: { $ref: "#/components/schemas/EngineStatus" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /api/v1/rules:
+    get:
+      operationId: getRules
+      summary: Fontes de regras YARA, assinaturas do ClamAV e do LMD, com o estado da última compilação
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Regras e fontes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/rules/compile:
+    post:
+      operationId: compileRules
+      summary: >
+        Recompila o conjunto de regras com validação (cada fonte compilada sozinha, controle positivo no conjunto),
+        numa unidade isolada do executor; responde na hora com compiling=true (administrador)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Compilação iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/rules/sources/{name}:
+    parameters:
+      - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,31}$" } }
+    put:
+      operationId: setRuleSource
+      summary: Ativa ou desativa uma fonte de regras YARA e pede nova compilação (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ToggleInput" }
+      responses:
+        "200":
+          description: Regras atualizadas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/rules/lmd:
+    put:
+      operationId: setLmd
+      summary: >
+        Liga ou desliga o LMD como fonte adicional de assinaturas nas varreduras de arquivos (administrador, com
+        reautenticação); ligar exige o LMD 2.x instalado
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ToggleInput" }
+      responses:
+        "200":
+          description: Regras atualizadas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
   /api/v1/notifications/channels:
     get:
       operationId: listNotificationChannels
@@ -2030,8 +2104,10 @@ components:
 
     EngineState:
       type: string
-      enum: [operational, degraded, unavailable]
-      description: Saúde do motor (glossário) — não confundir com atualização das assinaturas.
+      enum: [operational, degraded, unavailable, disabled, not_installed]
+      description: >
+        Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado
+        pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
     LastSelfTest:
       type: object
       additionalProperties: false
@@ -2046,7 +2122,7 @@ components:
       additionalProperties: false
       required: [id, name, state]
       properties:
-        id: { type: string, enum: [yara-x, clamav] }
+        id: { type: string, enum: [yara-x, clamav, lmd] }
         name: { type: string }
         state: { $ref: "#/components/schemas/EngineState" }
         version: { type: string }
@@ -2056,6 +2132,116 @@ components:
         mode: { type: string, description: "clamd (FILDES) ou clamscan" }
         detail: { type: string }
         last_selftest: { $ref: "#/components/schemas/LastSelfTest" }
+    ToggleInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    RuleSourceState:
+      type: string
+      enum: [ok, error, refused, disabled, pending]
+      description: >
+        ok: compilada no conjunto; error: não compilou e ficou fora; refused: recusada antes de compilar (permissões,
+        include, limites); disabled: desativada; pending: alterada ou ativada depois da última compilação.
+    RuleSource:
+      type: object
+      additionalProperties: false
+      required: [name, origin, enabled, mandatory, files, rules, bytes, state]
+      properties:
+        name: { type: string }
+        origin: { type: string, enum: [builtin, local] }
+        enabled: { type: boolean }
+        mandatory: { type: boolean, description: O controle positivo não pode ser desativado }
+        path: { type: string }
+        description: { type: string }
+        license: { type: string }
+        author: { type: string }
+        url: { type: string }
+        version: { type: string }
+        files: { type: integer }
+        rules: { type: integer }
+        bytes: { type: integer, format: int64 }
+        hash: { type: string, description: SHA-256 do conteúdo }
+        updated_at: { type: string, format: date-time }
+        state: { $ref: "#/components/schemas/RuleSourceState" }
+        problem: { type: string, description: Motivo da recusa ou erro de compilação }
+    RulesCompileResult:
+      type: object
+      additionalProperties: false
+      required: [at, trigger, ok]
+      properties:
+        at: { type: string, format: date-time }
+        trigger: { type: string, enum: [scan, inspect, manual] }
+        ok: { type: boolean }
+        error: { type: string }
+        set_version: { type: string }
+        yr_version: { type: string }
+        selftest: { type: boolean, description: Controle positivo detectado pelo conjunto (só na compilação manual) }
+        detail: { type: string }
+    YaraRules:
+      type: object
+      additionalProperties: false
+      required: [user_dir, compiling, sources]
+      properties:
+        yr_version: { type: string }
+        user_dir: { type: string, description: Diretório das fontes locais (só o root grava) }
+        compiling: { type: boolean }
+        last_compile: { $ref: "#/components/schemas/RulesCompileResult" }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/RuleSource" }
+    ClamavSignatures:
+      type: object
+      additionalProperties: false
+      required: [state, lmd_signatures]
+      properties:
+        state: { $ref: "#/components/schemas/EngineState" }
+        version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        mode: { type: string }
+        detail: { type: string }
+        lmd_signatures:
+          type: array
+          description: Assinaturas do LMD (rfxn.*) nos diretórios do ClamAV, carregadas pelo clamd
+          items: { type: string }
+    LmdSignatureCounts:
+      type: object
+      additionalProperties: false
+      required: [md5, sha256, hex, csig, yara, user]
+      properties:
+        md5: { type: integer }
+        sha256: { type: integer }
+        hex: { type: integer }
+        csig: { type: integer }
+        yara: { type: integer }
+        user: { type: integer }
+    LmdStatus:
+      type: object
+      additionalProperties: false
+      required: [installed, usable, enabled, state, path]
+      properties:
+        installed: { type: boolean }
+        usable: { type: boolean, description: Versão 2.x com instalação só gravável pelo root }
+        enabled: { type: boolean }
+        state: { $ref: "#/components/schemas/EngineState" }
+        path: { type: string }
+        version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        signatures: { $ref: "#/components/schemas/LmdSignatureCounts" }
+        detail: { type: string }
+        last_selftest: { $ref: "#/components/schemas/LastSelfTest" }
+    RulesOverview:
+      type: object
+      additionalProperties: false
+      required: [yara, clamav, lmd]
+      properties:
+        yara: { $ref: "#/components/schemas/YaraRules" }
+        clamav: { $ref: "#/components/schemas/ClamavSignatures" }
+        lmd: { $ref: "#/components/schemas/LmdStatus" }
+        executor_error: { type: string }
     EngineStatus:
       type: object
       additionalProperties: false

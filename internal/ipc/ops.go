@@ -4,6 +4,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
+	"github.com/guigallina27/vigiahost/internal/rules"
 )
 
 // AccountList é a resposta de OpAccounts: contas e a faixa de UID das contas humanas/de hospedagem.
@@ -30,7 +31,25 @@ const (
 	OpAccounts Op = "accounts.list"
 	// OpRunAdjust ajusta limites de CPU, memória e E/S de uma execução em andamento, campo a campo (protocolo 1.2).
 	OpRunAdjust Op = "run.adjust"
+	// OpRulesStatus lista as fontes de regras YARA e o resultado da última compilação; OpRulesCompile pede uma
+	// compilação com validação numa unidade transitória isolada (protocolo 1.3).
+	OpRulesStatus  Op = "rules.status"
+	OpRulesCompile Op = "rules.compile"
 )
+
+// RulesCompile pede a compilação do conjunto; Disabled são as fontes desativadas pelo administrador.
+type RulesCompile struct {
+	Disabled []string `json:"disabled,omitempty"`
+}
+
+// RulesStatus descreve as fontes de regras e a compilação.
+type RulesStatus struct {
+	UserDir string               `json:"user_dir"`
+	Sources []rules.SourceInfo   `json:"sources"`
+	Last    *rules.CompileStatus `json:"last,omitempty"`
+	// Compiling indica a unidade de compilação pedida pelo administrador ainda rodando.
+	Compiling bool `json:"compiling"`
+}
 
 // Códigos de erro das operações de execução.
 const (

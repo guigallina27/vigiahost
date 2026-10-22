@@ -141,7 +141,11 @@ export default function CatalogPage() {
         </div>
       </Section>
 
-      <Section id="cat-engine" title="EngineHealth" notes="Saúde (Operacional, Degradado, Indisponível) e atualização (Em dia, Atrasada) em linhas separadas.">
+      <Section
+        id="cat-engine"
+        title="EngineHealth"
+        notes="Saúde (Operacional, Degradado, Indisponível; Desligado e Não instalado para motores opcionais, em tom neutro) e atualização (Em dia, Atrasada) em linhas separadas."
+      >
         <div className="grid gap-4 md:grid-cols-3">
           <EngineHealth name="ClamAV" version="1.4.3" health="operational" update="current" lastUpdate={new Date("2026-10-22T09:12:00Z")} />
           <EngineHealth
@@ -152,7 +156,9 @@ export default function CatalogPage() {
             lastUpdate={new Date("2026-10-15T03:00:00Z")}
             detail="Regras da fonte YARA Forge sem atualização há 7 dias."
           />
-          <EngineHealth name="Linux Malware Detect" health="unavailable" detail="maldet não encontrado em /usr/local/sbin." />
+          <EngineHealth name="Linux Malware Detect" health="unavailable" detail="instalação do LMD insegura: /usr/local/maldetect gravável por outros usuários." />
+          <EngineHealth name="LMD" version="2.0.1" health="disabled" />
+          <EngineHealth name="LMD" health="not_installed" detail="LMD não instalado" />
         </div>
       </Section>
 

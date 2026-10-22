@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
+	"github.com/guigallina27/vigiahost/internal/engines/lmd"
 	"github.com/guigallina27/vigiahost/internal/engines/yarax"
 	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
@@ -15,6 +16,7 @@ import (
 const (
 	EngineYARA      = "yara-x"
 	EngineClamAV    = "clamav"
+	EngineLMD       = "lmd"
 	EngineInventory = "inventory"
 )
 
@@ -32,6 +34,16 @@ type Config struct {
 	Clamscan     *clamav.Clamscan
 	ClamVersion  clamav.VersionInfo
 	ClamdMaxFile int64 // MaxFileSize do clamd; acima disso o arquivo vai para a fila de grandes (clamscan)
+
+	// LMD é o estágio do Linux Malware Detect (nil: desligado no pedido ou indisponível); LMDError explica a
+	// indisponibilidade quando o pedido ligou o LMD.
+	LMD      *lmd.Scanner
+	LMDError string
+	// LMDBatch: arquivos por sessão do maldet (cada sessão custa alguns segundos de preparo das assinaturas).
+	LMDBatch int
+	// LMDMinFile e LMDMaxFile seguem os padrões do LMD (scan_min_filesize 24 B, scan_max_filesize 2048 KiB).
+	LMDMinFile int64
+	LMDMaxFile int64
 
 	CachePath string
 	// BatchSize: arquivos por lote entregue ao yr; MaxLarge: tamanho da fila do clamscan antes de esvaziá-la.
@@ -62,6 +74,15 @@ func (c *Config) defaults() {
 	}
 	if c.LargeMaxFile <= 0 {
 		c.LargeMaxFile = 2 << 30
+	}
+	if c.LMDBatch <= 0 {
+		c.LMDBatch = 5000
+	}
+	if c.LMDMinFile <= 0 {
+		c.LMDMinFile = 24
+	}
+	if c.LMDMaxFile <= 0 {
+		c.LMDMaxFile = 2048 << 10
 	}
 	if c.ClamdMaxFile <= 0 {
 		c.ClamdMaxFile = 25 << 20 // padrão do clamd

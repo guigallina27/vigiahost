@@ -13,3 +13,8 @@ import (
 func Run(context.Context, Config) (report.Summary, error) {
 	return report.Summary{}, errors.New("varredura disponível só no Linux")
 }
+
+// RulesSelfTest só existe no Linux (memfd).
+func RulesSelfTest(context.Context, string, string) (bool, string) {
+	return false, "autoteste das regras disponível só no Linux"
+}

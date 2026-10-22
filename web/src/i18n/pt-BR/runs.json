@@ -25,6 +25,7 @@
       "selftest": "Autoteste dos motores",
       "inventory": "Levantamento dos arquivos",
       "scanning": "Análise dos arquivos",
+      "lmd": "Análise pelo LMD",
       "large_files": "Análise dos arquivos grandes",
       "inspect": "Inspeção de processos e persistência",
       "done": "Finalizada"

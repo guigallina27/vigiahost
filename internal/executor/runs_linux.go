@@ -37,6 +37,8 @@ type Runs struct {
 	CoreGID  int    // grupo do core, que lê o diretório da execução
 	Local    LocalConfig
 	Hardware profile.Hardware
+	// UserRules é o diretório das fontes locais de regras (padrão rules.UserDir).
+	UserRules string
 
 	mu   sync.Mutex
 	conn *sddbus.Conn
@@ -167,7 +169,7 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 	props := []sddbus.Property{
 		sddbus.PropDescription("VigiaHost: execução " + in.Request.RunID),
 		sddbus.PropType("exec"),
-		sddbus.PropExecStart([]string{r.Exe, sub, "-dir", dir, "-state", r.StateDir}, true),
+		sddbus.PropExecStart([]string{r.Exe, sub, "-dir", dir, "-state", r.StateDir, "-user-rules", r.userRules()}, true),
 		sddbus.PropSlice("vigiahost.slice"),
 		prop("CollectMode", "inactive-or-failed"),
 		prop("RuntimeMaxUSec", uint64(p.MaxRuntimeSec)*1_000_000), //nolint:gosec // validado por Enforce
@@ -550,6 +552,8 @@ func (r *Runs) Register(h map[ipc.Op]Handler) {
 	h[ipc.OpRunCleanup] = r.Cleanup
 	h[ipc.OpHardware] = r.HardwareInfo
 	h[ipc.OpAccounts] = r.Accounts
+	h[ipc.OpRulesStatus] = r.RulesStatus
+	h[ipc.OpRulesCompile] = r.RulesCompile
 }
 
 // Accounts lista as contas do servidor com os diretórios pessoais conferidos (o core não enxerga /home).

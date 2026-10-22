@@ -23,6 +23,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/accounts"
 	"github.com/guigallina27/vigiahost/internal/api"
 	"github.com/guigallina27/vigiahost/internal/auth"
+	"github.com/guigallina27/vigiahost/internal/engines/lmd"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/orchestrator"
@@ -32,8 +33,16 @@ import (
 	"github.com/guigallina27/vigiahost/internal/store"
 )
 
-// fakeExec responde como um executor mínimo: hardware, início e estado das execuções.
-type fakeExec struct{ started []string }
+// fakeExec responde como um executor mínimo: hardware, início e estado das execuções, motores e regras.
+type fakeExec struct {
+	started []string
+	// lmd e lmdErr simulam a descoberta do LMD; rules e compileBusy, as fontes de regras.
+	lmd         *lmd.Install
+	lmdErr      string
+	rules       ipc.RulesStatus
+	compileBusy bool
+	compiles    [][]string
+}
 
 func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 	set := func(v any) {
@@ -73,7 +82,17 @@ func (f *fakeExec) Call(_ context.Context, op ipc.Op, in, out any) error {
 		}})
 	case ipc.OpEngines:
 		set(map[string]any{"yr": "/usr/bin/yr", "yr_version": "1.21.0", "clamscan": "/usr/bin/clamscan",
-			"clam_version": map[string]any{"Engine": "1.4.6", "Database": "27800"}})
+			"clam_version": map[string]any{"Engine": "1.4.6", "Database": "27800"}, "lmd": f.lmd, "lmd_error": f.lmdErr})
+	case ipc.OpRulesStatus:
+		set(f.rules)
+	case ipc.OpRulesCompile:
+		if f.compileBusy {
+			return &ipc.Error{Code: ipc.CodeAlreadyExists, Message: "compilação de regras já em andamento"}
+		}
+		f.compiles = append(f.compiles, in.(ipc.RulesCompile).Disabled)
+		st := f.rules
+		st.Compiling = true
+		set(st)
 	default:
 		return &ipc.Error{Code: ipc.CodeNotFound, Message: "desconhecida"}
 	}
@@ -352,7 +371,7 @@ func TestFluxoCompletoPeloHTTP(t *testing.T) {
 	}
 
 	ov := decodeBody[api.Overview](t, a.do(t, "GET", "/api/v1/overview", "", cookie, ""))
-	if ov.HasRuns || ov.OpenFindings.Total != 0 || len(ov.Engines) != 2 {
+	if ov.HasRuns || ov.OpenFindings.Total != 0 || len(ov.Engines) != 3 {
 		t.Fatalf("visão geral vazia: %+v", ov)
 	}
 

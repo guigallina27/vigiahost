@@ -73,7 +73,9 @@
     "label": "Engine health",
     "operational": "Operational",
     "degraded": "Degraded",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "disabled": "Turned off",
+    "not_installed": "Not installed"
   },
   "engineUpdate": {
     "label": "Update",

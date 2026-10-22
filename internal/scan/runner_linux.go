@@ -21,6 +21,7 @@ import (
 
 	"github.com/guigallina27/vigiahost/internal/controls"
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
+	"github.com/guigallina27/vigiahost/internal/engines/lmd"
 	"github.com/guigallina27/vigiahost/internal/engines/yarax"
 	"github.com/guigallina27/vigiahost/internal/perf"
 	"github.com/guigallina27/vigiahost/internal/report"
@@ -74,11 +75,17 @@ type runner struct {
 	smu                                                        sync.Mutex
 	skipped                                                    map[report.SkipReason]int64
 	warnings                                                   []string
-	yara, clam                                                 engineStats
-	yaraErr, clamErr                                           atomic.Value // string: falha geral do motor
+	yara, clam, lmd                                            engineStats
+	yaraErr, clamErr, lmdErr                                   atomic.Value // string: falha geral do motor
 	objects                                                    sync.Map     // sha256 -> struct{}
 	large                                                      []*file
 	lmu                                                        sync.Mutex
+	// Fila do LMD: descritores duplicados entregues ao maldet em sessões grandes, numa goroutine própria (o
+	// canal com espaço para um lote limita os descritores abertos).
+	lmdQueue []*file
+	lmdMu    sync.Mutex
+	lmdCh    chan []*file
+	lmdWG    sync.WaitGroup
 }
 
 // Run executa a varredura de arquivos e grava progresso, achados e resumo no diretório de saída.
@@ -114,6 +121,17 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 		r.cfg.YARA = nil
 	}
 	clamOK := clamST.Passed()
+	var lmdST report.SelfTest
+	if cfg.Request.LMD {
+		lmdST = LMDSelfTest(ctx, cfg)
+		if !lmdST.Passed() {
+			r.cfg.LMD = nil
+		}
+	}
+	if cfg.LMD != nil {
+		// A árvore-sombra e as sessões do LMD não precisam sobreviver à execução.
+		defer func() { _ = os.RemoveAll(cfg.LMD.Work) }()
+	}
 
 	clamVer := cfg.ClamVersion.Engine + "/" + cfg.ClamVersion.Database
 	cacheYARA := ""
@@ -127,8 +145,17 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	} else {
 		r.cache = LoadCache(cfg.CachePath, cacheYARA, clamVer)
 	}
+	r.cache.SetLMDVersion(LMDVersion(r.cfg.LMD))
 	if !clamOK {
 		r.cfg.Clamd, r.cfg.Clamscan = nil, nil
+	}
+	if r.cfg.LMD != nil {
+		r.lmdCh = make(chan []*file, 1)
+		r.lmdWG.Go(func() {
+			for b := range r.lmdCh {
+				r.runLMD(b)
+			}
+		})
 	}
 
 	// Inventário e análise em lotes, em paralelo.
@@ -178,6 +205,20 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	close(batches)
 	wg.Wait()
 
+	// Último lote do LMD (os anteriores rodaram durante o percurso).
+	if r.lmdCh != nil {
+		r.setPhase(report.PhaseLMD)
+		r.lmdMu.Lock()
+		rest := r.lmdQueue
+		r.lmdQueue = nil
+		r.lmdMu.Unlock()
+		if len(rest) > 0 {
+			r.lmdCh <- rest
+		}
+		close(r.lmdCh)
+		r.lmdWG.Wait()
+	}
+
 	// Fila de arquivos grandes: clamscan com limites maiores.
 	r.setPhase(report.PhaseLarge)
 	_ = r.meter.Throttle.Wait(ctx, 0)
@@ -206,6 +247,13 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	sum.Engines = []report.EngineCoverage{
 		r.coverage(EngineYARA, cfg.YARAVersion, cfg.RulesVersion, cfg.YARA != nil, yaraST, &r.yara, &r.yaraErr),
 		r.coverage(EngineClamAV, cfg.ClamVersion.Engine, cfg.ClamVersion.Database, cfg.Clamd != nil || cfg.Clamscan != nil, clamST, &r.clam, &r.clamErr),
+	}
+	if cfg.Request.LMD {
+		var ver, sigs string
+		if cfg.LMD != nil {
+			ver, sigs = cfg.LMD.Install.Version, cfg.LMD.Install.SigVersion
+		}
+		sum.Engines = append(sum.Engines, r.coverage(EngineLMD, ver, sigs, cfg.LMD != nil, lmdST, &r.lmd, &r.lmdErr))
 	}
 	sum.Status = r.status(sum)
 	if ctx.Err() != nil {
@@ -328,6 +376,23 @@ func (r *runner) processBatch(batch []*file) {
 			r.yara.eligible.Add(1)
 			st.needYARA = true
 		}
+		// LMD: mesmo roteamento por tipo do YARA (assinaturas de scripts, binários e texto) e a faixa de tamanho
+		// padrão do próprio LMD (scan_min_filesize/scan_max_filesize). Fora dela o arquivo não é elegível para o LMD,
+		// como no LMD sozinho, e segue coberto pelo YARA-X e pelo ClamAV; não conta como cobertura parcial. Os
+		// arquivos seguem em lotes grandes para a goroutine do LMD.
+		lmdQueued := false
+		switch {
+		case r.cfg.LMD == nil:
+		case fl.st.Size < r.cfg.LMDMinFile || fl.st.Size > r.cfg.LMDMaxFile || !yaraRoutes(fl.typ):
+		case r.cache.LMDClean(key):
+			r.lmd.eligible.Add(1)
+			r.lmd.fromCache.Add(1)
+			r.lmd.analyzed.Add(1)
+			r.cache.StoreLMD(key, sha, true)
+		default:
+			r.lmd.eligible.Add(1)
+			lmdQueued = r.queueLMD(fl)
+		}
 		// ClamAV: tudo, com arquivos acima do limite do clamd na fila de grandes.
 		switch {
 		case r.cfg.Clamd == nil && r.cfg.Clamscan == nil:
@@ -348,7 +413,7 @@ func (r *runner) processBatch(batch []*file) {
 			r.clam.eligible.Add(1)
 			st.needClam = true
 		}
-		if yaraCached && (clamCached || r.cfg.Clamd == nil && r.cfg.Clamscan == nil) {
+		if yaraCached && (clamCached || r.cfg.Clamd == nil && r.cfg.Clamscan == nil) && !lmdQueued {
 			r.cacheHits.Add(1)
 		}
 		states = append(states, st)
@@ -516,6 +581,123 @@ func (r *runner) runClamscan(queue []*file) {
 	}
 }
 
+// queueLMD põe o arquivo na fila do LMD (descritor duplicado: o lote fecha o original). Devolve se entrou.
+func (r *runner) queueLMD(fl *file) bool {
+	nfd, err := unix.FcntlInt(fl.f.Fd(), unix.F_DUPFD_CLOEXEC, 0)
+	if err != nil {
+		r.lmd.fail(report.SkipEngine, "descritor não duplicado: "+err.Error())
+		return false
+	}
+	cp := *fl
+	cp.f = os.NewFile(uintptr(nfd), "fila-lmd")
+	r.lmdMu.Lock()
+	r.lmdQueue = append(r.lmdQueue, &cp)
+	var full []*file
+	if len(r.lmdQueue) >= r.cfg.LMDBatch {
+		full, r.lmdQueue = r.lmdQueue, nil
+	}
+	r.lmdMu.Unlock()
+	if full != nil {
+		r.lmdCh <- full // espera se o LMD ainda está no lote anterior
+	}
+	return true
+}
+
+// runLMD entrega um lote ao maldet e grava as detecções.
+func (r *runner) runLMD(queue []*file) {
+	defer func() {
+		for _, fl := range queue {
+			_ = unix.Fadvise(int(fl.f.Fd()), 0, 0, unix.FADV_DONTNEED)
+			_ = fl.f.Close()
+		}
+	}()
+	if r.ctx.Err() != nil {
+		return
+	}
+	files := make([]*os.File, len(queue))
+	for i, fl := range queue {
+		files[i] = fl.f
+	}
+	t0 := time.Now()
+	res, err := r.cfg.LMD.ScanFiles(r.ctx, files)
+	r.lmd.nanos.Add(int64(time.Since(t0)))
+	if err != nil {
+		if r.ctx.Err() != nil {
+			return
+		}
+		r.lmdErr.Store(err.Error())
+		for range queue {
+			r.lmd.fail(report.SkipEngine, err.Error())
+		}
+		return
+	}
+	if res.Unmapped > 0 {
+		r.warn(fmt.Sprintf("LMD: %d detecção(ões) da sessão %s citavam arquivo fora do lote e foram descartadas", res.Unmapped, res.ScanID))
+	}
+	for i, fl := range queue {
+		r.lmd.analyzed.Add(1)
+		r.lmd.bytes.Add(fl.st.Size)
+		seen := map[string]bool{}
+		for _, h := range res.Hits[i] {
+			if !seen[h.Signature] {
+				seen[h.Signature] = true
+				r.emitLMD(fl, h)
+			}
+		}
+		r.cache.StoreLMD(fl.key(), fl.sha, len(res.Hits[i]) == 0)
+	}
+}
+
+func (r *runner) emitLMD(fl *file, h lmd.Hit) {
+	cat, sev := ClassifyLMDSignature(h.Signature)
+	r.findings.Write(report.Finding{
+		Engine: EngineLMD, EngineVersion: r.cfg.LMD.Install.Version, RulesVersion: r.cfg.LMD.Install.SigVersion,
+		Signature: h.Signature, Source: SourceRFXN, Reference: "https://www.rfxn.com/projects/linux-malware-detect/",
+		Description: "Assinatura do Linux Malware Detect (estágio " + h.Type + ")",
+		Category:    cat, Severity: sev,
+		SHA256: hex.EncodeToString(fl.sha[:]), FileType: string(fl.typ), Location: fl.location(),
+		Evidence: map[string]string{"lmd_estagio": h.Type},
+	})
+}
+
+// LMDSelfTest roda o EICAR (controle positivo, que o LMD conhece pelo hash e pelo padrão hexadecimal) e o controle
+// negativo pelo mesmo caminho da varredura (escopo, seção 7.4).
+func LMDSelfTest(parent context.Context, cfg Config) report.SelfTest {
+	var st report.SelfTest
+	if cfg.LMD == nil {
+		st.Detail = cfg.LMDError
+		if st.Detail == "" {
+			st.Detail = lmd.ErrNotInstalled.Error()
+		}
+		return st
+	}
+	st.Ran = true
+	ctx, cancel := context.WithTimeout(parent, 3*time.Minute)
+	defer cancel()
+	pos, err1 := memFile("controle-positivo", controls.EICAR())
+	neg, err2 := memFile("controle-negativo", controls.NegativeFile())
+	defer closeFiles(pos, neg)
+	if err := errors.Join(err1, err2); err != nil {
+		st.Detail = err.Error()
+		return st
+	}
+	res, err := cfg.LMD.ScanFiles(ctx, []*os.File{pos, neg})
+	if err != nil {
+		st.Detail = err.Error()
+		return st
+	}
+	for _, h := range res.Hits[0] {
+		if strings.Contains(strings.ToLower(h.Signature), "eicar") {
+			st.Positive = true
+		}
+	}
+	st.Negative = len(res.Hits[1]) == 0
+	if !st.Positive {
+		st.Detail = "o EICAR não foi detectado pelo LMD: assinaturas não carregadas"
+	}
+	return st
+}
+
 // readHeadAndHash lê o arquivo uma vez: cabeçalho para a classificação e SHA-256 do conteúdo inteiro. Arquivo
 // inalterado no cache não é relido: só o cabeçalho, para o roteamento.
 func (r *runner) readHeadAndHash(fl *file, inCache bool, cached [32]byte) ([32]byte, error) {
@@ -601,35 +783,12 @@ func (r *runner) emitYARA(fl *file, sha [32]byte, m yarax.Match) {
 
 func (r *runner) emitClam(fl *file, sha [32]byte, sig string) {
 	cat, sev := ClassifyClamSignature(sig)
-	source := "clamav"
-	if strings.HasSuffix(sig, ".UNOFFICIAL") {
-		source = "clamav-unofficial"
-	}
+	source := ClamSource(sig)
 	r.findings.Write(report.Finding{
 		Engine: EngineClamAV, EngineVersion: r.cfg.ClamVersion.Engine, RulesVersion: r.cfg.ClamVersion.Database,
 		Signature: sig, Source: source, Category: cat, Severity: sev,
 		SHA256: hex.EncodeToString(sha[:]), FileType: string(fl.typ), Location: fl.location(),
 	})
-}
-
-// ClassifyClamSignature dá categoria e severidade a partir do nome da assinatura.
-func ClassifyClamSignature(sig string) (report.Category, report.Severity) {
-	l := strings.ToLower(sig)
-	switch {
-	case strings.Contains(l, "eicar"):
-		return report.CategoryTest, report.SeverityInfo
-	case strings.HasPrefix(l, "heuristics.limits"):
-		return report.CategorySuspicious, report.SeverityLow
-	case strings.HasPrefix(l, "heuristics."):
-		return report.CategorySuspicious, report.SeverityMedium
-	case strings.HasPrefix(l, "pua."):
-		return report.CategorySuspicious, report.SeverityLow
-	case strings.Contains(l, "coinminer") || strings.Contains(l, "miner"):
-		return report.CategoryMiner, report.SeverityHigh
-	case strings.Contains(l, "webshell") || strings.Contains(l, "php.shell") || strings.Contains(l, "backdoor"):
-		return report.CategoryWebshell, report.SeverityCritical
-	}
-	return report.CategoryMalware, report.SeverityHigh
 }
 
 func (r *runner) selfTest() (yaraST, clamST report.SelfTest) { return SelfTest(r.ctx, r.cfg) }
@@ -696,6 +855,26 @@ func SelfTest(parent context.Context, cfg Config) (yaraST, clamST report.SelfTes
 		clamST.Detail = "ClamAV não encontrado (nem clamd nem clamscan)"
 	}
 	return yaraST, clamST
+}
+
+// RulesSelfTest confere um conjunto recém-compilado com o controle positivo e o negativo.
+func RulesSelfTest(ctx context.Context, yr, compiled string) (bool, string) {
+	pos, err1 := memFile("controle-positivo", controls.MarkerFile())
+	neg, err2 := memFile("controle-negativo", controls.NegativeFile())
+	defer closeFiles(pos, neg)
+	if err := errors.Join(err1, err2); err != nil {
+		return false, err.Error()
+	}
+	res, err := (&yarax.Scanner{Bin: yr, Rules: compiled, Timeout: 60}).ScanFiles(ctx, []*os.File{pos, neg})
+	switch {
+	case err != nil:
+		return false, err.Error()
+	case !hasRule(res.Matches[0], controls.YARARuleName):
+		return false, "o controle positivo não foi detectado pelo conjunto compilado"
+	case len(res.Matches[1]) > 0:
+		return false, "o controle negativo foi acusado pela regra " + res.Matches[1][0].Namespace + "." + res.Matches[1][0].Rule
+	}
+	return true, ""
 }
 
 func hasRule(ms []yarax.Match, rule string) bool {

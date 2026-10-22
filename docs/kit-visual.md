@@ -50,7 +50,7 @@ Estados (sempre ícone + texto; a cor é reforço, WCAG 1.4.1):
 | `medium` | âmbar-mostarda 80–90 | Médio, parcial, atenção |
 | `low` | azul-aço 225 | Baixo, informativo em andamento (distante do cobalto das ações) |
 | `ok` | verde 150 | Concluído, operacional, resolvido — **único lugar do verde** |
-| `neutral` | grafite 264 | Na fila, cancelado, exceção |
+| `neutral` | grafite 264 | Na fila, cancelado, exceção, motor opcional desligado ou não instalado |
 
 Severidade usa selo **preenchido** (o que é); estado usa selo **contornado** (em que pé está). Um conceito, uma forma.
 
@@ -91,6 +91,9 @@ e `th scope`; o `TableScroll` rola no próprio contêiner e é uma região nomea
 - `SeverityCounts`: achados abertos por severidade, selo + número. `layout="inline"` (células de tabela) mostra só as
   severidades com achados e "Nenhum achado aberto" quando zera; `layout="grid"` (painéis) mostra todas e, com `hrefFor`,
   cada cartão vira link para a lista filtrada.
+- `EngineHealth`: saúde do motor em cinco estados — Operacional (`ok`), Degradado (`medium`), Indisponível (`critical`),
+  Desligado e Não instalado (`neutral`, ícones de energia e círculo tracejado). Os dois últimos valem para ferramentas
+  opcionais (LMD): ausência ou escolha do administrador não é falha e não usa tom de alerta.
 - `FilterChip`: filtro aplicado que chega por link de outra tela (ex.: `?account=` nos achados e nas execuções), com o
   valor visível e botão de remover de 44 px com nome próprio. Não substitui os campos do formulário de filtros.
 

@@ -283,8 +283,12 @@
         "clamdFallback": "O serviço clamd não respondeu e a varredura está usando o clamscan, bem mais lento. Confira se o serviço do clamd está ativo no servidor; o detalhe acima traz o erro informado.",
         "selftestFailed": "O autoteste da última varredura falhou: o motor pode não estar detectando ameaças. Abra a execução indicada para ver o motivo e verifique de novo depois de corrigir.",
         "yaraMissing": "O YARA-X não está disponível para o executor. O detalhe acima traz o motivo (programa yr ausente ou regras com erro).",
-        "clamavMissing": "O ClamAV não está disponível para o executor: nem o clamd nem o clamscan responderam. O detalhe acima traz o motivo."
-      }
+        "clamavMissing": "O ClamAV não está disponível para o executor: nem o clamd nem o clamscan responderam. O detalhe acima traz o motivo.",
+        "lmdMissing": "O LMD é opcional e não está instalado (ou não pode ser usado); as varreduras seguem com o YARA-X e o ClamAV.",
+        "lmdDisabled": "O LMD está instalado e desligado; o administrador pode ligá-lo como fonte adicional de assinaturas.",
+        "lmdUnavailable": "O LMD está ligado, mas a instalação não pode ser usada: as varreduras registram falha do motor até corrigir ou desligar."
+      },
+      "openRules": "Abrir Regras e fontes"
     }
   }
 }

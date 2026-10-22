@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/engines/clamav"
+	"github.com/guigallina27/vigiahost/internal/engines/lmd"
 	"github.com/guigallina27/vigiahost/internal/engines/yarax"
 	"github.com/guigallina27/vigiahost/internal/rules"
 )
@@ -18,6 +19,11 @@ import (
 type DiscoverOptions struct {
 	Compile   bool
 	ClamdWait time.Duration // quanto esperar um clamd configurado que ainda não respondeu (carregando assinaturas)
+	// UserRules é o diretório das fontes locais de regras (rules.UserDir); vazio compila só as embarcadas.
+	UserRules string
+	// DisabledRules são as fontes desativadas pelo administrador; Trigger vai para o status da compilação.
+	DisabledRules []string
+	Trigger       string
 }
 
 // Locais procurados para os binários dos motores, em ordem: o do pacote do produto primeiro.
@@ -38,7 +44,16 @@ type EngineInfo struct {
 	Clamscan     string             `json:"clamscan,omitempty"`
 	ClamVersion  clamav.VersionInfo `json:"clam_version"`
 	ClamError    string             `json:"clam_error,omitempty"`
+	// RulesWarnings cita fontes de regras que ficaram fora do conjunto compilado (erro ou recusa).
+	RulesWarnings []string `json:"rules_warnings,omitempty"`
+	// LMD é a instalação do Linux Malware Detect encontrada (também quando não pode ser usada: versão antiga,
+	// permissões); LMDError explica por que não pode.
+	LMD      *lmd.Install `json:"lmd,omitempty"`
+	LMDError string       `json:"lmd_error,omitempty"`
 }
+
+// YRBinary devolve o yr encontrado (o do pacote do produto primeiro) ou vazio.
+func YRBinary() string { return firstExecutable(yrPaths) }
 
 func firstExecutable(paths []string) string {
 	for _, p := range paths {
@@ -51,7 +66,7 @@ func firstExecutable(paths []string) string {
 
 // DiscoverEngines localiza e prepara os motores: compila as regras do produto em stateDir/rules e procura o
 // clamd pela configuração e o clamscan. root é a raiz para a descoberta do clamd (os.DirFS("/")).
-func DiscoverEngines(ctx context.Context, stateDir string, opts DiscoverOptions, clamdCfg func() (clamav.Config, bool), extra ...yarax.Source) EngineInfo {
+func DiscoverEngines(ctx context.Context, stateDir string, opts DiscoverOptions, clamdCfg func() (clamav.Config, bool)) EngineInfo {
 	var info EngineInfo
 	if yr := firstExecutable(yrPaths); yr == "" {
 		info.YRError = "YARA-X (yr) não encontrado"
@@ -65,13 +80,17 @@ func DiscoverEngines(ctx context.Context, stateDir string, opts DiscoverOptions,
 		}
 		if err == nil && opts.Compile {
 			dir := filepath.Join(stateDir, "rules")
-			set, err := rules.Materialize(filepath.Join(dir, "src"), extra...)
+			set, compiled, st, err := rules.Prepare(ctx, yr, v, dir, rules.PrepareOptions{UserDir: opts.UserRules,
+				Disabled: opts.DisabledRules, Trigger: opts.Trigger})
 			if err == nil {
-				info.RulesVersion = set.Version
-				info.RulesFile, err = rules.Compiled(ctx, yr, v, dir, set)
-			}
-			if err != nil {
+				info.RulesVersion, info.RulesFile = set.Version, compiled
+			} else {
 				info.YRError = "regras: " + err.Error()
+			}
+			for _, src := range st.Sources {
+				if src.State == rules.StateError || src.State == rules.StateRefused {
+					info.RulesWarnings = append(info.RulesWarnings, "fonte de regras "+src.Name+" fora do conjunto: "+src.Error)
+				}
 			}
 		}
 	}
@@ -113,7 +132,27 @@ func DiscoverEngines(ctx context.Context, stateDir string, opts DiscoverOptions,
 	if info.Clamd == nil && info.Clamscan == "" {
 		info.ClamError = errors.Join(errors.New(info.ClamdError), exec.ErrNotFound).Error()
 	}
+	if in, err := lmd.Discover(os.DirFS("/")); err != nil {
+		info.LMDError = err.Error()
+		if in.Version != "" {
+			info.LMD = &in
+		}
+	} else {
+		info.LMD = &in
+	}
 	return info
+}
+
+// LMDVersion identifica motor, assinaturas e estágios do LMD para o cache e a cobertura.
+func LMDVersion(s *lmd.Scanner) string {
+	if s == nil {
+		return ""
+	}
+	v := s.Install.Version + "/" + s.Install.SigVersion
+	if s.YRDir != "" {
+		v += "/yara"
+	}
+	return v
 }
 
 // Apply preenche a configuração da varredura com o que foi descoberto.
@@ -132,5 +171,20 @@ func (info *EngineInfo) Apply(cfg *Config) {
 	}
 	if info.Clamscan != "" {
 		cfg.Clamscan = &clamav.Clamscan{Bin: info.Clamscan, MaxFileBytes: 2 << 30, MaxScanBytes: 4 << 30}
+	}
+	// LMD só quando o pedido liga (desligado por padrão) e a instalação pode ser usada.
+	if cfg.Request.LMD {
+		switch {
+		case info.LMD != nil && info.LMDError == "":
+			sc := &lmd.Scanner{Install: *info.LMD, Work: filepath.Join(cfg.OutDir, "lmd"), Workers: cfg.Request.Profile.Workers}
+			if info.YR != "" && info.YRVersion != "" {
+				sc.YRDir = filepath.Dir(info.YR)
+			}
+			cfg.LMD = sc
+		case info.LMDError != "":
+			cfg.LMDError = info.LMDError
+		default:
+			cfg.LMDError = lmd.ErrNotInstalled.Error()
+		}
 	}
 }

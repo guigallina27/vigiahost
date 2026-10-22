@@ -86,6 +86,7 @@ export function PhaseText({ phase }: { phase: string }) {
     case "selftest":
     case "inventory":
     case "scanning":
+    case "lmd":
     case "large_files":
     case "inspect":
     case "done":

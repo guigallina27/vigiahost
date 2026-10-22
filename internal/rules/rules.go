@@ -36,38 +36,45 @@ type Set struct {
 }
 
 // Materialize grava as regras embarcadas em dir e devolve o conjunto. Fontes extras (habilitadas pelo
-// administrador) entram em extra, já baixadas e conferidas.
+// administrador) entram em extra, já conferidas.
 func Materialize(dir string, extra ...yarax.Source) (Set, error) {
+	return materialize(dir, true, extra)
+}
+
+// materialize grava o controle positivo (sempre) e, com product, as regras do projeto; extra soma as fontes locais.
+func materialize(dir string, product bool, extra []yarax.Source) (Set, error) {
 	if err := os.MkdirAll(filepath.Join(dir, NamespaceProduct), 0o700); err != nil {
 		return Set{}, err
 	}
 	h := sha256.New()
-	names, err := fs.Glob(builtin, "vigiahost/*.yar")
-	if err != nil {
-		return Set{}, err
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		data, err := builtin.ReadFile(n)
-		if err != nil {
-			return Set{}, err
-		}
-		_, _ = fmt.Fprintf(h, "%s\x00%d\x00", n, len(data))
-		h.Write(data)
-		if err := os.WriteFile(filepath.Join(dir, n), data, 0o600); err != nil {
-			return Set{}, err
-		}
-	}
 	control := filepath.Join(dir, "controle-positivo.yar")
 	_, _ = fmt.Fprintf(h, "controle\x00%d\x00", len(controls.YARARule))
 	h.Write([]byte(controls.YARARule))
 	if err := os.WriteFile(control, []byte(controls.YARARule), 0o600); err != nil {
 		return Set{}, err
 	}
-	set := Set{Sources: []yarax.Source{
-		{Namespace: NamespaceControl, Path: control},
-		{Namespace: NamespaceProduct, Path: filepath.Join(dir, NamespaceProduct)},
-	}}
+	set := Set{Sources: []yarax.Source{{Namespace: NamespaceControl, Path: control}}}
+	if product {
+		names, err := fs.Glob(builtin, "vigiahost/*.yar")
+		if err != nil {
+			return Set{}, err
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			data, err := builtin.ReadFile(n)
+			if err != nil {
+				return Set{}, err
+			}
+			_, _ = fmt.Fprintf(h, "%s\x00%d\x00", n, len(data))
+			h.Write(data)
+			if err := os.WriteFile(filepath.Join(dir, n), data, 0o600); err != nil {
+				return Set{}, err
+			}
+		}
+		set.Sources = append(set.Sources, yarax.Source{Namespace: NamespaceProduct, Path: filepath.Join(dir, NamespaceProduct)})
+	} else {
+		_, _ = fmt.Fprint(h, "sem-vigiahost\x00")
+	}
 	for _, e := range extra {
 		if err := hashTree(h, e); err != nil {
 			return Set{}, err
@@ -106,7 +113,13 @@ func Compiled(ctx context.Context, yr, yrVersion, dir string, set Set) (string, 
 	if info, err := os.Stat(out); err == nil && info.Size() > 0 {
 		return out, nil
 	}
-	tmp := out + ".tmp"
+	// Temporário com nome próprio: uma execução e a compilação pedida pelo administrador podem compilar juntas.
+	f, err := os.CreateTemp(dir, ".compilando-*.yarc")
+	if err != nil {
+		return "", err
+	}
+	tmp := f.Name()
+	_ = f.Close()
 	if err := yarax.Compile(ctx, yr, set.Sources, tmp); err != nil {
 		_ = os.Remove(tmp)
 		return "", err

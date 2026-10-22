@@ -16,6 +16,7 @@ import (
 
 	"github.com/guigallina27/vigiahost/internal/executor"
 	"github.com/guigallina27/vigiahost/internal/ipc"
+	"github.com/guigallina27/vigiahost/internal/rules"
 	"github.com/guigallina27/vigiahost/internal/sdnotify"
 	"github.com/guigallina27/vigiahost/internal/version"
 )
@@ -31,12 +32,16 @@ func run(args []string) int {
 	if len(args) > 0 && args[0] == "inspect" {
 		return runInspect(args[1:])
 	}
+	if len(args) > 0 && args[0] == "rules" {
+		return runRules(args[1:])
+	}
 	fs := flag.NewFlagSet("vigiahost-executor", flag.ContinueOnError)
 	socket := fs.String("socket", "/run/vigiahost-executor/executor.sock", "caminho do socket Unix")
 	allow := fs.String("allow-user", "vigiahost", "usuários (separados por vírgula) autorizados além do root")
 	group := fs.String("socket-group", "vigiahost", "grupo dono do socket")
 	state := fs.String("state", defaultStateDir, "diretório de estado (execuções, cache, regras)")
 	localConf := fs.String("config", "/etc/vigiahost/executor.json", "configuração local, alterável só pelo root")
+	userRules := fs.String("user-rules", rules.UserDir, "diretório das fontes locais de regras YARA (só do root)")
 	showVersion := fs.Bool("version", false, "mostra a versão e sai")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -84,7 +89,8 @@ func run(args []string) int {
 		logger.Error("caminho do próprio binário indisponível", "erro", err)
 		return 1
 	}
-	runs := &executor.Runs{Logger: logger, StateDir: *state, Exe: exe, CoreGID: gid, Local: local, Hardware: executor.DetectHardware()}
+	runs := &executor.Runs{Logger: logger, StateDir: *state, Exe: exe, CoreGID: gid, Local: local,
+		Hardware: executor.DetectHardware(), UserRules: *userRules}
 	if err := runs.Prepare(); err != nil {
 		logger.Error("diretório de estado indisponível", "dir", *state, "erro", err)
 		return 1

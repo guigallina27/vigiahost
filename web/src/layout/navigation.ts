@@ -71,7 +71,7 @@ export const navigation: NavGroup[] = [
       { to: "/agendamentos", label: "nav.schedules", icon: CalendarClock },
       { to: "/recursos", label: "nav.resources", icon: Gauge },
       { to: "/motores", label: "nav.engines", icon: SlidersHorizontal },
-      { to: "/regras", label: "nav.rules", icon: BookOpen, phase: "1A" },
+      { to: "/regras", label: "nav.rules", icon: BookOpen },
       { to: "/notificacoes", label: "nav.notifications", icon: Bell },
     ],
   },

@@ -388,6 +388,19 @@ func (s *Service) dispatch(ctx context.Context) {
 func (s *Service) start(ctx context.Context, r store.Run) bool {
 	req := report.Request{RunID: r.ID, Kind: r.Kind, Paths: r.Paths, Exclude: r.Exclude, Incremental: r.Incremental,
 		Profile: r.Profile, Owners: r.Owners}
+	// Configuração de regras e do LMD vigente no início da execução (fica gravada no pedido, no relatório).
+	if r.Kind == report.KindFiles {
+		if on, err := s.DB.LMDEnabled(ctx); err == nil {
+			req.LMD = on
+		} else {
+			s.Logger.Warn("configuração do LMD não lida; segue desligado", "execucao", r.ID, "erro", err)
+		}
+	}
+	if list, err := s.DB.DisabledRuleSources(ctx); err == nil {
+		req.DisabledRuleSources = list
+	} else {
+		s.Logger.Warn("fontes de regras desativadas não lidas; seguem todas ativas", "execucao", r.ID, "erro", err)
+	}
 	var st ipc.RunState
 	err := s.Exec.Call(ctx, ipc.OpRunStart, ipc.RunStart{Request: req}, &st)
 	switch {

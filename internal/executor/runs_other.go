@@ -17,6 +17,8 @@ type Runs struct {
 	CoreGID  int
 	Local    LocalConfig
 	Hardware profile.Hardware
+	// UserRules é o diretório das fontes locais de regras.
+	UserRules string
 }
 
 func (r *Runs) Prepare() error              { return nil }
