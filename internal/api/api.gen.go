@@ -714,6 +714,16 @@ type PersistenceEntry struct {
 // PersistenceEntryChange defines model for PersistenceEntry.Change.
 type PersistenceEntryChange string
 
+// PersistenceInventory defines model for PersistenceInventory.
+type PersistenceInventory struct {
+	// Baseline Primeira inspeção
+	Baseline bool                `json:"baseline"`
+	Items    []PersistenceEntry  `json:"items"`
+	Removed  *[]PersistenceEntry `json:"removed,omitempty"`
+	RunId    string              `json:"run_id"`
+	TakenAt  time.Time           `json:"taken_at"`
+}
+
 // ProcessEvidence defines model for ProcessEvidence.
 type ProcessEvidence struct {
 	Cgroup    *string   `json:"cgroup,omitempty"`
@@ -728,6 +738,41 @@ type ProcessEvidence struct {
 	StartTime *string   `json:"start_time,omitempty"`
 	Uid       int64     `json:"uid"`
 	Unit      *string   `json:"unit,omitempty"`
+}
+
+// ProcessInfo defines model for ProcessInfo.
+type ProcessInfo struct {
+	Cgroup     *string   `json:"cgroup,omitempty"`
+	Cmdline    *[]string `json:"cmdline,omitempty"`
+	Comm       string    `json:"comm"`
+	Connected  *[]string `json:"connected,omitempty"`
+	CpuPercent float32   `json:"cpu_percent"`
+	Exe        string    `json:"exe"`
+	ExeDeleted *bool     `json:"exe_deleted,omitempty"`
+	ExeMemfd   *bool     `json:"exe_memfd,omitempty"`
+	ExeSha256  *string   `json:"exe_sha256,omitempty"`
+
+	// Flags Assinaturas que casaram neste processo
+	Flags     *[]string `json:"flags,omitempty"`
+	Listening *[]string `json:"listening,omitempty"`
+
+	// Package Pacote dono do executável; "-" quando nenhum pacote o reconhece
+	Package    *string `json:"package,omitempty"`
+	Pid        int     `json:"pid"`
+	Ppid       int     `json:"ppid"`
+	RssBytes   int64   `json:"rss_bytes"`
+	StartTicks *int64  `json:"start_ticks,omitempty"`
+	Threads    int     `json:"threads"`
+	Uid        int64   `json:"uid"`
+	Unit       *string `json:"unit,omitempty"`
+	User       *string `json:"user,omitempty"`
+}
+
+// ProcessInventory defines model for ProcessInventory.
+type ProcessInventory struct {
+	Processes []ProcessInfo `json:"processes"`
+	RunId     string        `json:"run_id"`
+	TakenAt   time.Time     `json:"taken_at"`
 }
 
 // ProfileEntry defines model for ProfileEntry.
@@ -1015,6 +1060,9 @@ type Limit = int
 // RunId defines model for RunId.
 type RunId = string
 
+// SnapshotRun defines model for SnapshotRun.
+type SnapshotRun = string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
 
@@ -1064,6 +1112,18 @@ type ListFindingsParams struct {
 	// Before Cursor (next_before da página anterior)
 	Before *int64 `form:"before,omitempty" json:"before,omitempty"`
 	Limit  *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetPersistenceInventoryParams defines parameters for GetPersistenceInventory.
+type GetPersistenceInventoryParams struct {
+	// RunId Execução de inspeção; sem ele, a mais recente
+	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
+}
+
+// GetProcessInventoryParams defines parameters for GetProcessInventory.
+type GetProcessInventoryParams struct {
+	// RunId Execução de inspeção; sem ele, a mais recente
+	RunId *SnapshotRun `form:"run_id,omitempty" json:"run_id,omitempty"`
 }
 
 // ListRunsParams defines parameters for ListRuns.
@@ -1201,6 +1261,12 @@ type ServerInterface interface {
 	// GetHealth Saúde do core e da conexão com o executor
 	// (GET /api/v1/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
+	// GetPersistenceInventory Inventário de persistência da última inspeção, com o que mudou em relação à anterior
+	// (GET /api/v1/inventory/persistence)
+	GetPersistenceInventory(w http.ResponseWriter, r *http.Request, params GetPersistenceInventoryParams)
+	// GetProcessInventory Processos da última inspeção (ou da execução informada), com segredos da linha de comando mascarados
+	// (GET /api/v1/inventory/processes)
+	GetProcessInventory(w http.ResponseWriter, r *http.Request, params GetProcessInventoryParams)
 	// GetOverview Resumo para a Visão geral
 	// (GET /api/v1/overview)
 	GetOverview(w http.ResponseWriter, r *http.Request)
@@ -1766,6 +1832,72 @@ func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHealth(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPersistenceInventory operation middleware
+func (siw *ServerInterfaceWrapper) GetPersistenceInventory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPersistenceInventoryParams
+
+	// ------------- Optional query parameter "run_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "run_id", r.URL.Query(), &params.RunId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "run_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPersistenceInventory(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetProcessInventory operation middleware
+func (siw *ServerInterfaceWrapper) GetProcessInventory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetProcessInventoryParams
+
+	// ------------- Optional query parameter "run_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "run_id", r.URL.Query(), &params.RunId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "run_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "run_id", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetProcessInventory(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2507,6 +2639,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/resources", wrapper.GetResources)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.DeleteResourceProfile)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/resources/profiles/{name}", wrapper.SaveResourceProfile)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/processes", wrapper.GetProcessInventory)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/inventory/persistence", wrapper.GetPersistenceInventory)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/engines", wrapper.GetEngines)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/users", wrapper.ListUsers)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/users", wrapper.CreateUser)

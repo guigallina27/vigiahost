@@ -282,7 +282,9 @@ func Analyze(items []Item) []Hit {
 	}
 	for _, it := range items {
 		ls := lines(it.Content)
-		if kindsWithContentRules[it.Entry.Kind] {
+		// Conteúdo binário (gerador compilado, por exemplo) não passa pelas regras de texto: as cadeias soltas de um
+		// executável casariam por acaso.
+		if kindsWithContentRules[it.Entry.Kind] && !bytes.Contains(it.Content[:min(len(it.Content), 8192)], []byte{0}) {
 			for _, r := range contentRules {
 				for _, l := range ls {
 					if r.re.MatchString(l) {

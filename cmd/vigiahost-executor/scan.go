@@ -19,6 +19,25 @@ import (
 
 const defaultStateDir = "/var/lib/vigiahost-executor"
 
+// readRequest lê DIR/request.json; código diferente de zero encerra o subcomando.
+func readRequest(dir string) (report.Request, *slog.Logger, int) {
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	var req report.Request
+	if dir == "" {
+		logger.Error("informe -dir")
+		return req, logger, 2
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, report.RequestFile)) //nolint:gosec // diretório da execução criado pelo executor
+	if err == nil {
+		err = json.Unmarshal(raw, &req)
+	}
+	if err != nil {
+		logger.Error("pedido da execução ilegível", "erro", err)
+		return req, logger, 1
+	}
+	return req, logger.With("execucao", req.RunID), 0
+}
+
 // runScan é o processo que roda dentro da unidade transitória de uma execução de arquivos. Lê o pedido em
 // DIR/request.json, grava progresso, achados e resumo no mesmo diretório e termina.
 func runScan(args []string) int {
@@ -28,21 +47,10 @@ func runScan(args []string) int {
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
-	if *dir == "" {
-		logger.Error("informe -dir")
-		return 2
+	req, logger, code := readRequest(*dir)
+	if code != 0 {
+		return code
 	}
-	var req report.Request
-	raw, err := os.ReadFile(filepath.Join(*dir, report.RequestFile))
-	if err == nil {
-		err = json.Unmarshal(raw, &req)
-	}
-	if err != nil {
-		logger.Error("pedido da execução ilegível", "erro", err)
-		return 1
-	}
-	logger = logger.With("execucao", req.RunID)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()

@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode/utf8"
 
@@ -23,6 +25,25 @@ const (
 	maxPath       = 4096
 	maxEvidence   = 32
 )
+
+// readJSONFile lê um instantâneo do diretório da execução (até 64 MiB) e confere que é JSON.
+func readJSONFile(path string) ([]byte, error) {
+	f, err := os.Open(path) //nolint:gosec // diretório da execução informado pelo executor
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	b, err := io.ReadAll(io.LimitReader(f, 64<<20+1))
+	switch {
+	case err != nil:
+		return nil, err
+	case len(b) > 64<<20:
+		return nil, fmt.Errorf("%s passa de 64 MiB", filepath.Base(path))
+	case !json.Valid(b):
+		return nil, fmt.Errorf("%s não é JSON válido", filepath.Base(path))
+	}
+	return b, nil
+}
 
 // readFindings lê achados completos a partir de offset e devolve o novo offset. Linha sem quebra no fim ainda está
 // sendo escrita e fica para a próxima leitura; linha inválida é pulada e contada.

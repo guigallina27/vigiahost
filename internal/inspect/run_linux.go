@@ -26,12 +26,6 @@ import (
 	"github.com/guigallina27/vigiahost/internal/version"
 )
 
-// Arquivos extras gravados no diretório da execução de processos.
-const (
-	ProcessesFile   = "processes.json"
-	PersistenceFile = "persistence.json"
-)
-
 // Config da inspeção; os motores vêm da mesma descoberta da varredura de arquivos.
 type Config struct {
 	Request  report.Request
@@ -127,10 +121,10 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 		p.User = names[p.UID]
 	}
 	sort.Slice(procs, func(i, j int) bool { return procs[i].PID < procs[j].PID })
-	if err := scan.WriteJSONAtomic(filepath.Join(cfg.OutDir, ProcessesFile), procs); err != nil {
+	if err := scan.WriteJSONAtomic(filepath.Join(cfg.OutDir, report.ProcessesFile), procs); err != nil {
 		in.warn("instantâneo dos processos não gravado: " + err.Error())
 	}
-	if err := scan.WriteJSONAtomic(filepath.Join(cfg.OutDir, PersistenceFile), pers); err != nil {
+	if err := scan.WriteJSONAtomic(filepath.Join(cfg.OutDir, report.PersistenceFile), pers); err != nil {
 		in.warn("inventário de persistência não gravado: " + err.Error())
 	}
 
@@ -429,6 +423,15 @@ func (in *inspector) scanExecutables(procs []*Process) (yaraCov, clamCov report.
 	yaraCov.Skipped, clamCov.Skipped = map[report.SkipReason]int64{}, map[report.SkipReason]int64{}
 	byID := map[[2]uint64]*target{}
 	var targets []*target
+	// Os binários do VigiaHost embutem as regras e o marcador do controle positivo: analisá-los por assinatura só
+	// acusaria a si mesmos. Ficam de fora o próprio executável e os do pacote vigiahost (o hash continua no instantâneo).
+	var self [2]uint64
+	if st, err := os.Stat("/proc/self/exe"); err == nil {
+		if sys, ok := st.Sys().(*syscall.Stat_t); ok {
+			self = [2]uint64{sys.Dev, sys.Ino}
+		}
+	}
+	own := func(p *Process, id [2]uint64) bool { return id == self || p.Package == "vigiahost" }
 	for _, p := range procs {
 		if p.Exe == "" {
 			continue
@@ -450,6 +453,13 @@ func (in *inspector) scanExecutables(procs []*Process) (yaraCov, clamCov report.
 		if t, ok := byID[id]; ok && sys != nil {
 			t.procs = append(t.procs, p)
 			p.ExeSHA256 = t.sha
+			_ = f.Close()
+			continue
+		}
+		if own(p, id) {
+			p.ExeSHA256 = hashFile(f)
+			yaraCov.Skipped[report.SkipExcluded]++
+			clamCov.Skipped[report.SkipExcluded]++
 			_ = f.Close()
 			continue
 		}
@@ -557,6 +567,14 @@ func (in *inspector) scanExecutables(procs []*Process) (yaraCov, clamCov report.
 	clamCov.Seconds = time.Since(started).Seconds()
 	in.progress.FilesProcessed = int64(len(targets))
 	return yaraCov, clamCov
+}
+
+func hashFile(f *os.File) string {
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func pidList(ps []*Process) string {

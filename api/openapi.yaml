@@ -22,6 +22,7 @@ tags:
   - name: autenticacao
   - name: execucoes
   - name: achados
+  - name: inventario
   - name: configuracao
   - name: administracao
 paths:
@@ -614,6 +615,38 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /api/v1/inventory/processes:
+    get:
+      operationId: getProcessInventory
+      summary: Processos da última inspeção (ou da execução informada), com segredos da linha de comando mascarados
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Instantâneo dos processos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProcessInventory" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/inventory/persistence:
+    get:
+      operationId: getPersistenceInventory
+      summary: Inventário de persistência da última inspeção, com o que mudou em relação à anterior
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Inventário de persistência
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersistenceInventory" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /api/v1/engines:
     get:
       operationId: getEngines
@@ -778,6 +811,11 @@ components:
       scheme: bearer
       description: Token de API (vht_...) para automação; não serve para a interface.
   parameters:
+    SnapshotRun:
+      name: run_id
+      in: query
+      description: Execução de inspeção; sem ele, a mais recente
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,39}$" }
     Limit:
       name: limit
       in: query
@@ -1261,6 +1299,49 @@ components:
         start_time: { type: string }
         listening: { type: array, items: { type: string } }
         connected: { type: array, items: { type: string } }
+    ProcessInfo:
+      type: object
+      additionalProperties: false
+      required: [pid, ppid, uid, comm, exe, cpu_percent, rss_bytes, threads]
+      properties:
+        pid: { type: integer }
+        ppid: { type: integer }
+        uid: { type: integer, format: int64 }
+        user: { type: string }
+        comm: { type: string }
+        cmdline: { type: array, items: { type: string } }
+        exe: { type: string }
+        exe_deleted: { type: boolean }
+        exe_memfd: { type: boolean }
+        exe_sha256: { type: string }
+        package: { type: string, description: 'Pacote dono do executável; "-" quando nenhum pacote o reconhece' }
+        unit: { type: string }
+        cgroup: { type: string }
+        start_ticks: { type: integer, format: int64 }
+        cpu_percent: { type: number }
+        rss_bytes: { type: integer, format: int64 }
+        threads: { type: integer }
+        listening: { type: array, items: { type: string } }
+        connected: { type: array, items: { type: string } }
+        flags: { type: array, items: { type: string }, description: Assinaturas que casaram neste processo }
+    ProcessInventory:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, processes]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        processes: { type: array, items: { $ref: "#/components/schemas/ProcessInfo" } }
+    PersistenceInventory:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, baseline, items]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        baseline: { type: boolean, description: Primeira inspeção, sem comparação com uma anterior }
+        items: { type: array, items: { $ref: "#/components/schemas/PersistenceEntry" } }
+        removed: { type: array, items: { $ref: "#/components/schemas/PersistenceEntry" } }
     PersistenceEntry:
       type: object
       additionalProperties: false

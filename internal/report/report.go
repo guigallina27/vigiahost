@@ -17,6 +17,9 @@ const (
 	ProgressFile = "progress.json"
 	FindingsFile = "findings.ndjson"
 	SummaryFile  = "summary.json"
+	// Instantâneos da inspeção de processos.
+	ProcessesFile   = "processes.json"
+	PersistenceFile = "persistence.json"
 )
 
 // Kind é o tipo de execução.

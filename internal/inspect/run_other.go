@@ -13,12 +13,6 @@ import (
 	"github.com/guigallina27/vigiahost/internal/scan"
 )
 
-// Arquivos extras gravados no diretório da execução de processos.
-const (
-	ProcessesFile   = "processes.json"
-	PersistenceFile = "persistence.json"
-)
-
 // Config da inspeção (só Linux).
 type Config struct {
 	Request   report.Request

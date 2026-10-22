@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -313,5 +314,32 @@ func TestListaDeEstadosFinaisNoSQL(t *testing.T) {
 	want := "('" + strings.Join(FinalStatuses, "', '") + "')"
 	if finalStatusList != want {
 		t.Fatalf("finalStatusList = %s, esperado %s", finalStatusList, want)
+	}
+}
+
+func TestInstantaneosGuardamOsMaisRecentes(t *testing.T) {
+	db, now := openTest(t)
+	ctx := context.Background()
+	if _, err := db.GetSnapshot(ctx, ""); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("sem inspeção: %v", err)
+	}
+	for i := range SnapshotsKept + 2 {
+		id := fmt.Sprintf("p%02d", i)
+		insertRun(t, db, id)
+		*now = now.Add(time.Minute)
+		if err := db.SaveSnapshot(ctx, Snapshot{RunID: id, TakenAt: *now, Processes: []byte(`[{"pid":1}]`),
+			Persistence: []byte(`{"baseline":false,"items":[]}`)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	last, err := db.GetSnapshot(ctx, "")
+	if err != nil || last.RunID != fmt.Sprintf("p%02d", SnapshotsKept+1) || string(last.Processes) != `[{"pid":1}]` {
+		t.Fatalf("mais recente: %+v %v", last, err)
+	}
+	if _, err := db.GetSnapshot(ctx, "p00"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("o mais antigo devia ter saído: %v", err)
+	}
+	if _, err := db.GetSnapshot(ctx, "p02"); err != nil {
+		t.Fatalf("dentro do limite: %v", err)
 	}
 }

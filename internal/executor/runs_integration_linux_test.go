@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -195,5 +196,134 @@ func TestExecucaoPausaLimitesECancelamento(t *testing.T) {
 	}
 	if st.Summary == nil || st.Summary.Status != report.StatusCanceled {
 		t.Fatalf("cancelamento: %+v", st)
+	}
+}
+
+// Inspeção de processos numa unidade transitória real: dois processos sem arquivo no disco (memfd e apagado, com o
+// marcador do controle positivo no executável) precisam aparecer nos achados, no instantâneo e na varredura do YARA-X.
+func TestInspecaoDeProcessosEmUnidade(t *testing.T) {
+	if os.Getenv("VIGIAHOST_SYSTEMD_TEST") != "1" || os.Geteuid() != 0 {
+		t.Skip("exige root, systemd e VIGIAHOST_SYSTEMD_TEST=1")
+	}
+	base, err := os.MkdirTemp("/var/tmp", "vh-teste-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	exe := filepath.Join(base, "vigiahost-executor")
+	memfdrun := filepath.Join(base, "memfdrun")
+	for out, pkg := range map[string]string{exe: "../../cmd/vigiahost-executor", memfdrun: "../../test/lab/memfdrun"} {
+		if b, err := exec.Command("go", "build", "-o", out, pkg).CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", err, b)
+		}
+	}
+	suffix := time.Now().Format("150405")
+	pids := map[string]string{}
+	for _, mode := range []string{"memfd", "apagado"} {
+		unit := "vh-teste-" + mode + "-" + suffix
+		if b, err := exec.Command("systemd-run", "--quiet", "--unit="+unit, "--property=RuntimeMaxSec=300",
+			memfdrun, mode, "300").CombinedOutput(); err != nil {
+			t.Fatalf("%v: %s", err, b)
+		}
+		t.Cleanup(func() { _ = exec.Command("systemctl", "stop", unit).Run() })
+		time.Sleep(time.Second)
+		out, _ := exec.Command("systemctl", "show", "-P", "MainPID", unit).Output()
+		pids[mode] = strings.TrimSpace(string(out))
+	}
+
+	hw := DetectHardware()
+	runs := &Runs{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), StateDir: filepath.Join(base, "estado"), Exe: exe, CoreGID: 0, Hardware: hw}
+	if err := runs.Prepare(); err != nil {
+		t.Fatal(err)
+	}
+	defer runs.Close()
+	p, _ := profile.Preset(hw, profile.Standard)
+	id := "inspecao-" + suffix
+	body, _ := json.Marshal(ipc.RunStart{Request: report.Request{RunID: id, Kind: report.KindProcesses, Profile: p}})
+	ctx := context.Background()
+	if _, err := runs.Start(ctx, body); err != nil {
+		t.Fatal(err)
+	}
+	ref, _ := json.Marshal(ipc.RunRef{RunID: id})
+	deadline := time.Now().Add(5 * time.Minute)
+	var st ipc.RunState
+	for time.Now().Before(deadline) {
+		out, err := runs.Status(ctx, ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		st = out.(ipc.RunState)
+		if st.Summary != nil && (st.Active == "gone" || st.Active == "inactive") {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if st.Summary == nil || st.Summary.Status != report.StatusCompleted {
+		t.Fatalf("inspeção: %+v", st)
+	}
+	t.Logf("resumo: processos=%d persistência=%d achados=%d avisos=%v", st.Summary.FilesSeen, st.Summary.FilesEligible,
+		st.Summary.Findings, st.Summary.Warnings)
+
+	f, err := os.Open(filepath.Join(st.Dir, report.FindingsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	got := map[string]bool{}
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		var fd report.Finding
+		if json.Unmarshal(sc.Bytes(), &fd) != nil {
+			continue
+		}
+		switch {
+		case fd.Process != nil:
+			got[fd.Signature+" "+fmt.Sprint(fd.Process.PID)] = true
+			t.Logf("achado: %s [%s] PID %d %s", fd.Signature, fd.Severity, fd.Process.PID, fd.Process.Exe)
+		case fd.Persistence != nil:
+			t.Logf("achado: %s [%s] %s %s", fd.Signature, fd.Severity, fd.Persistence.Path, fd.Persistence.Detail)
+		}
+	}
+	for _, want := range []string{
+		"processo.executavel_memfd " + pids["memfd"],
+		controls.YARARuleName + " " + pids["memfd"],
+		"processo.executavel_apagado " + pids["apagado"],
+		controls.YARARuleName + " " + pids["apagado"],
+	} {
+		if !got[want] {
+			t.Errorf("faltou o achado %q; achados de processo: %v", want, got)
+		}
+	}
+
+	var procs []struct {
+		PID      int      `json:"pid"`
+		Exe      string   `json:"exe"`
+		ExeMemfd bool     `json:"exe_memfd"`
+		Flags    []string `json:"flags"`
+	}
+	raw, err := os.ReadFile(filepath.Join(st.Dir, report.ProcessesFile))
+	if err != nil || json.Unmarshal(raw, &procs) != nil || len(procs) < 5 {
+		t.Fatalf("processes.json: %v (%d processos)", err, len(procs))
+	}
+	found := false
+	for _, pr := range procs {
+		if fmt.Sprint(pr.PID) == pids["memfd"] {
+			found = pr.ExeMemfd && len(pr.Flags) > 0
+		}
+	}
+	if !found {
+		t.Errorf("processo memfd ausente ou sem marcas no instantâneo")
+	}
+	var pers struct {
+		Baseline bool              `json:"baseline"`
+		Items    []json.RawMessage `json:"items"`
+	}
+	raw, err = os.ReadFile(filepath.Join(st.Dir, report.PersistenceFile))
+	if err != nil || json.Unmarshal(raw, &pers) != nil || !pers.Baseline || len(pers.Items) == 0 {
+		t.Fatalf("persistence.json: %v baseline=%v itens=%d", err, pers.Baseline, len(pers.Items))
+	}
+	if _, err := runs.Cleanup(ctx, ref); err != nil {
+		t.Fatal(err)
 	}
 }

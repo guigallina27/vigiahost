@@ -436,6 +436,7 @@ func (s *Service) follow(ctx context.Context, r store.Run) error {
 		if !store.IsFinal(status) {
 			status = string(report.StatusFailed)
 		}
+		s.snapshot(ctx, r, st.Dir)
 		s.finish(ctx, r, status, st.Summary, st.Summary.Error)
 		return nil
 	}
@@ -454,6 +455,24 @@ func (s *Service) follow(ctx context.Context, r store.Run) error {
 			fmt.Sprintf("a execução terminou sem resumo (resultado %q, código %d)", st.Result, st.ExitCode))
 	}
 	return nil
+}
+
+// snapshot guarda a lista de processos e o inventário de persistência de uma inspeção. Sem os arquivos (inspeção que
+// falhou cedo) a execução finaliza do mesmo jeito e as telas mostram o instantâneo anterior.
+func (s *Service) snapshot(ctx context.Context, r store.Run, dir string) {
+	if r.Kind != report.KindProcesses || dir == "" {
+		return
+	}
+	procs, err := readJSONFile(filepath.Join(dir, report.ProcessesFile))
+	if err == nil {
+		var pers []byte
+		if pers, err = readJSONFile(filepath.Join(dir, report.PersistenceFile)); err == nil {
+			err = s.DB.SaveSnapshot(ctx, store.Snapshot{RunID: r.ID, TakenAt: s.DB.Now(), Processes: procs, Persistence: pers})
+		}
+	}
+	if err != nil {
+		s.Logger.Warn("instantâneo da inspeção não guardado", "execucao", r.ID, "erro", err)
+	}
 }
 
 // ingest lê um bloco de achados e devolve se ainda há mais.
