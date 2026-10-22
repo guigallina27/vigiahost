@@ -1,6 +1,6 @@
 # Plano de implementação — Plataforma de segurança para servidores Linux
 
-> **Versão 1.1 · 22/10/2026 · Status: proposta.** Produto: **VigiaHost** (`vigiahost`). Acompanha o [escopo v2.2](escopo-v2.md) e as [decisões de arquitetura](decisoes-arquitetura.md).
+> **Versão 1.2 · 22/10/2026 · Status: proposta.** Produto: **VigiaHost** (`vigiahost`), software livre sob GPL-3.0. Acompanha o [escopo v2.3](escopo-v2.md) e as [decisões de arquitetura](decisoes-arquitetura.md).
 > Tamanhos relativos por épico: **P** (pequeno), **M** (médio), **G** (grande), **GG** (muito grande). Prazos dependem do tamanho da equipe, ainda não definido, e não foram estimados.
 
 ---
@@ -12,16 +12,16 @@
 | Decisão | Resultado |
 |---|---|
 | Nome do produto | **VigiaHost**; identificador técnico `vigiahost` (binários `vigiahost` e `vigiahost-executor`, serviços `vigiahost-core` e `vigiahost-executor`, usuário `vigiahost`, unidades `vigiahost-run-<id>`) |
-| Licença | **Proprietária**, código fechado, venda por licença comercial |
-| Repositório | Organização `vigiahost` no GitHub, **plano Team**; repositório privado `vigiahost/vigiahost`; repositório público `vigiahost/pacotes` só para distribuição a partir do beta externo |
-| Distribuição | **Somente GitHub por enquanto**: Releases privados na fase interna; Pages do repositório de distribuição no beta externo (escopo, seção 15) |
-| Custódia das chaves | **Raiz GPG offline em dois tokens de hardware** com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI |
+| Licença | **GPL-3.0**, software livre e gratuito, sem licenciamento comercial (substitui a decisão de licença proprietária) |
+| Repositório | **Público**, `guigallina27/vigiahost`, na conta pessoal; transferível para uma organização depois |
+| Distribuição | **Somente GitHub por enquanto**: Releases públicos (pré-lançamento até a 1.0) e, a partir do beta externo, Pages do próprio repositório (escopo, seção 15) |
+| Custódia das chaves | **Raiz GPG offline em dois tokens de hardware** com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI, com aprovação manual |
 
 **Ações para começar a Fase 0** (todas suas, porque envolvem contas, compras ou dados de pessoas)
 
 | Ação | Por quê |
 |---|---|
-| Criar a organização `vigiahost` no GitHub e assinar o plano Team | Reserva o nome; o plano é necessário para proteger a branch e exigir revisão em repositório privado |
+| Indicar um segundo mantenedor com acesso de administrador | Permite revisão obrigatória nos PRs e evita que o projeto dependa de uma única conta |
 | Indicar os dois responsáveis pelas chaves | Cada um guarda um token em local diferente |
 | Comprar dois tokens de hardware com OpenPGP e RSA 4096 (ex.: YubiKey 5) | Guardar a chave raiz |
 | Encomendar a busca de marca no INPI (classes 9 e 42) | Confirmar que o nome pode ser registrado antes do beta externo |
@@ -34,7 +34,7 @@
 | Fonte padrão de regras YARA | Épico E1.4 | YARA Forge core + regras próprias, após validar licenças |
 | Papel do LMD | Épico E1.10 | Medir a sobreposição no laboratório durante a 1A e decidir antes da 1B |
 | Central multiempresa | Acesso de revendedores e clientes (Fase 3) | Decidir antes da Fase 3 |
-| Termos de licença (EULA) e modelo de cobrança | Beta externo | Redigir com apoio jurídico durante a 1B |
+| Organização própria no GitHub | Beta externo | Criar `vigiahost` no plano gratuito e transferir o repositório antes do beta; o nome estava livre em 22/10/2026 |
 
 ---
 
@@ -63,7 +63,7 @@ flowchart LR
 | Épico | Entregas | Tamanho | Depende de |
 |---|---|---|---|
 | E0.1 Repositório e CI seguro | Monorepo Go + web, lint, testes com `-race`, *fuzzing* curto, SAST, varredura de segredos e de licenças, *actions* fixadas por SHA, permissões mínimas | M | Decisões de repositório e licença |
-| E0.2 Pipeline de release | GoReleaser + nFPM, pacotes DEB/RPM assinados, cosign, SBOM, proveniência, publicação nos Releases privados, `SHA256SUMS` assinado, metadados APT/DNF gerados (publicação no Pages fica para o beta), script de bootstrap assinado, pacote vazio | G | Organização no GitHub, tokens e cerimônia das chaves |
+| E0.2 Pipeline de release | GoReleaser + nFPM, pacotes DEB/RPM assinados, cosign, SBOM, proveniência, publicação nos Releases públicos como pré-lançamento, `SHA256SUMS` assinado, metadados APT/DNF gerados (publicação no Pages fica para o beta), script de bootstrap assinado, pacote vazio | G | Tokens e cerimônia das chaves |
 | E0.7 Cerimônia das chaves | Geração da raiz offline, gravação nos dois tokens, cópia cifrada, certificado de revogação, subchave e chave do cosign no CI, ata | P | Tokens comprados e responsáveis indicados |
 | E0.3 Laboratório e corpus | VMs do nível 1 (x86_64 e ARM64), controles positivos inofensivos, corpus benigno de CMS, corpus sintético de 1 milhão de arquivos, cenário `memfd` de laboratório | G | — |
 | E0.4 Contrato e esqueleto | OpenAPI inicial, cliente TypeScript gerado, esqueleto do core e do executor com *handshake* versionado, Goose e sqlc | M | E0.1 |
@@ -202,6 +202,6 @@ flowchart LR
 
 ## 6. Próximos passos
 
-1. Aprovar o escopo v2.2 e os ADRs propostos.
-2. Executar as ações da seção 1: organização no GitHub com plano Team, responsáveis pelas chaves, tokens e busca no INPI.
+1. Aprovar o escopo v2.3 e os ADRs propostos.
+2. Executar as ações da seção 1: responsáveis pelas chaves, tokens, segundo mantenedor e busca no INPI.
 3. Iniciar a Fase 0 pelos épicos E0.3 (laboratório e corpus) e E0.1 (repositório e CI), que destravam todos os outros; E0.7 assim que os tokens chegarem.

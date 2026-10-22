@@ -1,6 +1,6 @@
 # Decisões de arquitetura (ADRs)
 
-> **VigiaHost · 22/10/2026 · Todos com status "Proposto"**, até a aprovação do [escopo v2.2](escopo-v2.md). Responsáveis pela aprovação: responsável técnico e responsável pelo produto (a definir).
+> **VigiaHost · 22/10/2026 · Todos com status "Proposto"**, até a aprovação do [escopo v2.3](escopo-v2.md). Projeto sob GPL-3.0. Responsáveis pela aprovação: responsável técnico e responsável pelo produto (a definir).
 > Na Fase 0, cada ADR vira um arquivo em `docs/adr/` no repositório do produto. Critérios das tabelas: complexidade de implementação, custo de operação no servidor do cliente, escala e risco.
 
 | ADR | Decisão | Seção do escopo |
@@ -195,7 +195,7 @@
 
 **Contexto.** Atualizações precisam ser seguras e nativas para o administrador.
 
-**Decisão.** Repositórios APT e DNF assinados como canal principal (estável e beta); script de bootstrap só adiciona o repositório; go-tuf v2 para autoatualização por tarball e para a central. **Em 22/10/2026 decidiu-se distribuir somente pelo GitHub por enquanto**: Releases do repositório privado na fase interna e GitHub Pages do repositório público `vigiahost/pacotes` (sem código-fonte) no beta externo; domínio próprio antes do beta. Chave raiz GPG offline em dois tokens de hardware com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI.
+**Decisão.** Repositórios APT e DNF assinados como canal principal (estável e beta); script de bootstrap só adiciona o repositório; go-tuf v2 para autoatualização por tarball e para a central. **Em 22/10/2026 decidiu-se distribuir somente pelo GitHub por enquanto**: Releases públicos do repositório `guigallina27/vigiahost` (pré-lançamento até a 1.0) e, a partir do beta externo, GitHub Pages do mesmo repositório; domínio próprio antes do beta. Chave raiz GPG offline em dois tokens de hardware com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI, com aprovação manual.
 
 | Opção | Complexidade | Custo no servidor | Escala | Risco |
 |---|---|---|---|---|
@@ -205,7 +205,7 @@
 
 **Consequências.** Mais fácil: atualização com as ferramentas do sistema; começar sem domínio nem CDN. Mais difícil: manter repositórios e rotação de chaves; respeitar os limites do Pages (1 GB publicado, banda de referência de 100 GB/mês); migrar a origem dos servidores quando houver domínio (o pacote reescreve o arquivo de origem). Revisitar antes do beta externo (domínio e CDN) e se surgir distribuição sem APT/DNF.
 
-**Ações.** [ ] Cerimônia da chave raiz (épico E0.7). [ ] Proveniência e SBOM assinados com a chave própria do cosign, sem depender de recurso de plano do GitHub. [ ] Testes de atualização, retorno e troca de origem em VM.
+**Ações.** [ ] Cerimônia da chave raiz (épico E0.7). [ ] Atestados de proveniência do GitHub e SBOM assinado com a chave própria do cosign. [ ] Testes de atualização, retorno e troca de origem em VM.
 
 ---
 

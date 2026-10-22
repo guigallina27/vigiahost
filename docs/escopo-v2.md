@@ -1,6 +1,6 @@
 # Escopo v2 — VigiaHost, plataforma de segurança para servidores Linux
 
-> **Versão 2.2 · 22/10/2026 · Status: proposta para aprovação.** Base: escopo v1 de 21/10/2026. A v2.1 incorporou a revisão final de arquitetura, segurança, interface e acessibilidade; a v2.2 registra as decisões de nome, licença, repositório, distribuição e chaves (histórico no Anexo A).
+> **Versão 2.3 · 22/10/2026 · Status: proposta para aprovação.** Base: escopo v1 de 21/10/2026. A v2.1 incorporou a revisão final de arquitetura, segurança, interface e acessibilidade; a v2.2 registrou as decisões de nome, repositório, distribuição e chaves; a v2.3 torna o projeto **software livre sob GPL-3.0, em repositório público** (histórico no Anexo A).
 > Documentos relacionados: [plano de implementação](plano-implementacao.md) e [decisões de arquitetura](decisoes-arquitetura.md).
 > Nada foi implementado: código, repositório remoto e instalador ainda não existem.
 > As versões de ferramentas e bibliotecas citadas foram conferidas em 22/10/2026 nas fontes da seção 25. **VigiaHost** é o nome do produto; `vigiahost` é o identificador técnico (binários, pacotes, serviços, usuário do sistema e diretórios).
@@ -524,7 +524,7 @@ Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escur
 
 | Categoria | Política v2 |
 |---|---|
-| **Produto** | Repositórios APT e DNF assinados (GPG) como canal principal, com canais estável e beta, hospedados no GitHub enquanto não houver domínio próprio (ver "Distribuição em etapas"). Atualização acionável pela interface via executor. Backup do banco antes de migrar, verificação de saúde depois e retorno à versão anterior (versões anteriores mantidas no repositório; migrações em duas etapas, expandir e depois contrair, para que a versão anterior continue funcionando sem restaurar backup). Checklist de release no plano de implementação |
+| **Produto** | Repositórios APT e DNF assinados (GPG) como canal principal, com canais estável e beta, hospedados no GitHub enquanto não houver domínio próprio (ver "Distribuição pelo GitHub"). Atualização acionável pela interface via executor. Backup do banco antes de migrar, verificação de saúde depois e retorno à versão anterior (versões anteriores mantidas no repositório; migrações em duas etapas, expandir e depois contrair, para que a versão anterior continue funcionando sem restaurar backup). Checklist de release no plano de implementação |
 | **Tarball / central** | Autoatualização com go-tuf v2 (proteção contra versões antigas, metadados expirados e chaves comprometidas), Fase 2+ |
 | **Motores** | Pelo gerenciador responsável (distribuição, painel ou produto). Política de versão mínima (ClamAV ≥ 1.4 LTS) e alerta de fim de suporte. YARA-X em pacote próprio do produto |
 | **Assinaturas e regras** | freshclam existente respeitado (sem segunda instância); regras YARA pelo fluxo de promoção (seção 7.3); histórico e retorno |
@@ -532,19 +532,19 @@ Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escur
 
 **Cadeia de release.** GoReleaser + nFPM; pacotes RPM/DEB assinados; artefatos assinados com cosign; SBOM (SPDX ou CycloneDX); atestados de proveniência do build; compilação reprodutível (`-trimpath`); chave raiz fora do CI, com subchave de assinatura e plano de rotação (ver "Custódia das chaves").
 
-**Distribuição em etapas** (decidido em 22/10/2026: somente GitHub por enquanto, sem domínio próprio)
+**Distribuição pelo GitHub** (decidido em 22/10/2026: somente GitHub por enquanto, sem domínio próprio)
 
 | Etapa | Como os servidores recebem o produto | Observações |
 |---|---|---|
-| Fases 0 e 1A (uso interno) | Releases do repositório privado `vigiahost/vigiahost`, baixados com `gh release download` na estação do operador e copiados para o servidor; conferência de `SHA256SUMS` assinado e da assinatura cosign antes de instalar | Nenhum token do GitHub fica nos servidores |
-| Beta externo (fim da 1B) | Repositório **público só de distribuição** (`vigiahost/pacotes`), sem código-fonte: pacotes assinados, script de bootstrap, `SHA256SUMS`, chaves públicas e metadados APT/DNF publicados pelo GitHub Pages | Limites do Pages: site publicado de até 1 GB (manter só as últimas versões) e banda de referência de 100 GB/mês |
+| Fases 0 a 1B | Releases públicos do repositório `guigallina27/vigiahost`, marcados como pré-lançamento até a 1.0: pacotes, `SHA256SUMS` assinado, assinaturas cosign, SBOM e atestados de proveniência; conferência das assinaturas antes de instalar | Download sem token; nenhum segredo nos servidores |
+| Beta externo (fim da 1B) em diante | Script de bootstrap e metadados APT/DNF publicados pelo GitHub Pages do mesmo repositório | Limites do Pages: site publicado de até 1 GB (manter só as últimas versões) e banda de referência de 100 GB/mês |
 | Domínio próprio (a decidir antes do beta externo) | O domínio aponta para o mesmo Pages ou para uma CDN | O pacote é dono do arquivo de origem do APT/DNF e o reescreve numa atualização, migrando os servidores já instalados sem intervenção |
 
 **Custódia das chaves** (decidido em 22/10/2026)
 
 - **Chave raiz GPG** só para certificar subchaves, gerada em máquina sem rede (sistema *live*), guardada em **dois tokens de hardware** (ex.: YubiKey) sob **dois responsáveis** em locais diferentes, mais cópia cifrada offline em cofre e certificado de revogação impresso. RSA 4096 para compatibilidade com o rpm do EL8 e com o apt; assinaturas com SHA-256 ou superior (o EL9 rejeita SHA-1). Ed25519 só depois de validado no laboratório.
-- **Subchave de assinatura** de pacotes e metadados do repositório com validade de 1 ano, renovada pela raiz; guardada como segredo de um *environment* `release` do GitHub Actions, liberado apenas para *tags* de versão assinadas.
-- **Chave do cosign** própria (não depende de recurso de plano do GitHub), com rotação anual; a chave pública é publicada no repositório de distribuição, assinada pela raiz.
+- **Subchave de assinatura** de pacotes e metadados do repositório com validade de 1 ano, renovada pela raiz; guardada como segredo de um *environment* `release` do GitHub Actions, liberado apenas para *tags* de versão assinadas e com aprovação manual do responsável.
+- **Chave do cosign** própria, com rotação anual; a chave pública é publicada no repositório, assinada pela raiz. Os atestados de proveniência do GitHub (gratuitos em repositório público) complementam a assinatura.
 - **Cerimônia documentada** para geração, renovação e revogação, com ata; a impressão digital da raiz fica embutida no script de bootstrap e no pacote.
 
 **Instalador**
@@ -614,7 +614,9 @@ test/{corpus,vm,golden}
 
 **Dependências**: Renovate com idade mínima de release; pnpm com `minimumReleaseAge` e scripts de instalação bloqueados por padrão (lista explícita de pacotes autorizados); *lockfiles* obrigatórios; ferramentas Go fixadas pela diretiva `tool`.
 
-**Processo**: repositório privado `vigiahost/vigiahost` em organização do GitHub no **plano Team** (no plano gratuito, proteção de branch e revisão obrigatória só existem em repositórios públicos); ADRs (seção 24), `SECURITY.md` com canal de divulgação, *tags* assinadas, proteção de branch e revisão obrigatória. Testes em VM rodam em *runners* próprios do laboratório, porque os minutos do plano não comportam VMs; *runners* próprios atendem apenas o repositório privado, nunca o público de distribuição.
+**Processo**: repositório público `guigallina27/vigiahost` sob GPL-3.0 (conta pessoal; transferível para uma organização depois, com redirecionamento dos endereços antigos). Proteção de branch é gratuita em repositório público: bloqueio de *push* forçado e de exclusão e checagens obrigatórias do CI desde o início; revisão obrigatória quando houver um segundo mantenedor, porque o autor não pode aprovar o próprio PR. ADRs (seção 24), `SECURITY.md` com canal de divulgação privado, *tags* assinadas e aprovação exigida para *workflows* de colaboradores externos. CI de PRs em *runners* hospedados do GitHub (sem custo para repositório público); testes em VM só em eventos confiáveis (*push* na branch principal e *tags*), nunca em PRs de *forks*, em *runners* efêmeros e isolados do laboratório.
+
+**Licença das dependências**: GPL-3.0 aceita dependências MIT, BSD, Apache-2.0, MPL-2.0, LGPL e GPL-3.0; recusa GPL-2.0 *only*, licenças não livres e ELv2. A verificação de licenças do CI usa essa lista permitida.
 
 ---
 
@@ -674,6 +676,7 @@ Metas de cobertura de código: ≥ 80% em política, fila, interpretadores e cor
 | Regras, bases e feeds de terceiros (mudança de termos, indisponibilidade, conteúdo malicioso ou lento) | Opcionais, versionados e verificados; tratados como entrada não confiável; o produto funciona sem eles |
 | Falco ou recursos de kernel indisponíveis | Opcional, desligado por padrão, capacidade conferida na ativação |
 | Dependência do GitHub para código e distribuição | Cópia periódica do repositório fora do GitHub (`git bundle` cifrado), domínio próprio antes do beta externo e origem do APT/DNF gerenciada pelo pacote |
+| Projeto dependente de uma única conta pessoal | Segundo mantenedor com acesso de administrador e transferência para uma organização antes do beta externo |
 | Conflito de marca com o nome VigiaHost | Busca no INPI (classes 9 e 42) antes do beta externo e registro da marca se não houver conflito |
 | Interface complexa demais para o operador de hospedagem | Vocabulário único, navegação agrupada, estados vazios que orientam e testes de uso com administradores a cada fase |
 
@@ -684,9 +687,9 @@ Metas de cobertura de código: ≥ 80% em política, fila, interpretadores e cor
 | Decisão | Recomendação ou decisão tomada |
 |---|---|
 | Nome do produto | **Decidido (22/10/2026): VigiaHost**, identificador `vigiahost`. Livre em .com.br, .com, GitHub e nomes de pacotes na consulta; falta a busca de marca no INPI (classes 9 e 42) antes do beta externo |
-| Licença do produto | **Decidido (22/10/2026): proprietária**, código fechado e venda por licença comercial. Exige termos de licença (EULA) e aviso de componentes de terceiros (YARA-X BSD-3, Chkrootkit com licença estilo BSD, bibliotecas Go e npm). Chamar ferramentas GPL (ClamAV, LMD) como processos externos não impõe a licença delas; não embarcar binários GPL no pacote |
-| Repositório: local, organização e visibilidade | **Decidido (22/10/2026)**: organização `vigiahost` no GitHub (plano Team), repositório privado `vigiahost/vigiahost` para o código e, no beta externo, repositório público `vigiahost/pacotes` só para distribuição |
-| Endereço de distribuição | **Decidido (22/10/2026): somente GitHub por enquanto** (seção 15, "Distribuição em etapas"). Domínio próprio a decidir antes do beta externo |
+| Licença do produto | **Decidido (22/10/2026): GPL-3.0**, software livre e gratuito, sem licenciamento comercial (substitui a decisão de licença proprietária tomada no mesmo dia). Componentes distribuídos com o produto (YARA-X BSD-3, Chkrootkit com licença estilo BSD) mantêm seus avisos; ClamAV e LMD (GPL-2.0) continuam como processos externos instalados à parte |
+| Repositório: local, organização e visibilidade | **Decidido (22/10/2026)**: repositório **público** `guigallina27/vigiahost` na conta pessoal; organização própria opcional no futuro (a transferência mantém redirecionamento) |
+| Endereço de distribuição | **Decidido (22/10/2026): somente GitHub por enquanto**, com Releases e Pages do próprio repositório (seção 15, "Distribuição pelo GitHub"). Domínio próprio a decidir antes do beta externo |
 | Matriz inicial | Níveis da seção 5.1 |
 | Fonte padrão de regras YARA | Avaliar YARA Forge core + regras próprias; validar licenças |
 | Distribuir YARA-X no pacote | Sim, em pacote separado (BSD-3) |
@@ -746,6 +749,13 @@ Redigidos como propostas em [decisões de arquitetura](decisoes-arquitetura.md);
 ---
 
 ## Anexo A — Histórico de alterações
+
+### v2.3 (22/10/2026)
+
+- Licença **GPL-3.0** e repositório **público** `guigallina27/vigiahost`, no lugar de licença proprietária e repositório privado em organização.
+- Seção 15: distribuição por Releases e Pages do próprio repositório, sem repositório separado de pacotes; aprovação manual no *environment* `release`; atestados de proveniência do GitHub.
+- Seção 19: proteção de branch sem plano pago, regras para PRs de *forks* e *runners* próprios, lista de licenças de dependências compatíveis com GPL-3.0.
+- Seções 22 e 23: risco de dependência de conta pessoal; decisões de licença, repositório e distribuição atualizadas.
 
 ### v2.2 (22/10/2026)
 
