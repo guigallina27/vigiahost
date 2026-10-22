@@ -41,7 +41,8 @@ type Runs struct {
 func (r *Runs) runsDir() string         { return filepath.Join(r.StateDir, "runs") }
 func (r *Runs) runDir(id string) string { return filepath.Join(r.runsDir(), id) }
 
-// Prepare cria a estrutura de diretórios: runs/ legível pelo grupo do core; cache e regras só do root.
+// Prepare cria a estrutura de diretórios: runs/ legível pelo grupo do core; cache e regras só do root. Sem setgid:
+// a unidade do executor tem RestrictSUIDSGID, e o grupo dos arquivos de cada execução vem do Group= da unidade.
 func (r *Runs) Prepare() error {
 	for _, d := range []struct {
 		path  string
@@ -49,7 +50,7 @@ func (r *Runs) Prepare() error {
 		group bool
 	}{
 		{r.StateDir, 0o750, true},
-		{r.runsDir(), 0o750 | os.ModeSetgid, true},
+		{r.runsDir(), 0o750, true},
 		{filepath.Join(r.StateDir, "cache"), 0o700, false},
 		{filepath.Join(r.StateDir, "rules"), 0o700, false},
 	} {
@@ -141,7 +142,7 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 			return nil, err
 		}
 	}
-	if err := os.Chmod(dir, 0o750|os.ModeSetgid); err != nil {
+	if err := os.Chmod(dir, 0o750); err != nil { //nolint:gosec // G302: o grupo do core lê os relatórios da execução
 		return nil, err
 	}
 	data, _ := json.MarshalIndent(in.Request, "", "  ")
@@ -187,6 +188,10 @@ func (r *Runs) Start(ctx context.Context, body json.RawMessage) (any, error) {
 			Families []string
 		}{true, families}),
 		prop("CapabilityBoundingSet", caps),
+	}
+	if r.CoreGID >= 0 {
+		// Grupo primário do core: os relatórios nascem root:<grupo do core> (0640 com o UMask 027) e o core os lê.
+		props = append(props, prop("Group", strconv.Itoa(r.CoreGID)))
 	}
 	props = append(props, limitProps(p)...)
 	if p.IOReadBytesPerSec > 0 {

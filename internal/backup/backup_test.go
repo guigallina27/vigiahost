@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -44,6 +45,9 @@ func TestCopiaConsistenteRetencaoERestauracao(t *testing.T) {
 		}
 		if i == 0 {
 			first = info
+			if st, err := os.Stat(filepath.Join(backups, info.Name)); err != nil || (runtime.GOOS != "windows" && st.Mode().Perm() != 0o600) {
+				t.Fatalf("permissão da cópia: %v %v", st.Mode(), err)
+			}
 		}
 		if info.SchemaVersion != store.LatestSchema() || len(info.SHA256) != 64 || info.Size == 0 {
 			t.Fatalf("manifesto incompleto: %+v", info)
@@ -78,8 +82,13 @@ func TestCopiaConsistenteRetencaoERestauracao(t *testing.T) {
 	if _, err := Restore(ctx, src, dbPath, backups, 1, base.Add(10*24*time.Hour)); err == nil {
 		t.Fatal("restaurar esquema mais novo que o binário deveria ser recusado")
 	}
-	if _, err := Restore(ctx, src, dbPath, backups, 99, base.Add(10*24*time.Hour)); err != nil {
+	// Mesmo segundo de uma cópia existente: a pre-restore escolhe o segundo seguinte em vez de falhar.
+	info, err := Restore(ctx, src, dbPath, backups, 99, base.Add(3*24*time.Hour))
+	if err != nil {
 		t.Fatal(err)
+	}
+	if info.Name != list[0].Name {
+		t.Fatalf("nome da cópia restaurada: %q", info.Name)
 	}
 	db2 := openDB(t, dbPath)
 	entries, err := db2.ListAudit(ctx, 0, 100)

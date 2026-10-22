@@ -59,9 +59,16 @@ func Create(ctx context.Context, db *sql.DB, dir, origin string, now time.Time) 
 	tmp := final + ".parcial"
 	_ = os.Remove(tmp)
 	// VACUUM INTO não aceita parâmetro de ligação para o destino; o nome é gerado aqui, nunca vem do usuário.
+	//nolint:gosec // G202: destino gerado aqui (diretório + carimbo de tempo), com aspas escapadas
 	if _, err := db.ExecContext(ctx, "VACUUM INTO '"+strings.ReplaceAll(tmp, "'", "''")+"'"); err != nil {
 		_ = os.Remove(tmp)
 		return Info{}, fmt.Errorf("VACUUM INTO: %w", err)
+	}
+	// O SQLite cria o arquivo com a umask de quem chama (0644 para o root no terminal); a cópia tem senhas com hash,
+	// auditoria e achados, então só o dono lê.
+	if err := os.Chmod(tmp, 0o600); err != nil {
+		_ = os.Remove(tmp)
+		return Info{}, err
 	}
 	info, err := Inspect(ctx, tmp)
 	if err != nil {
@@ -202,6 +209,7 @@ func Restore(ctx context.Context, src, dbPath, backupDir string, maxSchema int64
 	if err != nil {
 		return info, err
 	}
+	info.Name = filepath.Base(src)
 	if info.SchemaVersion > maxSchema {
 		return info, fmt.Errorf("a cópia é de uma versão mais nova do esquema (%d > %d): atualize o VigiaHost antes de restaurar",
 			info.SchemaVersion, maxSchema)
@@ -211,7 +219,12 @@ func Restore(ctx context.Context, src, dbPath, backupDir string, maxSchema int64
 		if err != nil {
 			return info, err
 		}
-		_, err = Create(ctx, cur, backupDir, "pre-restore", now)
+		// Uma cópia manual feita no mesmo segundo ocuparia o nome: tenta os segundos seguintes.
+		for i := range 5 {
+			if _, err = Create(ctx, cur, backupDir, "pre-restore", now.Add(time.Duration(i)*time.Second)); !errors.Is(err, ErrExists) {
+				break
+			}
+		}
 		_ = cur.Close()
 		if err != nil {
 			return info, fmt.Errorf("cópia de segurança do banco atual: %w", err)
@@ -222,7 +235,7 @@ func Restore(ctx context.Context, src, dbPath, backupDir string, maxSchema int64
 		return info, err
 	}
 	tmp := dbPath + ".restaurando"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := os.WriteFile(tmp, data, 0o600); err != nil { //nolint:gosec // G703: caminho do banco do serviço
 		return info, err
 	}
 	for _, sfx := range []string{"-wal", "-shm"} {

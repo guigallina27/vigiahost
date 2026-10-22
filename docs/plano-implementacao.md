@@ -101,6 +101,14 @@ flowchart LR
 
 **Critério de saída**: detecta os controles positivos e o cenário `memfd` de laboratório; cobertura exibida; reinício no meio da execução sem duplicação; travas de recursos não contornáveis pela API; versão interna instalada em servidores próprios.
 
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E1.1 a E1.6 | Executor com política e unidades transitórias; core com fila, agendador, autenticação (senha, TOTP, ALTCHA) e SSE; varredura com YARA-X e ClamAV por descritor; inspetor de processos, rede e persistência; achados com ciclo de vida e cobertura por motor | Validação em servidores próprios |
+| E1.7 Instalação | `setup plan/apply/uninstall` com manifesto e backups datados, `doctor` ampliado, primeiro acesso; exercitado pelo `test/lab/test-lifecycle.sh` | — |
+| E1.8 Interface 1A | Acesso (login, primeiro acesso, segundo fator, recuperação), Visão geral, Execuções, Cobertura, Achados, Exceções, Processos e persistência, Agendamentos, Recursos, Motores, Usuários, Tokens, Auditoria e Backup; axe-core sem violações nos dois temas e sem rolagem horizontal a 320 px | Tela Regras e fontes |
+
 ### Fase 1B — Contas e operação
 
 | Épico | Entregas | Tamanho | Depende de |
@@ -113,6 +121,8 @@ flowchart LR
 | E1.14 Backup | `VACUUM INTO`, configurações e manifestos; restauração testada no CI | P | E1.2 |
 
 **Critério de saída**: escopo por conta correto em laboratório com 500 contas; rotina diária incremental dentro da janela no servidor de referência; primeira versão no canal beta.
+
+**Situação em 22/10/2026**: E1.11 (exceções por hash, hash + regra e regra + prefixo, com validade, justificativa e auditoria) e E1.14 (cópia antes de migrar, cópia automática diária com retenção de 7, cópia manual pelo painel e pelo terminal, `vigiahost backup restore` com cópia `pre-restore` e recusa com o serviço ativo) implementados. Perfis próprios de recursos (parte do E1.13) já estão na API e na tela Recursos. Faltam E1.9, E1.10, E1.12 e o restante do E1.13.
 
 ### Fase 2 — Gestão completa local
 

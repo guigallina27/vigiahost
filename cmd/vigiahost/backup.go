@@ -84,7 +84,7 @@ func backupCreate(ctx context.Context, dbPath, dir string) error {
 	if os.Geteuid() != 0 {
 		return fmt.Errorf("execute como root (o comando lê o banco do serviço)")
 	}
-	if _, err := os.Stat(dbPath); err != nil {
+	if _, err := os.Stat(dbPath); err != nil { //nolint:gosec // G703: caminho do banco dado pelo root no terminal
 		return fmt.Errorf("banco %s: %w", dbPath, err)
 	}
 	raw, err := store.Open(ctx, dbPath)

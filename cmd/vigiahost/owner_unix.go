@@ -9,7 +9,7 @@ import (
 
 // copyOwner entrega os arquivos ao mesmo dono e grupo de ref (o banco do serviço), depois de gravados pelo root.
 func copyOwner(ref string, paths ...string) {
-	info, err := os.Stat(ref)
+	info, err := os.Stat(ref) //nolint:gosec // G703: diretório de estado do próprio serviço
 	if err != nil {
 		return
 	}

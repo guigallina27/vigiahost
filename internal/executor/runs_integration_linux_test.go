@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -46,7 +47,9 @@ func TestExecucaoEmUnidadeTransitoria(t *testing.T) {
 	_ = os.WriteFile(filepath.Join(target, "limpo.txt"), controls.NegativeFile(), 0o644)
 
 	hw := DetectHardware()
-	runs := &Runs{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), StateDir: filepath.Join(base, "estado"), Exe: exe, CoreGID: 0, Hardware: hw}
+	// Grupo diferente de root, como o do core no pacote: os relatórios precisam nascer com ele (Group= da unidade).
+	const coreGID = 65534
+	runs := &Runs{Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), StateDir: filepath.Join(base, "estado"), Exe: exe, CoreGID: coreGID, Hardware: hw}
 	if err := runs.Prepare(); err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +89,9 @@ func TestExecucaoEmUnidadeTransitoria(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer func() { _ = f.Close() }()
+	if fi, err := f.Stat(); err != nil || fi.Sys().(*syscall.Stat_t).Gid != coreGID || fi.Mode().Perm()&0o040 == 0 {
+		t.Fatalf("relatório sem leitura pelo grupo do core: %v %v", fi.Mode(), err)
+	}
 	var sigs []string
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {

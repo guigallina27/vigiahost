@@ -86,6 +86,25 @@ ok "interface embarcada servida com CSP, brotli e cache imutável ($asset)"
 vigiahost doctor >/tmp/doctor.txt || fail "doctor como root falhou: $(cat /tmp/doctor.txt)"
 ok "doctor como root: $(grep Executor /tmp/doctor.txt | tr -s ' ')"
 
+# Cópias do banco (E1.14): a automática sai ao iniciar; a manual pelo terminal fica com o dono do serviço; a
+# restauração recusa com o core ativo e, com ele parado, guarda o banco atual como "pre-restore".
+for _ in $(seq 1 15); do vigiahost backup list | grep -q automatic && break; sleep 1; done
+vigiahost backup list | grep -q automatic || fail "cópia automática não foi feita ao iniciar"
+sleep 1
+vigiahost backup create >/tmp/backup-create.txt 2>&1 || fail "backup create falhou: $(cat /tmp/backup-create.txt)"
+copy="$(grep -o 'vigiahost-[0-9]*-[0-9]*\.db' /tmp/backup-create.txt | head -1)"
+[[ "$(stat -c '%a %U' "/var/lib/vigiahost/backups/$copy")" == "600 vigiahost" ]] || fail "cópia manual com dono ou permissão errados"
+if vigiahost backup restore "$copy" >/tmp/backup-restore.txt 2>&1; then fail "restore aceito com o core ativo"; fi
+grep -q "systemctl stop vigiahost-core" /tmp/backup-restore.txt || fail "restore sem orientar a parar o serviço"
+systemctl is-active --quiet vigiahost-core || fail "o restore não deveria mexer no serviço"
+systemctl stop vigiahost-core
+vigiahost backup restore "$copy" >/tmp/backup-restore.txt 2>&1 || fail "restore falhou: $(cat /tmp/backup-restore.txt)"
+[[ "$(stat -c '%U' /var/lib/vigiahost/vigiahost.db)" == "vigiahost" ]] || fail "banco restaurado ficou com outro dono"
+vigiahost backup list | grep -q pre-restore || fail "faltou a cópia do banco anterior à restauração"
+systemctl start vigiahost-core
+wait_health "$old" >/dev/null || fail "o core não voltou após a restauração"
+ok "backup: automática, manual ($copy), recusa com o core ativo e restauração com cópia pre-restore"
+
 # Defesa em camadas: usuário comum não abre o socket; mesmo dentro do grupo, a política do executor recusa.
 id labuser >/dev/null 2>&1 || useradd -m labuser
 gpasswd -d labuser vigiahost >/dev/null 2>&1 || true
@@ -133,6 +152,7 @@ echo "== desinstalação completa (setup uninstall -purge)"
 vigiahost setup uninstall -purge -remove-package -yes >/tmp/uninstall.txt || fail "uninstall falhou: $(cat /tmp/uninstall.txt)"
 systemctl is-active --quiet vigiahost-core && fail "serviço ativo após o uninstall"
 [[ -e /var/lib/vigiahost || -e /etc/vigiahost ]] && fail "dados ou configuração restaram após o -purge"
+hash -r # o bash guarda o caminho de comandos já usados
 command -v vigiahost >/dev/null && fail "pacote não removido"
 ok "desinstalação com -purge: serviços, dados, manifesto e pacote removidos"
 echo "CICLO DE VIDA APROVADO ($(. /etc/os-release && echo "$PRETTY_NAME"))"
