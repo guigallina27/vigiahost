@@ -4,13 +4,15 @@ import { useTranslation } from "react-i18next";
 import { Panel } from "../components/Panel";
 import { PageHeader } from "../layout/PageHeader";
 import { useSchemePreference, useSystemScheme, type SchemePreference } from "../lib/theme";
+import { AccountPanel } from "./admin/AccountPanel";
 
 export function SettingsPage() {
   const { t } = useTranslation();
   return (
     <>
-      <PageHeader title={t("settings.title")} subtitle={t("settings.subtitle")} />
-      <div className="max-w-2xl">
+      <PageHeader title={t("settings.title")} subtitle={t("admin.account.settingsSubtitle")} />
+      <div className="flex max-w-2xl flex-col gap-6">
+        <AccountPanel />
         <Panel title={t("settings.appearance")}>
           <ThemeChoice />
         </Panel>

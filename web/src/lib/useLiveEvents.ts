@@ -5,8 +5,9 @@ export type LiveState = "connecting" | "live" | "offline";
 
 // Cada evento traz só tipo e identificador: a interface invalida as consultas e busca o estado pela API.
 const invalidates: Record<string, (id: string) => unknown[][]> = {
-  run: (id) => [["runs"], ["run", id], ["overview"], ["findings"]],
-  finding: (id) => [["findings"], ["finding", id], ["overview"]],
+  run: (id) => [["runs"], ["run", id], ["overview"], ["findings"], ["inventory"]],
+  // Exceções criadas ou removidas também chegam como "finding" (mudam o estado dos achados que cobrem).
+  finding: (id) => [["findings"], ["finding", id], ["overview"], ["exceptions"]],
   schedule: () => [["schedules"]],
 };
 

@@ -160,6 +160,9 @@
 
   /* Tabela de dados: rola na horizontal dentro do próprio contêiner (.vh-table-wrap), nunca a página (1.4.10). */
   .vh-table-wrap {
+    /* Posicionado para conter os .visually-hidden (absolutos) das células: sem isso eles escapam da rolagem e
+       alargam a página inteira. */
+    position: relative;
     overflow-x: auto;
     border: 1px solid var(--vh-line);
     border-radius: var(--radius-panel);

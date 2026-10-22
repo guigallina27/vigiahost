@@ -441,7 +441,7 @@ func TestCopiaManualDoBancoPelaAPI(t *testing.T) {
 		t.Fatalf("lista: %d %+v", rec.Code, list)
 	}
 	page, err := a.db.ListAudit(context.Background(), 0, 10)
-	if err != nil || len(page) == 0 || page[0].Action != "backup.create" {
+	if err != nil || len(page) == 0 || page[0].Action != "backup_created" {
 		t.Fatalf("auditoria da cópia: %+v (%v)", page, err)
 	}
 }

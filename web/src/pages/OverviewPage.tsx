@@ -1,31 +1,44 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, CircleX, History, PlugZap, RefreshCw, TriangleAlert } from "lucide-react";
-import type { ReactNode } from "react";
+import { CircleCheck, CircleX, Play, PlugZap, RefreshCw, TriangleAlert } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { healthQuery, type Health } from "../api/client";
+import { useCurrentUser } from "../auth/session";
 import { Badge } from "../components/Badge";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { Panel } from "../components/Panel";
 import { Timestamp } from "../components/Timestamp";
 import { PageHeader } from "../layout/PageHeader";
+import { NewRunDialog } from "./runs/NewRunDialog";
+import { OverviewSummary } from "./runs/OverviewSummary";
 
 export function OverviewPage() {
   const { t } = useTranslation();
   const health = useQuery(healthQuery);
+  const { canOperate } = useCurrentUser();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const openDialog = () => setDialogOpen(true);
 
   return (
     <>
       <PageHeader
         title={t("overview.title")}
-        subtitle={t("overview.subtitle")}
+        subtitle={t("runs.overview.subtitle")}
         actions={
-          health.data && (
-            <span className="text-sm text-ink-muted">
-              {t("overview.updatedAt")}{" "}
-              <Timestamp date={new Date(health.dataUpdatedAt)} compact />
-            </span>
-          )
+          <div className="flex flex-wrap items-center gap-3">
+            {health.data && (
+              <span className="text-sm text-ink-muted">
+                {t("overview.updatedAt")} <Timestamp date={new Date(health.dataUpdatedAt)} compact />
+              </span>
+            )}
+            {canOperate && (
+              <Button variant="primary" onClick={openDialog}>
+                <Play aria-hidden="true" className="size-4" />
+                {t("runs.newRun")}
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -39,11 +52,11 @@ export function OverviewPage() {
               {t("overview.staleWarning")}
             </p>
           )}
+          <OverviewSummary canOperate={canOperate} onNewRun={openDialog} />
           <div className="grid items-start gap-6 xl:grid-cols-2">
             <ServicePanel health={health.data} />
             <SystemPanel health={health.data} />
           </div>
-          <EmptyState icon={History} title={t("overview.runsTitle")} description={t("overview.runsDescription")} />
         </div>
       ) : (
         <EmptyState
@@ -66,6 +79,7 @@ export function OverviewPage() {
           }
         />
       )}
+      <NewRunDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
     </>
   );
 }

@@ -44,6 +44,6 @@ func (s *Server) CreateBackup(w http.ResponseWriter, r *http.Request) {
 		s.storeError(w, err)
 		return
 	}
-	s.audit(r, "backup.create", info.Name, info.SHA256)
+	s.audit(r, "backup_created", info.Name, "sha256 "+info.SHA256)
 	writeJSON(w, http.StatusCreated, info)
 }

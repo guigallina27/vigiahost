@@ -194,6 +194,9 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 func (s *Server) storeError(w http.ResponseWriter, err error) {
 	var ie *ipc.Error
 	switch {
+	case errors.Is(err, context.Canceled):
+		// Quem pediu fechou a conexão (navegou para outra tela): não há a quem responder nem erro a registrar.
+		writeError(w, 499, "requisição cancelada", "canceled")
 	case errors.Is(err, store.ErrNotFound):
 		writeError(w, http.StatusNotFound, "não encontrado", "not_found")
 	case errors.Is(err, store.ErrConflict):

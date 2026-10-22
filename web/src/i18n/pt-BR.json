@@ -37,7 +37,8 @@
     "audit": "Auditoria",
     "backup": "Backup",
     "settings": "Configurações",
-    "catalog": "Catálogo de componentes"
+    "catalog": "Catálogo de componentes",
+    "tokens": "Tokens de API"
   },
   "severity": {
     "label": "Severidade",
