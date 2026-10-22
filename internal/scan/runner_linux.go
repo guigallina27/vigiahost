@@ -63,7 +63,7 @@ type runner struct {
 	cfg      Config
 	ctx      context.Context
 	cache    *Cache
-	findings *findingWriter
+	findings *FindingWriter
 	progress report.Progress
 	pmu      sync.Mutex
 
@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	sum := report.Summary{RunID: cfg.Request.RunID, Kind: report.KindFiles, StartedAt: time.Now().UTC()}
 	r.progress.StartedAt = sum.StartedAt
 
-	fw, err := newFindingWriter(filepath.Join(cfg.OutDir, report.FindingsFile))
+	fw, err := NewFindingWriter(filepath.Join(cfg.OutDir, report.FindingsFile))
 	if err != nil {
 		return sum, err
 	}
@@ -613,10 +613,13 @@ func ClassifyClamSignature(sig string) (report.Category, report.Severity) {
 	return report.CategoryMalware, report.SeverityHigh
 }
 
-// selfTest roda os controles positivo e negativo em cada motor (escopo, seção 7.4).
-func (r *runner) selfTest() (yaraST, clamST report.SelfTest) {
-	ctx, cancel := context.WithTimeout(r.ctx, 2*time.Minute)
+func (r *runner) selfTest() (yaraST, clamST report.SelfTest) { return SelfTest(r.ctx, r.cfg) }
+
+// SelfTest roda os controles positivo e negativo em cada motor (escopo, seção 7.4).
+func SelfTest(parent context.Context, cfg Config) (yaraST, clamST report.SelfTest) {
+	ctx, cancel := context.WithTimeout(parent, 2*time.Minute)
 	defer cancel()
+	r := struct{ cfg Config }{cfg}
 	if r.cfg.YARA == nil {
 		yaraST.Detail = "YARA-X não encontrado"
 	} else {
@@ -693,6 +696,9 @@ func closeFiles(fs ...*os.File) {
 	}
 }
 
+// MemFile cria um arquivo só em memória (memfd) com o conteúdo, posicionado no início.
+func MemFile(name string, data []byte) (*os.File, error) { return memFile(name, data) }
+
 // memFile cria um arquivo só em memória (memfd) com o conteúdo, posicionado no início.
 func memFile(name string, data []byte) (*os.File, error) {
 	fd, err := unix.MemfdCreate(name, unix.MFD_CLOEXEC)
@@ -761,22 +767,25 @@ func (r *runner) writeProgress() {
 
 // --- achados ---
 
-type findingWriter struct {
+// FindingWriter grava achados no findings.ndjson, linha a linha (o core lê enquanto a execução roda).
+type FindingWriter struct {
 	mu    sync.Mutex
 	f     *os.File
 	w     *bufio.Writer
 	count atomic.Int64
 }
 
-func newFindingWriter(path string) (*findingWriter, error) {
+// NewFindingWriter cria o arquivo de achados.
+func NewFindingWriter(path string) (*FindingWriter, error) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC|os.O_APPEND, 0o640) //nolint:gosec // diretório da execução, criado pelo executor
 	if err != nil {
 		return nil, err
 	}
-	return &findingWriter{f: f, w: bufio.NewWriter(f)}, nil
+	return &FindingWriter{f: f, w: bufio.NewWriter(f)}, nil
 }
 
-func (fw *findingWriter) Write(f report.Finding) {
+// Write grava um achado.
+func (fw *FindingWriter) Write(f report.Finding) {
 	f.DetectedAt = time.Now().UTC()
 	data, err := json.Marshal(f)
 	if err != nil {
@@ -789,7 +798,11 @@ func (fw *findingWriter) Write(f report.Finding) {
 	fw.count.Add(1)
 }
 
-func (fw *findingWriter) Close() error {
+// Count devolve quantos achados foram gravados.
+func (fw *FindingWriter) Count() int64 { return fw.count.Load() }
+
+// Close grava o que falta e fecha.
+func (fw *FindingWriter) Close() error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
 	return errors.Join(fw.w.Flush(), fw.f.Sync(), fw.f.Close())
