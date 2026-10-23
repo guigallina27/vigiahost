@@ -1,5 +1,5 @@
 // Package lmd é o adaptador do Linux Malware Detect (LMD/maldet) 2.x como fonte adicional de assinaturas
-// (ADR-020). O VigiaHost não instala, não atualiza e não reconfigura o LMD: lê a instalação feita pelo
+// (ADR-023). O VigiaHost não instala, não atualiza e não reconfigura o LMD: lê a instalação feita pelo
 // administrador, roda só os estágios nativos (hash, hex, csig e YARA) sobre os arquivos que o inventário já abriu e
 // nunca deixa o LMD mover, limpar ou apagar nada.
 //

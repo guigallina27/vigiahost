@@ -110,6 +110,8 @@ function NewRunForm({ titleId, descId, onClose }: { titleId: string; descId: str
   const kinds: { value: RunKind; label: string; hint: string }[] = [
     { value: "files", label: t("runs.new.kindFiles"), hint: t("runs.new.kindFilesHint") },
     { value: "processes", label: t("runs.new.kindProcesses"), hint: t("runs.new.kindProcessesHint") },
+    { value: "integrity", label: t("runs.new.kindIntegrity"), hint: t("runs.new.kindIntegrityHint") },
+    { value: "updates", label: t("runs.new.kindUpdates"), hint: t("runs.new.kindUpdatesHint") },
   ];
   const pathsInvalid = draftError?.field === "paths";
   const excludeInvalid = draftError?.field === "exclude";

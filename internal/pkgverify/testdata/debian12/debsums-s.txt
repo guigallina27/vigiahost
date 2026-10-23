@@ -1,0 +1,3 @@
+debsums: changed file /usr/bin/tree (from tree package)
+debsums: missing file /usr/share/doc/tree/README.gz (from tree package)
+rc=2

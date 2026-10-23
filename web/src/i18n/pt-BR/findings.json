@@ -6,7 +6,8 @@
       "label": "Tipo",
       "file": "Arquivo",
       "process": "Processo",
-      "persistence": "Persistência"
+      "persistence": "Persistência",
+      "system": "Sistema"
     },
     "filters": {
       "title": "Filtros",
@@ -112,7 +113,10 @@
       "history": "Histórico",
       "historyEmpty": "Nenhum evento registrado.",
       "eventChange": "de {{from}} para {{to}}",
-      "eventBy": "por {{actor}}"
+      "eventBy": "por {{actor}}",
+      "openIntegrity": "Ver a tela Integridade",
+      "openUpdates": "Ver a tela Atualizações",
+      "reportScreen": "Relatório da verificação"
     },
     "transition": {
       "title": "Mudar estado",
@@ -232,6 +236,19 @@
       "readOnly": "Seu perfil pode ver as exceções, mas não criar nem revogar.",
       "count_zero": "{{formatted}} exceções"
     },
-    "loaded_zero": "{{formatted}} achados carregados"
+    "loaded_zero": "{{formatted}} achados carregados",
+    "subject": {
+      "label": "Assunto",
+      "securityUpdates": "Correções de segurança pendentes",
+      "reboot": "Reinício do servidor",
+      "services": "Serviços a reiniciar",
+      "packageCache": "Lista de pacotes do gerenciador",
+      "unsigned": "Pacotes sem assinatura",
+      "unknownKey": "Pacotes com chave desconhecida",
+      "aptConf": "Configuração do APT",
+      "repo": "Repositório {{id}}",
+      "pid": "PID {{pid}}",
+      "port": "Porta {{proto}} {{port}}"
+    }
   }
 }

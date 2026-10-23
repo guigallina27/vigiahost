@@ -7,7 +7,7 @@ import (
 )
 
 // SourceRFXN é a fonte das assinaturas do Linux Malware Detect (R-fx Networks), venham do maldet ou do clamd que
-// as carrega: a mesma fonte nos dois motores permite correlacionar as detecções (ADR-020).
+// as carrega: a mesma fonte nos dois motores permite correlacionar as detecções (ADR-023).
 const SourceRFXN = "rfxn"
 
 // Prefixos com que o LMD nomeia as assinaturas ({HEX}php.cmdshell..., {MD5}..., {SHA256}..., {CSIG}..., {YARA}...).

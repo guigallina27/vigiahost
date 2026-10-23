@@ -224,6 +224,8 @@ function RunsTable({ runs }: { runs: Run[] }) {
                   <span className="mt-1 block text-sm">
                     {run.kind === "processes" ? (
                       <span className="text-ink-muted">{t("runs.table.allProcesses")}</span>
+                    ) : run.kind !== "files" ? (
+                      <span className="text-ink-muted">{t("runs.table.wholeSystem")}</span>
                     ) : run.paths.length === 0 ? (
                       <span className="text-ink-muted">{t("runs.none")}</span>
                     ) : (

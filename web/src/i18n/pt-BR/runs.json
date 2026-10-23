@@ -12,7 +12,9 @@
     "kind": {
       "label": "Tipo",
       "files": "Arquivos",
-      "processes": "Processos"
+      "processes": "Processos",
+      "integrity": "Integridade dos pacotes",
+      "updates": "Atualizações e reinícios"
     },
     "origin": {
       "label": "Origem",
@@ -28,7 +30,12 @@
       "lmd": "Análise pelo LMD",
       "large_files": "Análise dos arquivos grandes",
       "inspect": "Inspeção de processos e persistência",
-      "done": "Finalizada"
+      "done": "Finalizada",
+      "hidden": "Processos e portas ocultos",
+      "verify": "Conferência dos arquivos dos pacotes",
+      "signatures": "Assinaturas de pacotes e repositórios",
+      "updates": "Correções pendentes",
+      "restart": "Serviços e reinício pendentes"
     },
     "profiles": {
       "leve": "Leve",
@@ -69,7 +76,8 @@
       "morePaths_other": "e mais {{count}} caminhos",
       "processedOf": "{{processed}} de {{eligible}}",
       "allProcesses": "Todos os processos",
-      "morePaths_zero": "e mais {{count}} caminhos"
+      "morePaths_zero": "e mais {{count}} caminhos",
+      "wholeSystem": "Sistema inteiro"
     },
     "empty": {
       "title": "Nenhuma verificação ainda",
@@ -105,7 +113,11 @@
         "excludeTooMany": "Informe no máximo {{max}} exclusões.",
         "accountsRequired": "Escolha ao menos uma conta da lista ou mude para \"Todas as contas\"."
       },
-      "pathsOptionalHint": "Opcional com contas escolhidas: o escopo de cada conta é montado pelo servidor. Um caminho absoluto por linha. Até 64."
+      "pathsOptionalHint": "Opcional com contas escolhidas: o escopo de cada conta é montado pelo servidor. Um caminho absoluto por linha. Até 64.",
+      "kindIntegrity": "Integridade dos pacotes",
+      "kindIntegrityHint": "Confere os arquivos instalados contra o registrado no pacote e as assinaturas de pacotes e repositórios. Vale para o sistema inteiro.",
+      "kindUpdates": "Atualizações e reinícios",
+      "kindUpdatesHint": "Lista correções de segurança pendentes pela lista de pacotes já baixada, serviços com bibliotecas substituídas e reinício pendente. Não instala nada."
     },
     "detail": {
       "title": "Execução {{id}}",
@@ -164,7 +176,8 @@
       "cancelConfirm": "Cancelar execução",
       "throttleReduced_one": "Ritmo reduzido pela pressão de {{resource}} do servidor ({{pressure}}): {{count}} leitura em paralelo agora. Volta ao normal sozinho quando a pressão cair.",
       "throttleReduced_other": "Ritmo reduzido pela pressão de {{resource}} do servidor ({{pressure}}): {{count}} leituras em paralelo agora. Volta ao normal sozinho quando a pressão cair.",
-      "throttlePaused": "Lotes suspensos pela pressão de {{resource}} do servidor ({{pressure}}): a execução retoma sozinha quando a pressão cair."
+      "throttlePaused": "Lotes suspensos pela pressão de {{resource}} do servidor ({{pressure}}): a execução retoma sozinha quando a pressão cair.",
+      "openReport": "Abrir o relatório desta verificação"
     },
     "engine": {
       "version": "Versão",

@@ -178,7 +178,7 @@ func toAPIFinding(f store.Finding) api.Finding {
 		Sha256: optional(f.SHA256), FileType: f.FileType, State: api.FindingState(f.State), Assignee: f.Assignee,
 		ExceptionId: f.ExceptionID, FirstRun: f.FirstRun, LastRun: f.LastRun, FirstSeen: f.FirstSeen,
 		LastSeen: f.LastSeen, StateChanged: f.StateChanged, TimesSeen: f.TimesSeen, LocationsCount: f.Locations,
-		Evidence: f.Evidence}
+		Evidence: f.Evidence, Subject: optional(f.Subject)}
 	if out.Evidence == nil {
 		out.Evidence = map[string]string{}
 	}

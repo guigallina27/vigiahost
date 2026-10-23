@@ -23,21 +23,25 @@ type Process struct {
 	ExeMemfd   bool     `json:"exe_memfd,omitempty"`
 	ExeSHA256  string   `json:"exe_sha256,omitempty"`
 	Package    string   `json:"package,omitempty"`
-	Unit       string   `json:"unit,omitempty"`
-	Cgroup     string   `json:"cgroup,omitempty"`
-	StartTime  uint64   `json:"start_ticks,omitempty"`
-	CPUPercent float64  `json:"cpu_percent"`
-	RSSBytes   int64    `json:"rss_bytes"`
-	Threads    int      `json:"threads"`
-	Listening  []string `json:"listening,omitempty"`
-	Connected  []string `json:"connected,omitempty"`
-	Flags      []string `json:"flags,omitempty"`
+	// PackageStatus: "match" quando o executável confere com o resumo registrado no pacote, "mismatch" quando não.
+	PackageStatus string   `json:"package_status,omitempty"`
+	Unit          string   `json:"unit,omitempty"`
+	Cgroup        string   `json:"cgroup,omitempty"`
+	StartTime     uint64   `json:"start_ticks,omitempty"`
+	CPUPercent    float64  `json:"cpu_percent"`
+	RSSBytes      int64    `json:"rss_bytes"`
+	Threads       int      `json:"threads"`
+	Listening     []string `json:"listening,omitempty"`
+	Connected     []string `json:"connected,omitempty"`
+	Flags         []string `json:"flags,omitempty"`
 	// Campos internos (não gravados).
 	cpuTicks   uint64
 	sockets    []uint64
 	netns      string
 	ldPreload  string
 	kthreadArg bool
+	// packageEvidence: pacote e resumos quando o executável não confere com o pacote.
+	packageEvidence map[string]string
 }
 
 // parseStat lê PPID, tiques de CPU (utime+stime), início e threads de /proc/PID/stat. O nome do processo fica entre

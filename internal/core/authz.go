@@ -37,6 +37,8 @@ var routes = map[string]rule{
 	"GET /api/v1/auth/session":                     {access: accessPublic},
 	"GET /api/v1/inventory/processes":              {access: accessView},
 	"GET /api/v1/inventory/persistence":            {access: accessView},
+	"GET /api/v1/integrity":                        {access: accessView},
+	"GET /api/v1/updates":                          {access: accessView},
 	"GET /api/v1/auth/challenge":                   {access: accessPublic},
 	"POST /api/v1/auth/login":                      {access: accessPublic},
 	"POST /api/v1/auth/logout":                     {access: accessPublic},

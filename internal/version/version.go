@@ -14,5 +14,6 @@ const (
 	ProtocolMajor = 1
 	// 1.1: contas (accounts.list). 1.2: ajuste em tempo real (run.adjust). 1.3: regras YARA (rules.status,
 	// rules.compile) e LMD no pedido da execução.
-	ProtocolMinor = 3
+	// 1.4: tipos de execução integrity e updates; inspeção de processos e portas ocultos.
+	ProtocolMinor = 4
 )

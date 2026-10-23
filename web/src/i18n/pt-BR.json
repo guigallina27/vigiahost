@@ -38,7 +38,8 @@
     "backup": "Backup",
     "settings": "Configurações",
     "catalog": "Catálogo de componentes",
-    "tokens": "Tokens de API"
+    "tokens": "Tokens de API",
+    "updates": "Atualizações"
   },
   "severity": {
     "label": "Severidade",

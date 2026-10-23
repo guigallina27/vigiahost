@@ -18,7 +18,7 @@ import { formatNumber } from "../../lib/format";
 import { draftFromFinding } from "./exceptionRules";
 import { ExceptionForm } from "./ExceptionForm";
 import { findingStateList, type FindingState } from "./filters";
-import { DetailItem, formatMode, StatusMessage } from "./parts";
+import { DetailItem, formatMode, StatusMessage, SubjectText } from "./parts";
 import { TransitionForm } from "./TransitionForm";
 import { TableScroll } from "../../components/TableScroll";
 
@@ -244,6 +244,21 @@ function SummaryPanel({ finding: f }: { finding: Finding }) {
           <span className="font-mono">{f.rules_version || "—"}</span>
         </DetailItem>
         <DetailItem label={t("findings.detail.category")}>{f.category || "—"}</DetailItem>
+        {f.subject && (
+          <DetailItem label={t("findings.subject.label")}>
+            <SubjectText subject={f.subject} />
+          </DetailItem>
+        )}
+        {(f.category === "integrity" || f.category === "update") && (
+          <DetailItem label={t("findings.detail.reportScreen")}>
+            <Link
+              to={f.category === "integrity" ? "/integridade" : "/atualizacoes"}
+              className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-4"
+            >
+              {t(f.category === "integrity" ? "findings.detail.openIntegrity" : "findings.detail.openUpdates")}
+            </Link>
+          </DetailItem>
+        )}
         {f.sha256 && (
           <DetailItem label={t("findings.detail.hash")}>
             <HashText value={f.sha256} />

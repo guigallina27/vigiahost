@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -15,16 +16,18 @@ import (
 	"sync"
 	"time"
 
+	"github.com/guigallina27/vigiahost/internal/integrity"
 	"github.com/guigallina27/vigiahost/internal/ipc"
 	"github.com/guigallina27/vigiahost/internal/notify"
 	"github.com/guigallina27/vigiahost/internal/profile"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/store"
+	"github.com/guigallina27/vigiahost/internal/updates"
 )
 
 // Config ajusta o orquestrador; zero usa os padrões.
 type Config struct {
-	// Concurrency por tipo de execução (padrão 1: uma varredura de arquivos e uma inspeção por vez).
+	// Concurrency por tipo de execução (padrão 1: uma de cada tipo por vez; tipo ausente no mapa vale 1).
 	Concurrency map[report.Kind]int
 	Tick        time.Duration // intervalo do laço (padrão 2 s)
 	Lease       time.Duration // validade da reserva sem notícia do executor (padrão 2 min)
@@ -34,7 +37,12 @@ type Config struct {
 
 func (c *Config) defaults() {
 	if c.Concurrency == nil {
-		c.Concurrency = map[report.Kind]int{report.KindFiles: 1, report.KindProcesses: 1}
+		c.Concurrency = map[report.Kind]int{}
+	}
+	for _, k := range report.Kinds {
+		if _, ok := c.Concurrency[k]; !ok {
+			c.Concurrency[k] = 1
+		}
 	}
 	if c.Tick <= 0 {
 		c.Tick = 2 * time.Second
@@ -188,6 +196,12 @@ func (s *Service) buildRun(ctx context.Context, req RunRequest) (store.Run, erro
 		}
 		run.Paths, run.Exclude = paths, excl
 	case report.KindProcesses:
+		run.Incremental = false
+	case report.KindIntegrity, report.KindUpdates:
+		// Verificações do sistema inteiro: o escopo é fixo (o executor recusa caminhos).
+		if len(req.Paths) > 0 || len(req.Exclude) > 0 || !req.Accounts.Empty() {
+			return run, invalid("execução do tipo %s não recebe caminhos nem contas", req.Kind)
+		}
 		run.Incremental = false
 	default:
 		return run, invalid("tipo de execução desconhecido: %q", req.Kind)
@@ -362,7 +376,7 @@ func isCode(err error, code string) bool {
 }
 
 func (s *Service) dispatch(ctx context.Context) {
-	for _, kind := range []report.Kind{report.KindFiles, report.KindProcesses} {
+	for _, kind := range report.Kinds {
 		limit := s.Config.Concurrency[kind]
 		for {
 			n, err := s.DB.CountActive(ctx, kind)
@@ -482,6 +496,7 @@ func (s *Service) follow(ctx context.Context, r store.Run) error {
 			status = string(report.StatusFailed)
 		}
 		s.snapshot(ctx, r, st.Dir)
+		s.hostReports(ctx, r, st.Dir, status)
 		s.finish(ctx, r, status, st.Summary, st.Summary.Error)
 		return nil
 	}
@@ -517,6 +532,42 @@ func (s *Service) snapshot(ctx context.Context, r store.Run, dir string) {
 	}
 	if err != nil {
 		s.Logger.Warn("instantâneo da inspeção não guardado", "execucao", r.ID, "erro", err)
+	}
+}
+
+// Relatório e motor de cada tipo de verificação do sistema. O motor é o dos achados que a execução completa refaz
+// por inteiro: o que não aparece mais foi resolvido (pacote reinstalado, correção aplicada).
+var systemReports = map[report.Kind][]struct {
+	file, name, engine string
+}{
+	report.KindIntegrity: {{report.IntegrityFile, store.HostReportIntegrity, integrity.Engine}},
+	report.KindUpdates:   {{report.UpdatesFile, store.HostReportUpdates, updates.Engine}},
+	// Processos e portas ocultos: só o relatório; achado de oculto nunca se resolve sozinho.
+	report.KindProcesses: {{report.HiddenFile, store.HostReportHidden, ""}},
+}
+
+// hostReports guarda os relatórios das verificações do sistema e resolve o que sumiu numa execução completa.
+func (s *Service) hostReports(ctx context.Context, r store.Run, dir, status string) {
+	if dir == "" {
+		return
+	}
+	for _, sr := range systemReports[r.Kind] {
+		data, err := readJSONFile(filepath.Join(dir, sr.file))
+		if err == nil {
+			err = s.DB.SaveHostReport(ctx, store.HostReport{RunID: r.ID, Name: sr.name, TakenAt: s.DB.Now(), Data: data})
+		}
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			s.Logger.Warn("relatório da verificação não guardado", "execucao", r.ID, "relatorio", sr.name, "erro", err)
+		}
+		if sr.engine == "" || status != string(report.StatusCompleted) {
+			continue
+		}
+		n, err := s.DB.ResolveMissing(ctx, r.ID, sr.engine)
+		if err != nil {
+			s.Logger.Warn("achados ausentes não resolvidos", "execucao", r.ID, "erro", err)
+		} else if n > 0 {
+			s.Logger.Info("achados que sumiram resolvidos", "execucao", r.ID, "motor", sr.engine, "achados", n)
+		}
 	}
 }
 

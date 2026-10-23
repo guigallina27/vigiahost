@@ -20,7 +20,7 @@ import (
 	"github.com/guigallina27/vigiahost/internal/engines/lmd"
 )
 
-// Sobreposição do LMD com o ClamAV (ADR-020): o mesmo corpus passa pelo LMD (estágios nativos, pelo adaptador do
+// Sobreposição do LMD com o ClamAV (ADR-023): o mesmo corpus passa pelo LMD (estágios nativos, pelo adaptador do
 // produto, com os arquivos entregues como /proc/<pid>/fd/<n>), pelo clamscan com o banco oficial e pelo clamscan só
 // com as assinaturas do LMD (rfxn.hdb, rfxn.ndb, rfxn.yara), que é o que o clamd carrega quando o install.sh do LMD
 // as copia para o diretório do ClamAV. O resultado diz o que o LMD acrescenta além do clamd.

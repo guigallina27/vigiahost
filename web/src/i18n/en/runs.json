@@ -12,7 +12,9 @@
     "kind": {
       "label": "Type",
       "files": "Files",
-      "processes": "Processes"
+      "processes": "Processes",
+      "integrity": "Package integrity",
+      "updates": "Updates and restarts"
     },
     "origin": {
       "label": "Origin",
@@ -28,7 +30,12 @@
       "lmd": "LMD scan",
       "large_files": "Scanning large files",
       "inspect": "Inspecting processes and persistence",
-      "done": "Finished"
+      "done": "Finished",
+      "hidden": "Hidden processes and ports",
+      "verify": "Package file verification",
+      "signatures": "Package and repository signatures",
+      "updates": "Pending fixes",
+      "restart": "Pending service restarts and reboot"
     },
     "profiles": {
       "leve": "Light",
@@ -69,7 +76,8 @@
       "morePaths_other": "and {{count}} more paths",
       "processedOf": "{{processed}} of {{eligible}}",
       "allProcesses": "All processes",
-      "morePaths_zero": "and {{count}} more paths"
+      "morePaths_zero": "and {{count}} more paths",
+      "wholeSystem": "Whole system"
     },
     "empty": {
       "title": "No scans yet",
@@ -105,7 +113,11 @@
         "excludeTooMany": "Enter at most {{max}} exclusions.",
         "accountsRequired": "Choose at least one account from the list or switch to \"All accounts\"."
       },
-      "pathsOptionalHint": "Optional when accounts are chosen: the server builds each account scope. One absolute path per line. Up to 64."
+      "pathsOptionalHint": "Optional when accounts are chosen: the server builds each account scope. One absolute path per line. Up to 64.",
+      "kindIntegrity": "Package integrity",
+      "kindIntegrityHint": "Checks installed files against what the package recorded, plus package and repository signatures. Covers the whole system.",
+      "kindUpdates": "Updates and restarts",
+      "kindUpdatesHint": "Lists pending security fixes from the package lists already downloaded, services using replaced libraries and pending reboot. Installs nothing."
     },
     "detail": {
       "title": "Run {{id}}",
@@ -164,7 +176,8 @@
       "cancelConfirm": "Cancel run",
       "throttleReduced_one": "Pace reduced by the server's {{resource}} pressure ({{pressure}}): {{count}} parallel read now. It returns to normal on its own when pressure drops.",
       "throttleReduced_other": "Pace reduced by the server's {{resource}} pressure ({{pressure}}): {{count}} parallel reads now. It returns to normal on its own when pressure drops.",
-      "throttlePaused": "Batches suspended by the server's {{resource}} pressure ({{pressure}}): the run resumes on its own when pressure drops."
+      "throttlePaused": "Batches suspended by the server's {{resource}} pressure ({{pressure}}): the run resumes on its own when pressure drops.",
+      "openReport": "Open this check's report"
     },
     "engine": {
       "version": "Version",

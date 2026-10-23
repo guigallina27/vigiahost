@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/guigallina27/vigiahost/internal/pkgverify"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/scan"
 )
@@ -23,6 +24,8 @@ type Config struct {
 	Proc      string
 	Root      fs.FS
 	CPUSample time.Duration
+	Packages  *pkgverify.Verifier
+	NoHidden  bool
 }
 
 // PersistenceReport é o conteúdo de persistence.json.

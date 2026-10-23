@@ -106,6 +106,10 @@ func AnalyzeProcesses(procs []*Process, uidMin int) []ProcHit {
 			add(p, "processo.binario_de_sistema_fora_de_pacote", report.SeverityHigh, report.CategoryProcess,
 				"binário em diretório do sistema que não pertence a nenhum pacote", nil)
 		}
+		if p.PackageStatus == "mismatch" && !p.ExeDeleted {
+			add(p, "processo.binario_de_pacote_alterado", report.SeverityCritical, report.CategoryProcess,
+				"processo roda binário de pacote cujo conteúdo não confere com o pacote instalado", p.packageEvidence)
+		}
 		// Rede.
 		if noFile && (len(p.Listening) > 0 || len(p.Connected) > 0) {
 			add(p, "rede.processo_sem_arquivo_com_rede", report.SeverityCritical, report.CategoryNetwork,

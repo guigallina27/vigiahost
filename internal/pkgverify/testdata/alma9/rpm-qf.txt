@@ -1,0 +1,6 @@
+coreutils-8.32-40.el9.x86_64
+coreutils-8.32-40.el9.x86_64
+tree-1.8.0-10.el9.x86_64
+nano-5.6.1-7.el9.x86_64
+error: file /usr/bin/naoexiste: No such file or directory
+systemd-252-67.el9_8.2.alma.1.x86_64

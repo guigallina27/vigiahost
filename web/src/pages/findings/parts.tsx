@@ -3,6 +3,7 @@ import { useId, type ReactNode, type Ref, type TextareaHTMLAttributes } from "re
 import { useTranslation } from "react-i18next";
 import type { Schemas } from "../../api/client";
 import { PathText } from "../../components/PathText";
+import { subjectLabel } from "./filters";
 
 type Finding = Schemas["Finding"];
 
@@ -31,7 +32,26 @@ export function FindingObject({ finding }: { finding: Finding }) {
     );
   }
   if (finding.location) return <PathText path={finding.location.path} />;
+  if (finding.subject) return <SubjectText subject={finding.subject} />;
   return <span className="text-ink-muted">{t("findings.object.none")}</span>;
+}
+
+/** Assunto de um achado do sistema (correções pendentes, repositório, porta oculta) em linguagem do operador. */
+export function SubjectText({ subject }: { subject: string }) {
+  const { t } = useTranslation();
+  const s = subjectLabel(subject);
+  switch (s.key) {
+    case "repo":
+      return <span className="[overflow-wrap:anywhere]">{t("findings.subject.repo", { id: s.id })}</span>;
+    case "pid":
+      return <span className="tabular-nums">{t("findings.subject.pid", { pid: s.pid })}</span>;
+    case "port":
+      return <span className="tabular-nums">{t("findings.subject.port", { proto: s.proto, port: s.port })}</span>;
+    case "raw":
+      return <span className="font-mono [overflow-wrap:anywhere]">{s.text}</span>;
+    default:
+      return <span>{t(`findings.subject.${s.key}`)}</span>;
+  }
 }
 
 /** Par rótulo/valor de uma lista de definições; o valor quebra em qualquer ponto para não estourar. */

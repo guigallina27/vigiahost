@@ -117,6 +117,35 @@
       "shell-init": "Shell startup (profile, bashrc)",
       "ld-so-conf": "Dynamic loader configuration",
       "udev-rule": "udev rules"
+    },
+    "packageMismatch": "Differs from package",
+    "packageMismatchHint": "the running executable does not match the digest recorded in the package",
+    "hidden": {
+      "title": "Hidden processes and ports",
+      "notChecked": "The hidden process and port search did not run in this inspection.",
+      "clean": "Nothing hidden: {{processes}} processes and threads checked against the kernel and {{ports}} ports probed.",
+      "found_one": "{{count}} hidden item confirmed twice",
+      "found_other": "{{count}} hidden items confirmed twice",
+      "found_zero": "No hidden items",
+      "discarded": "{{count}} candidates discarded as short-lived (appeared or vanished between checks).",
+      "processesCaption": "Processes that answer the kernel but are missing from the listing",
+      "portsCaption": "Ports in use that are missing from the network tables",
+      "colPid": "PID",
+      "colProcess": "Process",
+      "colChecks": "Confirmed by",
+      "colAccess": "Direct access",
+      "directYes": "Opens via /proc/PID",
+      "directNo": "Does not open",
+      "colPort": "Port",
+      "colReason": "How it showed up",
+      "reason": {
+        "bind_only": "In use for the kernel, missing from /proc/net and netlink",
+        "netlink_only": "Visible in netlink, hidden from /proc/net",
+        "proc_only": "Visible in /proc/net, hidden from netlink"
+      },
+      "processesError": "Hidden process search: {{error}}",
+      "portsError": "Hidden port search: {{error}}",
+      "skipped": "{{count}} ports could not be probed (privileged or address family disabled)."
     }
   }
 }

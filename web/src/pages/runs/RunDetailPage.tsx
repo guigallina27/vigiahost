@@ -129,6 +129,17 @@ function RunDetailView({ detail }: { detail: RunDetail }) {
           </div>
         )}
 
+        {!active && (run.kind === "integrity" || run.kind === "updates") && (
+          <p className="m-0">
+            <Link
+              to={`${run.kind === "integrity" ? "/integridade" : "/atualizacoes"}?execucao=${encodeURIComponent(run.id)}`}
+              className="inline-flex min-h-11 items-center font-semibold text-accent underline underline-offset-4"
+            >
+              {t("runs.detail.openReport")}
+            </Link>
+          </p>
+        )}
+
         <div className="grid items-start gap-6 xl:grid-cols-2">
           <ProgressPanel run={run} />
           {canOperate && active ? <ActionsPanel run={run} /> : <DetailsPanel run={run} />}

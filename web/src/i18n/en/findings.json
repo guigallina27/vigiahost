@@ -6,7 +6,8 @@
       "label": "Type",
       "file": "File",
       "process": "Process",
-      "persistence": "Persistence"
+      "persistence": "Persistence",
+      "system": "System"
     },
     "filters": {
       "title": "Filters",
@@ -112,7 +113,10 @@
       "history": "History",
       "historyEmpty": "No events recorded.",
       "eventChange": "from {{from}} to {{to}}",
-      "eventBy": "by {{actor}}"
+      "eventBy": "by {{actor}}",
+      "openIntegrity": "Open the Integrity screen",
+      "openUpdates": "Open the Updates screen",
+      "reportScreen": "Check report"
     },
     "transition": {
       "title": "Change state",
@@ -232,6 +236,19 @@
       "readOnly": "Your role can view exceptions but not create or revoke them.",
       "count_zero": "{{formatted}} exceptions"
     },
-    "loaded_zero": "{{formatted}} findings loaded"
+    "loaded_zero": "{{formatted}} findings loaded",
+    "subject": {
+      "label": "Subject",
+      "securityUpdates": "Pending security fixes",
+      "reboot": "Server reboot",
+      "services": "Services to restart",
+      "packageCache": "Package manager lists",
+      "unsigned": "Unsigned packages",
+      "unknownKey": "Packages with unknown key",
+      "aptConf": "APT configuration",
+      "repo": "Repository {{id}}",
+      "pid": "PID {{pid}}",
+      "port": "Port {{proto}} {{port}}"
+    }
   }
 }

@@ -6,13 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -22,6 +20,7 @@ import (
 
 	"github.com/guigallina27/vigiahost/internal/controls"
 	"github.com/guigallina27/vigiahost/internal/perf"
+	"github.com/guigallina27/vigiahost/internal/pkgverify"
 	"github.com/guigallina27/vigiahost/internal/report"
 	"github.com/guigallina27/vigiahost/internal/scan"
 	"github.com/guigallina27/vigiahost/internal/version"
@@ -38,6 +37,10 @@ type Config struct {
 	Root     fs.FS       // raiz do sistema (padrão os.DirFS("/"))
 	// CPUSample é a janela de medição de CPU por processo (padrão 2 s).
 	CPUSample time.Duration
+	// Packages responde dono e conferência dos executáveis (nil = sistema em execução).
+	Packages *pkgverify.Verifier
+	// NoHidden desliga a busca por processos e portas ocultos (só vale com o procfs real; testes com procfs falso).
+	NoHidden bool
 }
 
 // PersistenceReport é o conteúdo de persistence.json.
@@ -123,6 +126,7 @@ func Run(ctx context.Context, cfg Config) (report.Summary, error) {
 	}
 	in.kernel()
 	pers := in.persistence(uidMin)
+	in.hidden()
 
 	names := usernames(cfg.Root)
 	for _, p := range procs {
@@ -331,7 +335,8 @@ func appendLimited(s []string, v string) []string {
 	return append(s, v)
 }
 
-// packages descobre o pacote dono dos executáveis em diretórios do sistema ("-" = nenhum).
+// packages descobre o pacote dono dos executáveis em diretórios do sistema ("-" = nenhum) e confere o conteúdo de
+// cada um contra o resumo registrado no pacote (pkgverify): binário de pacote alterado no disco é indício de troca.
 func (in *inspector) packages(procs []*Process) {
 	paths := map[string][]*Process{}
 	for _, p := range procs {
@@ -344,82 +349,43 @@ func (in *inspector) packages(procs []*Process) {
 	if len(paths) == 0 {
 		return
 	}
+	v := in.cfg.Packages
+	if v == nil {
+		v = pkgverify.New()
+	}
+	if !v.Available() {
+		in.warn("consulta de pacotes indisponível: " + pkgverify.ErrNoManager.Error())
+		return
+	}
 	list := make([]string, 0, len(paths))
 	for p := range paths {
 		list = append(list, p)
 	}
 	sort.Strings(list)
-	owners, err := packageOwners(in.ctx, list)
+	ctx, cancel := context.WithTimeout(in.ctx, 3*time.Minute)
+	defer cancel()
+	checks, err := v.CheckFiles(ctx, list)
 	if err != nil {
 		in.warn("consulta de pacotes indisponível: " + err.Error())
 		return
 	}
 	for exe, ps := range paths {
+		c := checks[exe]
+		pkg := "-"
+		if len(c.Packages) > 0 {
+			pkg = c.Packages[0].Name
+		}
 		for _, p := range ps {
-			p.Package = owners[exe]
+			p.Package = pkg
+			if c.Status == pkgverify.StatusMatch || c.Status == pkgverify.StatusMismatch {
+				p.PackageStatus = c.Status
+			}
+			if c.Status == pkgverify.StatusMismatch {
+				p.packageEvidence = map[string]string{"pacote": c.Packages[0].String(),
+					"resumo_esperado": c.Algo + ":" + c.Expected, "resumo_atual": c.Algo + ":" + c.Actual}
+			}
 		}
 	}
-}
-
-// packageOwners consulta o rpm ou o dpkg em lote.
-func packageOwners(ctx context.Context, paths []string) (map[string]string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	out := map[string]string{}
-	env := append(os.Environ(), "LANG=C", "LC_ALL=C")
-	if _, err := os.Stat("/usr/bin/rpm"); err == nil {
-		args := append([]string{"-qf", "--qf", "%{NAME}\\n"}, paths...)
-		cmd := exec.CommandContext(ctx, "/usr/bin/rpm", args...) //nolint:gosec // caminhos lidos de /proc/PID/exe
-		cmd.Env = env
-		b, err := cmd.Output()
-		if err != nil && len(b) == 0 {
-			return nil, err
-		}
-		lines := strings.Split(strings.TrimRight(string(b), "\n"), "\n")
-		if len(lines) != len(paths) {
-			return nil, fmt.Errorf("rpm devolveu %d linhas para %d arquivos", len(lines), len(paths))
-		}
-		for i, l := range lines {
-			if strings.Contains(l, "not owned by any package") || strings.HasPrefix(l, "error:") {
-				out[paths[i]] = "-"
-			} else {
-				out[paths[i]] = l
-			}
-		}
-		return out, nil
-	}
-	if _, err := os.Stat("/usr/bin/dpkg-query"); err == nil {
-		// Com /usr unificado, o banco do dpkg pode registrar /bin/x para o que hoje é /usr/bin/x: consulta os dois.
-		query := append([]string{}, paths...)
-		for _, p := range paths {
-			if alt, ok := strings.CutPrefix(p, "/usr"); ok {
-				query = append(query, alt)
-			}
-		}
-		cmd := exec.CommandContext(ctx, "/usr/bin/dpkg-query", append([]string{"-S"}, query...)...) //nolint:gosec // idem
-		cmd.Env = env
-		b, _ := cmd.Output()
-		found := map[string]string{}
-		for _, l := range strings.Split(string(b), "\n") {
-			pkg, file, ok := strings.Cut(l, ": ")
-			if ok {
-				found[strings.TrimSpace(file)] = strings.Split(pkg, ",")[0]
-			}
-		}
-		for _, p := range paths {
-			alt, _ := strings.CutPrefix(p, "/usr")
-			switch {
-			case found[p] != "":
-				out[p] = found[p]
-			case found[alt] != "":
-				out[p] = found[alt]
-			default:
-				out[p] = "-"
-			}
-		}
-		return out, nil
-	}
-	return nil, errors.New("nem rpm nem dpkg encontrados")
 }
 
 // scanExecutables calcula o hash de cada executável distinto (por /proc/PID/exe, inclusive memfd e apagados) e o
@@ -635,6 +601,28 @@ func (in *inspector) emitPersistence(h Hit) {
 	e := h.Item
 	in.fw.Write(report.Finding{Engine: Engine, EngineVersion: version.Version, Signature: h.Signature, Source: "vigiahost",
 		Description: h.Description, Category: h.Category, Severity: h.Severity, Persistence: &e, Evidence: h.Evidence})
+}
+
+// hidden procura processos e portas ocultos e grava hidden.json. Com procfs falso (testes) não roda: o teste por
+// chamada de sistema veria os processos reais.
+func (in *inspector) hidden() {
+	if in.cfg.NoHidden || in.cfg.Proc != "/proc" {
+		return
+	}
+	in.phase(report.PhaseHidden)
+	rep := RunHidden(in.ctx, in.cfg.Proc)
+	for _, f := range HiddenFindings(rep) {
+		in.fw.Write(f)
+	}
+	if rep.Processes.Error != "" {
+		in.warn("busca por processos ocultos incompleta: " + rep.Processes.Error)
+	}
+	if rep.Ports.Error != "" {
+		in.warn("busca por portas ocultas incompleta: " + rep.Ports.Error)
+	}
+	if err := scan.WriteJSONAtomic(filepath.Join(in.cfg.OutDir, report.HiddenFile), rep); err != nil {
+		in.warn("resultado da busca por ocultos não gravado: " + err.Error())
+	}
 }
 
 // kernel confere módulos fora da árvore ou sem assinatura e o taint do kernel.

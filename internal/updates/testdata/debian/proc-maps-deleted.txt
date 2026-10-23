@@ -1,0 +1,22 @@
+61c09fcb3000-61c09fcb5000 r--p 00000000 08:50 71818                      /usr/bin/sleep (deleted)
+61c09fcb5000-61c09fcba000 r-xp 00002000 08:50 71818                      /usr/bin/sleep (deleted)
+61c09fcba000-61c09fcbc000 r--p 00007000 08:50 71818                      /usr/bin/sleep (deleted)
+61c09fcbc000-61c09fcbd000 r--p 00009000 08:50 71818                      /usr/bin/sleep (deleted)
+61c09fcbd000-61c09fcbe000 rw-p 0000a000 08:50 71818                      /usr/bin/sleep (deleted)
+61c0b9743000-61c0b9764000 rw-p 00000000 00:00 0                          [heap]
+7f0c3bbc0000-7f0c3bbc3000 rw-p 00000000 00:00 0 
+7f0c3bbc3000-7f0c3bbe9000 r--p 00000000 08:50 72307                      /usr/lib/x86_64-linux-gnu/libc.so.6
+7f0c3bbe9000-7f0c3bd3f000 r-xp 00026000 08:50 72307                      /usr/lib/x86_64-linux-gnu/libc.so.6
+7f0c3bd3f000-7f0c3bd92000 r--p 0017c000 08:50 72307                      /usr/lib/x86_64-linux-gnu/libc.so.6
+7f0c3bd92000-7f0c3bd96000 r--p 001cf000 08:50 72307                      /usr/lib/x86_64-linux-gnu/libc.so.6
+7f0c3bd96000-7f0c3bd98000 rw-p 001d3000 08:50 72307                      /usr/lib/x86_64-linux-gnu/libc.so.6
+7f0c3bd98000-7f0c3bda5000 rw-p 00000000 00:00 0 
+7f0c3bda7000-7f0c3bda9000 rw-p 00000000 00:00 0 
+7f0c3bda9000-7f0c3bdaa000 r--p 00000000 08:50 72289                      /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f0c3bdaa000-7f0c3bdd0000 r-xp 00001000 08:50 72289                      /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f0c3bdd0000-7f0c3bdda000 r--p 00027000 08:50 72289                      /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f0c3bdda000-7f0c3bddc000 r--p 00031000 08:50 72289                      /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7f0c3bddc000-7f0c3bdde000 rw-p 00033000 08:50 72289                      /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fff16fb0000-7fff16fd1000 rw-p 00000000 00:00 0                          [stack]
+7fff16ff6000-7fff16ffa000 r--p 00000000 00:00 0                          [vvar]
+7fff16ffa000-7fff16ffc000 r-xp 00000000 00:00 0                          [vdso]

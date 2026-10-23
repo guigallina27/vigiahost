@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/guigallina27/vigiahost/internal/api"
+	"github.com/guigallina27/vigiahost/internal/inspect"
 	"github.com/guigallina27/vigiahost/internal/store"
 )
 
@@ -43,10 +44,11 @@ func (s *Server) GetProcessInventory(w http.ResponseWriter, r *http.Request, par
 		return
 	}
 	writeJSON(w, http.StatusOK, struct {
-		RunID     string          `json:"run_id"`
-		TakenAt   time.Time       `json:"taken_at"`
-		Processes json.RawMessage `json:"processes"`
-	}{snap.RunID, snap.TakenAt, rawList(snap.Processes)})
+		RunID     string                `json:"run_id"`
+		TakenAt   time.Time             `json:"taken_at"`
+		Processes json.RawMessage       `json:"processes"`
+		Hidden    *inspect.HiddenReport `json:"hidden,omitempty"`
+	}{snap.RunID, snap.TakenAt, rawList(snap.Processes), s.hiddenReport(r, snap.RunID)})
 }
 
 // GetPersistenceInventory devolve o inventário de persistência e o que saiu desde a inspeção anterior.

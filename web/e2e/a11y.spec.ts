@@ -591,6 +591,7 @@ const processInventory: S["ProcessInventory"] = {
       exe: "/usr/sbin/sshd",
       exe_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       package: "openssh-server-8.7p1-38.el9",
+      package_status: "mismatch",
       unit: "sshd.service",
       cgroup: "/system.slice/sshd.service",
       cpu_percent: 0.1,
@@ -616,6 +617,110 @@ const processInventory: S["ProcessInventory"] = {
       flags: ["Linux_Miner_XMRig"],
     },
   ],
+  hidden: {
+    processes: { checked: true, pid_max: 4194304, visible: 312, found: [{ pid: 31337, checks: ["getsid", "kill"], direct_access: true, comm: "kthreadx" }], discarded: 2 },
+    ports: { checked: true, probed: 131018, skipped: 0, listed: 14, netlink: true, found: [{ proto: "tcp", port: 31337, reason: "bind_only" }], discarded: 1 },
+    seconds: 4.2,
+  },
+};
+
+// --- Verificações do sistema ---
+
+const INTEGRITY_RUN = "r-20261021-integrity";
+const UPDATES_RUN = "r-20261021-updates";
+
+const integrityReport: S["IntegrityReport"] = {
+  run_id: INTEGRITY_RUN,
+  taken_at: "2026-10-21T04:00:00Z",
+  runs: [
+    { run_id: INTEGRITY_RUN, taken_at: "2026-10-21T04:00:00Z" },
+    { run_id: "r-20261020-integrity", taken_at: "2026-10-20T04:00:00Z" },
+  ],
+  manager: "rpm",
+  tools: ["rpm -Va"],
+  debsums_available: false,
+  packages: 412,
+  differences: 9,
+  ignored: { doc: 3, directory: 2 },
+  by_severity: { critical: 1, high: 1, info: 2 },
+  files: [
+    {
+      path: "/usr/bin/ps",
+      flags: "S.5....T.",
+      changes: ["size", "digest", "mtime"],
+      class: "binary",
+      severity: "critical",
+      signature: "integridade.binario_alterado",
+      description: "binário do sistema diferente do pacote instalado (alvo comum de rootkit)",
+      packages: [{ name: "procps-ng", version: "3.3.17-14.el9", arch: "x86_64" }],
+      algo: "sha256",
+      expected: "4f0a1c7e1a7c9f1d2b2e3d4c5b6a79881726354433221100ffeeddccbbaa9988",
+      actual: SHA,
+      sha256: SHA,
+    },
+    {
+      path: "/usr/bin/write",
+      flags: "......G..",
+      changes: ["group"],
+      class: "binary",
+      severity: "high",
+      signature: "integridade.permissoes_alteradas",
+      description: "permissões especiais diferentes do pacote",
+      packages: [{ name: "util-linux", version: "2.37.4-25.el9", arch: "x86_64" }],
+    },
+    {
+      path: "/etc/ssh/sshd_config",
+      flags: "S.5....T.",
+      changes: ["size", "digest", "mtime"],
+      config: true,
+      class: "config_sensitive",
+      severity: "info",
+      signature: "integridade.configuracao_alterada",
+      description: "configuração alterada",
+      packages: [{ name: "openssh-server", version: "8.7p1-38.el9", arch: "x86_64" }],
+    },
+  ],
+  signatures: {
+    manager: "rpm",
+    method: "package",
+    keys: [{ id: "b86b3716", summary: "AlmaLinux OS 9 <packager@almalinux.org> public key" }],
+    signed: 410,
+    unsigned: [{ name: "vigiahost", version: "0.1.7-1", arch: "x86_64" }],
+    unknown_key: [],
+    repos: [
+      { id: "baseos", name: "AlmaLinux 9 - BaseOS", file: "/etc/yum.repos.d/almalinux-baseos.repo", enabled: true, verified: true },
+      { id: "terceiro", file: "/etc/yum.repos.d/terceiro.repo", enabled: true, verified: false, problem: "gpgcheck_off" },
+    ],
+  },
+  seconds: 41.2,
+};
+
+const updatesReport: S["UpdatesReport"] = {
+  run_id: UPDATES_RUN,
+  taken_at: "2026-10-21T05:00:00Z",
+  runs: [{ run_id: UPDATES_RUN, taken_at: "2026-10-21T05:00:00Z" }],
+  manager: "rpm",
+  cache_updated_at: "2026-10-21T02:00:00Z",
+  cache_oldest_at: "2026-10-20T02:00:00Z",
+  refresh_allowed: false,
+  refreshed: false,
+  security: [
+    { name: "openssl", arch: "x86_64", installed: "1:3.5.8-1.el9_8", available: "1:3.5.8-2.el9_8", repo: "baseos", security: true, severity: "important", advisories: ["ALSA-2026:77396"], cves: ["CVE-2026-84782"] },
+    { name: "sudo", arch: "x86_64", installed: "1.9.5p2-10.el9", available: "1.9.5p2-11.el9_8", repo: "baseos", security: true, severity: "moderate", advisories: ["ALSA-2026:60226"], cves: [] },
+  ],
+  other: [{ name: "tzdata", arch: "noarch", installed: "2026c-1.el9", available: "2026e-1.el9", repo: "baseos", security: false }],
+  by_severity: { important: 1, moderate: 1 },
+  reboot: {
+    known: true,
+    required: true,
+    reasons: ["kernel instalado mais novo que o em uso"],
+    running_kernel: "5.14.0-570.el9.x86_64",
+    latest_kernel: "5.14.0-611.5.1.el9_7.x86_64",
+  },
+  services: [{ unit: "nginx.service", pids: [1201, 1202], files: ["/usr/lib64/libssl.so.3.5.8"], source: "needs-restarting" }],
+  processes: [{ pid: 4001, comm: "vim", uid: 1001, files: ["/usr/lib64/libcrypto.so.3.5.8"] }],
+  tools: { dnf: true, "needs-restarting": true },
+  seconds: 3.1,
 };
 
 const persistenceInventory: S["PersistenceInventory"] = {
@@ -901,6 +1006,8 @@ async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}
     if (path === "/rules") return route.fulfill({ json: rulesOverview });
     if (path === "/inventory/processes") return route.fulfill({ json: processInventory });
     if (path === "/inventory/persistence") return route.fulfill({ json: persistenceInventory });
+    if (path === "/integrity") return route.fulfill({ json: integrityReport });
+    if (path === "/updates") return route.fulfill({ json: updatesReport });
     if (path === "/users") return route.fulfill({ json: users });
     if (path === "/tokens") return route.fulfill({ json: tokens });
     if (path === "/audit") return route.fulfill({ json: audit });
@@ -940,6 +1047,8 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "cobertura", path: "/cobertura", ready: "Última verificação de arquivos" },
   { name: "processos", path: "/processos", ready: "kworkerd" },
   { name: "persistência", path: "/processos?aba=persistencia", ready: "/var/spool/cron/loja" },
+  { name: "integridade", path: "/integridade", ready: "/usr/bin/ps" },
+  { name: "atualizações", path: "/atualizacoes", ready: "nginx.service" },
   { name: "agendamentos", path: "/agendamentos", ready: "Varredura noturna" },
   { name: "recursos", path: "/recursos", ready: "Por que esses valores" },
   { name: "motores", path: "/motores", ready: "Assinaturas com mais de 3 dias" },
@@ -951,7 +1060,7 @@ const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
   { name: "notificações", path: "/notificacoes", ready: "Cópia automática do banco falhou" },
   { name: "configurações", path: "/configuracoes", ready: "Aparência" },
   { name: "catálogo", path: "/catalogo", ready: "ConfirmDialog" },
-  { name: "página planejada", path: "/integridade", ready: "Planejada · 2" },
+  { name: "página planejada", path: "/evidencias", ready: "Planejada · 2" },
   { name: "página inexistente", path: "/nao-existe", ready: "Ir para a visão geral" },
   { name: "login", path: "/", mock: { session: "anonymous" }, ready: "Não sou um robô" },
   { name: "login sem HTTPS", path: "/", mock: { session: "insecure" }, ready: "Esta conexão não é HTTPS" },
@@ -1089,6 +1198,8 @@ const reflow: { path: string; mock?: Mock }[] = [
   { path: `/execucoes/${RUNNING_RUN}` },
   { path: "/recursos" },
   { path: "/processos" },
+  { path: "/integridade" },
+  { path: "/atualizacoes" },
   { path: "/auditoria" },
   { path: "/notificacoes" },
   { path: "/regras" },
