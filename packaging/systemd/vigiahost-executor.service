@@ -1,0 +1,46 @@
+[Unit]
+Description=VigiaHost - executor privilegiado
+Documentation=https://github.com/guigallina27/vigiahost
+# Só ordem (sem dependência): no boot, o executor sobe depois do clamd da distribuição, se houver, e a saúde dos
+# motores já o encontra pronto.
+After=local-fs.target clamd@scan.service clamav-daemon.service clamd.service
+
+[Service]
+Type=notify
+ExecStart=/usr/libexec/vigiahost/vigiahost-executor --socket /run/vigiahost-executor/executor.sock --allow-user vigiahost --socket-group vigiahost --state /var/lib/vigiahost-executor
+RuntimeDirectory=vigiahost-executor
+RuntimeDirectoryMode=0755
+# Execuções (legíveis pelo grupo do core), cache e regras compiladas.
+StateDirectory=vigiahost-executor
+StateDirectoryMode=0750
+Restart=on-failure
+RestartSec=5s
+UMask=0077
+
+# Roda como root porque cria as execuções (unidades transitórias via D-Bus, que exigem UID 0) e prepara os
+# diretórios delas. A leitura dos arquivos das contas acontece dentro de cada execução, com capacidades próprias
+# (ADR-004). CAP_CHOWN entrega socket e diretórios ao grupo do core; CAP_DAC_OVERRIDE permite conectar ao socket
+# do clamd de outro dono para a tela de saúde dos motores. Sem PrivateTmp nem ProtectHome pelo mesmo motivo das
+# execuções: /tmp e /home precisam ser vistos como são.
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_OVERRIDE
+NoNewPrivileges=yes
+ProtectSystem=full
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

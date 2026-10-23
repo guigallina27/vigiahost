@@ -1,0 +1,1237 @@
+import AxeBuilder from "@axe-core/playwright";
+import { expect, test, type Page, type Route } from "@playwright/test";
+import type { components } from "../src/api/schema";
+
+// WCAG 2.1 AA (escopo, seção 14.3) com axe-core, nos dois temas, mais checagens de teclado, reflow e tema.
+// A API é simulada aqui com respostas tipadas pelo contrato (api/openapi.yaml → src/api/schema.d.ts): se o contrato
+// mudar, o typecheck acusa os dados de teste desatualizados.
+
+type S = components["schemas"];
+
+// Datas fixas: o relógio do navegador é congelado em NOW e todos os dados são anteriores a ele.
+const NOW = "2026-10-22T12:00:00Z";
+const SHA = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+const FILES_RUN = "r-20261021-files";
+const PROC_RUN = "r-20261021-proc";
+const RUNNING_RUN = "r-20261022-running";
+
+// --- Sessão ---
+
+const admin: S["CurrentUser"] = {
+  id: 1,
+  username: "admin",
+  display_name: "Ana Administradora",
+  role: "admin",
+  mfa_enabled: true,
+  mfa_required: true,
+  recovery_codes_left: 8,
+};
+
+const sessions = {
+  // Sessão completa de administrador com segundo fator ativo: o AuthGate mostra o AppShell.
+  admin: {
+    authenticated: true,
+    setup_required: false,
+    secure_transport: true,
+    stage: "full",
+    user: admin,
+    idle_timeout_seconds: 1800,
+  },
+  anonymous: { authenticated: false, setup_required: false, secure_transport: true },
+  insecure: { authenticated: false, setup_required: false, secure_transport: false },
+  password: { authenticated: false, setup_required: false, secure_transport: true, stage: "password", user: admin },
+} satisfies Record<string, S["Session"]>;
+
+type SessionKind = keyof typeof sessions;
+
+// Desafio ALTCHA v2 plausível; com auto="off" o widget só o pede ao marcar a caixa, mas fica simulado mesmo assim.
+const challenge: S["AuthChallenge"] = {
+  parameters: {
+    algorithm: "PBKDF2/SHA-256",
+    nonce: "6f1c2a9e0b7d4c3a",
+    salt: "c0ffee00c0ffee00",
+    cost: 1000,
+    keyLength: 32,
+    keyPrefix: "00",
+    expiresAt: 1792670400,
+  },
+  signature: "3a7bd3e2360a3d29eea436fcfb7e44c735d117c42d1c1835420b6b9942dd4f1b",
+};
+
+// --- Saúde ---
+
+const system: S["SystemCapabilities"] = {
+  distro_id: "almalinux",
+  distro_version: "9.8",
+  distro_name: "AlmaLinux 9.8 (Olive Jaguar)",
+  distro_like: ["rhel", "centos", "fedora"],
+  kernel: "5.14.0-611.el9.x86_64",
+  arch: "amd64",
+  systemd: true,
+  cgroup_v2: true,
+  psi: false,
+};
+
+const executorUp: S["ExecutorStatus"] = { connected: true, version: "0.1.0", protocol: "1.0", system };
+const executorDown: S["ExecutorStatus"] = {
+  connected: false,
+  error: "dial unix /run/vigiahost-executor/executor.sock: connect: no such file or directory",
+};
+
+const healthy: S["Health"] = { status: "ok", version: "0.1.0", executor: executorUp };
+const degraded: S["Health"] = { status: "degraded", version: "0.1.0", executor: executorDown };
+
+// --- Execuções ---
+
+const profile: S["ResourceProfile"] = {
+  name: "padrao",
+  cpu_quota_percent: 100,
+  memory_max_bytes: 1_073_741_824,
+  io_read_bytes_per_sec: 52_428_800,
+  io_weight: 100,
+  workers: 2,
+  clamd_concurrency: 2,
+  max_runtime_sec: 14_400,
+  nice: 10,
+  max_file_bytes: 33_554_432,
+};
+
+const skipped = { excluded: 120, too_large: 4, permission: 2, cached: 900 };
+
+const filesRun: S["Run"] = {
+  id: FILES_RUN,
+  kind: "files",
+  status: "completed",
+  origin: "schedule",
+  requested_by: "agendamento",
+  schedule_id: 1,
+  scheduled_for: "2026-10-21T03:00:00Z",
+  paths: ["/home", "/var/www"],
+  accounts: [1001, 1002],
+  exclude: ["/home/*/cache"],
+  incremental: true,
+  profile,
+  priority: 0,
+  attempts: 1,
+  created_at: "2026-10-21T03:00:00Z",
+  started_at: "2026-10-21T03:00:05Z",
+  finished_at: "2026-10-21T03:42:10Z",
+  phase: "done",
+  paused: false,
+  files_seen: 15_234,
+  files_eligible: 14_108,
+  files_processed: 14_108,
+  bytes_eligible: 2_147_483_648,
+  bytes_processed: 2_147_483_648,
+  findings_count: 2,
+  error: "",
+  summary: {
+    status: "completed",
+    started_at: "2026-10-21T03:00:05Z",
+    finished_at: "2026-10-21T03:42:10Z",
+    files_seen: 15_234,
+    files_eligible: 14_108,
+    bytes_eligible: 2_147_483_648,
+    skipped,
+    findings: 2,
+    objects: 14_108,
+    cache_hits: 900,
+    files_per_second: 5.6,
+    mb_per_second: 0.85,
+    warnings: ["3 arquivos mudaram durante a leitura e serão verificados de novo."],
+    metrics: {
+      phases: [
+        { phase: "selftest", seconds: 4 },
+        { phase: "listing", seconds: 31 },
+        { phase: "scanning", seconds: 2410 },
+        { phase: "large_files", seconds: 80 },
+      ],
+      cpu_seconds: 3120,
+      cpu_seconds_per_gb: 1560,
+      memory_peak_bytes: 734_003_200,
+      bytes_read: 2_000_000_000,
+      source: "cgroup",
+      throttle: {
+        available: true,
+        enabled: true,
+        limited_seconds: 312,
+        paused_seconds: 40,
+        events: [
+          { at: "2026-10-21T03:10:00Z", action: "reduce", resource: "io", pressure: 52.4, threshold: 40, workers: 1 },
+          { at: "2026-10-21T03:11:00Z", action: "pause", resource: "io", pressure: 71, threshold: 40, workers: 0 },
+          { at: "2026-10-21T03:11:40Z", action: "restore", resource: "io", pressure: 12, threshold: 40, workers: 2 },
+        ],
+        events_dropped: 0,
+      },
+    },
+  },
+  adjustments: [
+    {
+      at: "2026-10-21T03:12:00Z",
+      actor: "admin",
+      before: { cpu_quota_percent: 200, memory_max_bytes: 2_147_483_648, io_read_bytes_per_sec: 0, io_weight: 50 },
+      after: { cpu_quota_percent: 100, memory_max_bytes: 2_147_483_648, io_read_bytes_per_sec: 52_428_800, io_weight: 25 },
+    },
+  ],
+};
+
+// Execução em andamento, com o ritmo reduzido pela pressão de E/S: o administrador vê o ajuste em tempo real.
+const runningRun: S["Run"] = {
+  ...filesRun,
+  id: RUNNING_RUN,
+  status: "running",
+  origin: "manual",
+  requested_by: "admin",
+  created_at: "2026-10-22T10:00:00Z",
+  started_at: "2026-10-22T10:00:03Z",
+  phase: "scanning",
+  files_processed: 6_000,
+  bytes_processed: 900_000_000,
+  findings_count: 0,
+  adjustments: [],
+  throttle: { state: "reduced", workers: 1, resource: "io", pressure: 48.2 },
+};
+delete runningRun.finished_at;
+delete runningRun.summary;
+
+const comparison = (id: string): S["RunComparison"] => ({
+  kind: "files",
+  runs: [
+    { id: FILES_RUN, status: "completed", profile: "padrao", created_at: "2026-10-21T03:00:00Z", finished_at: "2026-10-21T03:42:10Z", duration_seconds: 2525, files_eligible: 14_108, bytes_eligible: 2_147_483_648, files_per_second: 5.6, mb_per_second: 0.85, cache_hits: 900, findings: 2, cpu_seconds: 3120, memory_peak_bytes: 734_003_200, limited_seconds: 312, current: id === FILES_RUN },
+    { id: "20261020-030000-0b1c2d3e", status: "partial", profile: "leve", created_at: "2026-10-20T03:00:00Z", finished_at: "2026-10-20T04:30:00Z", duration_seconds: 5400, files_eligible: 14_000, bytes_eligible: 2_100_000_000, files_per_second: 2.6, mb_per_second: 0.37, cache_hits: 0, findings: 0, current: false },
+    ...(id === RUNNING_RUN ? [{ id: RUNNING_RUN, status: "running" as const, profile: "padrao", created_at: "2026-10-22T10:00:00Z", duration_seconds: 0, files_eligible: 14_108, bytes_eligible: 2_147_483_648, files_per_second: 0, mb_per_second: 0, cache_hits: 0, findings: 0, current: true }] : []),
+  ],
+});
+
+const processesRun: S["Run"] = {
+  ...filesRun,
+  id: PROC_RUN,
+  kind: "processes",
+  origin: "manual",
+  requested_by: "admin",
+  scheduled_for: "2026-10-21T09:00:00Z",
+  paths: [],
+  exclude: [],
+  incremental: false,
+  created_at: "2026-10-21T09:00:00Z",
+  started_at: "2026-10-21T09:00:02Z",
+  finished_at: "2026-10-21T09:00:20Z",
+  files_seen: 0,
+  files_eligible: 0,
+  files_processed: 0,
+  bytes_eligible: 0,
+  bytes_processed: 0,
+  findings_count: 1,
+  summary: {
+    status: "completed",
+    started_at: "2026-10-21T09:00:02Z",
+    finished_at: "2026-10-21T09:00:20Z",
+    files_seen: 0,
+    files_eligible: 0,
+    bytes_eligible: 0,
+    findings: 1,
+    objects: 212,
+    cache_hits: 0,
+    files_per_second: 0,
+    mb_per_second: 0,
+  },
+};
+
+const coverage: S["EngineCoverage"][] = [
+  {
+    engine: "yara-x",
+    version: "1.9.0",
+    rules_version: "2026.10.01",
+    available: true,
+    selftest_passed: true,
+    selftest_detail: "EICAR detectado",
+    eligible: 14_108,
+    analyzed: 13_208,
+    from_cache: 900,
+    bytes_analyzed: 2_000_000_000,
+    seconds: 2410,
+    skipped: { too_large: 4 },
+    errors: {},
+    error: "",
+  },
+  {
+    engine: "clamav",
+    version: "1.4.3",
+    rules_version: "27794",
+    available: true,
+    selftest_passed: true,
+    selftest_detail: "EICAR detectado",
+    eligible: 14_108,
+    analyzed: 13_206,
+    from_cache: 900,
+    bytes_analyzed: 2_000_000_000,
+    seconds: 2380,
+    skipped: { too_large: 4, permission: 2 },
+    errors: { timeout: 1 },
+    error: "",
+  },
+];
+
+// --- Contas ---
+
+const lojaAccount: S["Account"] = {
+  uid: 1001,
+  name: "loja",
+  home: "/home/loja",
+  shell: "/bin/bash",
+  system: false,
+  home_ok: true,
+  open_findings: { critical: 1, high: 1, medium: 0, low: 0, info: 0, total: 2 },
+  last_run: {
+    id: FILES_RUN,
+    status: "completed",
+    created_at: "2026-10-21T03:00:00Z",
+    finished_at: "2026-10-21T03:42:10Z",
+    files_processed: 14_108,
+    files_eligible: 14_108,
+  },
+  processes: 1,
+  persistence_items: 1,
+};
+
+const hostingAccounts: S["Account"][] = [
+  lojaAccount,
+  {
+    uid: 1002,
+    name: "blog",
+    home: "/home/blog",
+    shell: "/sbin/nologin",
+    system: false,
+    home_ok: false,
+    open_findings: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+    processes: 0,
+    persistence_items: 0,
+  },
+];
+
+const rootAccount: S["Account"] = {
+  uid: 0,
+  name: "root",
+  home: "/root",
+  shell: "/bin/bash",
+  system: true,
+  home_ok: true,
+  open_findings: { critical: 0, high: 0, medium: 0, low: 0, info: 0, total: 0 },
+  processes: 1,
+  persistence_items: 1,
+};
+
+const accountList = (system: boolean): S["AccountList"] => ({
+  uid_min: 1000,
+  uid_max: 60000,
+  inventory_at: "2026-10-21T09:00:20Z",
+  accounts: system ? [rootAccount, ...hostingAccounts] : hostingAccounts,
+});
+
+const runDetails: Record<string, S["RunDetail"]> = {
+  [FILES_RUN]: { run: filesRun, engines: coverage },
+  [PROC_RUN]: { run: processesRun, engines: [] },
+  [RUNNING_RUN]: { run: runningRun, engines: [] },
+};
+
+// --- Achados ---
+
+const location: S["Location"] = {
+  path: "/home/loja/public_html/uploads/x.php",
+  dev: 64769,
+  ino: 1_048_602,
+  size: 10_240,
+  mode: 0o100644,
+  uid: 1001,
+  gid: 1001,
+  nlink: 1,
+  mtime: "2026-10-19T22:14:00Z",
+  ctime: "2026-10-19T22:14:00Z",
+};
+
+const criticalFinding: S["Finding"] = {
+  id: 42,
+  kind: "file",
+  engine: "yara-x",
+  engine_version: "1.9.0",
+  rules_version: "2026.10.01",
+  signature: "PHP_Webshell_Generic",
+  source: "regras-base",
+  license: "GPL-3.0",
+  author: "Equipe VigiaHost",
+  reference: "https://example.org/regras/php-webshell",
+  description: "Webshell PHP genérico com execução de comandos",
+  category: "webshell",
+  severity: "critical",
+  sha256: SHA,
+  file_type: "php",
+  state: "new",
+  assignee: "",
+  first_run: FILES_RUN,
+  last_run: FILES_RUN,
+  first_seen: "2026-10-20T03:30:00Z",
+  last_seen: "2026-10-21T03:30:00Z",
+  state_changed: "2026-10-20T03:30:00Z",
+  times_seen: 2,
+  location,
+  locations_count: 1,
+  evidence: { match: "eval(base64_decode(" },
+};
+
+const processFinding: S["Finding"] = {
+  ...criticalFinding,
+  id: 43,
+  kind: "process",
+  signature: "Linux_Miner_XMRig",
+  description: "Minerador de criptomoeda em execução",
+  category: "miner",
+  severity: "high",
+  state: "in_review",
+  assignee: "admin",
+  sha256: "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+  file_type: "elf",
+  first_run: PROC_RUN,
+  last_run: PROC_RUN,
+  first_seen: "2026-10-21T09:00:10Z",
+  last_seen: "2026-10-21T09:00:10Z",
+  state_changed: "2026-10-21T10:00:00Z",
+  times_seen: 1,
+  evidence: {},
+  process: {
+    pid: 4242,
+    ppid: 1,
+    uid: 1001,
+    comm: "kworkerd",
+    exe: "/tmp/.x/kworkerd",
+    cmdline: ["/tmp/.x/kworkerd", "-o", "pool.example.net:3333"],
+    cgroup: "/user.slice/user-1001.slice",
+    exe_sha256: "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae",
+    connected: ["203.0.113.7:3333"],
+  },
+};
+
+const findingDetail: S["FindingDetail"] = {
+  finding: criticalFinding,
+  locations: [location],
+  events: [
+    { at: "2026-10-20T03:30:00Z", actor: "sistema", action: "created", from: "", to: "new", note: "" },
+    { at: "2026-10-21T03:30:00Z", actor: "sistema", action: "seen", from: "new", to: "new", note: "Visto de novo" },
+  ],
+  allowed_transitions: ["in_review", "confirmed", "false_positive"],
+};
+
+const exceptions: S["Exception"][] = [
+  {
+    id: 7,
+    scope: "hash_rule",
+    sha256: SHA,
+    signature: "PHP_Shell_Upload",
+    path_prefix: "/home/loja/public_html/vendor/",
+    reason: "Biblioteca legítima do tema, revisada pelo suporte",
+    created_by: "admin",
+    created_at: "2026-10-15T14:00:00Z",
+    expires_at: "2027-01-15T14:00:00Z",
+    revoked_by: "",
+    active: true,
+  },
+];
+
+// --- Configuração ---
+
+const schedules: S["Schedule"][] = [
+  {
+    id: 1,
+    name: "Varredura noturna",
+    kind: "files",
+    cron: "0 3 * * *",
+    timezone: "America/Sao_Paulo",
+    paths: ["/home", "/var/www"],
+    exclude: ["/home/*/cache"],
+    incremental: true,
+    profile: "padrao",
+    missed_policy: "run_once",
+    enabled: true,
+    next_run_at: "2026-10-23T06:00:00Z",
+    last_run_at: "2026-10-22T06:00:00Z",
+    created_by: "admin",
+    created_at: "2026-10-01T12:00:00Z",
+    updated_at: "2026-10-01T12:00:00Z",
+    upcoming: ["2026-10-23T06:00:00Z", "2026-10-24T06:00:00Z", "2026-10-25T06:00:00Z"],
+  },
+];
+
+const resources: S["Resources"] = {
+  hardware: {
+    cpus: 8,
+    memory_bytes: 17_179_869_184,
+    rotational: false,
+    disk_type: "ssd",
+    pressure: {
+      cpu: { avg10: 4.2, avg60: 3.1, avg300: 2.5 },
+      io: { avg10: 12.8, avg60: 9.4, avg300: 6.1 },
+      memory: { avg10: 0, avg60: 0, avg300: 0 },
+    },
+    load_avg: 2.4,
+    allow_no_reserve: false,
+    systemd_version: "252",
+    freezer: true,
+  },
+  profiles: [
+    { profile: { ...profile, name: "leve", cpu_quota_percent: 50, workers: 1, clamd_concurrency: 1 }, custom: false, preset: true },
+    { profile, custom: false, preset: true },
+    { profile: { ...profile, name: "noturno", cpu_quota_percent: 200, workers: 4 }, custom: true, preset: false },
+  ],
+};
+
+const suggestion: S["ProfileSuggestion"] = {
+  profile: { ...profile, name: "sugerido", cpu_quota_percent: 300, workers: 3, clamd_concurrency: 3, pressure_cpu: 50, pressure_io: 40, pressure_memory: 20 },
+  reasons: [
+    { code: "cpu_normal", values: { cpus: 8, quota: 300, share: 50, pressure: 2.5, load_per_core: 0.3 } },
+    { code: "memory_normal", values: { total: 17_179_869_184, max: 2_147_483_648, percent: 12.5, pressure: 0 } },
+    { code: "disk_ssd", values: { workers: 3, io_weight: 50 } },
+    { code: "pressure_thresholds", values: { cpu: 50, io: 40, memory: 20 } },
+  ],
+  basis: { cpus: 8, memory_bytes: 17_179_869_184, disk_type: "ssd", psi: true, cpu_pressure: 2.5, io_pressure: 6.1, memory_pressure: 0, load_avg: 2.4, history_runs: 1, limited_ratio: 0.12 },
+};
+
+const engines: S["EngineStatus"] = {
+  engines: [
+    {
+      id: "yara-x",
+      name: "YARA-X",
+      state: "operational",
+      version: "1.9.0",
+      rules_version: "2026.10.01",
+      last_selftest: { run_id: FILES_RUN, passed: true, detail: "EICAR detectado", at: "2026-10-21T03:00:06Z" },
+    },
+    {
+      id: "clamav",
+      name: "ClamAV",
+      state: "degraded",
+      version: "1.4.3",
+      signatures_version: "27794",
+      signatures_date: "2026-10-18",
+      mode: "clamd",
+      detail: "Assinaturas com mais de 3 dias",
+      last_selftest: { run_id: FILES_RUN, passed: true, detail: "EICAR detectado", at: "2026-10-21T03:00:06Z" },
+    },
+    { id: "lmd", name: "LMD", state: "disabled", version: "2.0.1", signatures_version: "2026052490478", signatures_date: "2026-05-24" },
+  ],
+};
+
+const rulesOverview: S["RulesOverview"] = {
+  yara: {
+    user_dir: "/etc/vigiahost/rules.d",
+    compiling: true,
+    yr_version: "1.9.0",
+    last_compile: { at: "2026-10-22T08:00:00Z", trigger: "manual", ok: true, set_version: "9f2c41d07a5be318", yr_version: "1.9.0", selftest: true },
+    sources: [
+      { name: "controle", origin: "builtin", enabled: true, mandatory: true, files: 1, rules: 1, bytes: 412, state: "ok", license: "GPL-3.0-only", hash: "1".repeat(64) },
+      { name: "vigiahost", origin: "builtin", enabled: true, mandatory: false, files: 1, rules: 15, bytes: 18234, state: "ok", license: "GPL-3.0-only", hash: "2".repeat(64) },
+      {
+        name: "loja-regras",
+        origin: "local",
+        enabled: true,
+        mandatory: false,
+        files: 3,
+        rules: 27,
+        bytes: 40960,
+        state: "error",
+        problem: "wordpress.yar:12: identificador $a duplicado",
+        path: "/etc/vigiahost/rules.d/loja-regras",
+        description: "Regras escritas pela equipe para a loja virtual",
+        license: "Proprietária",
+        version: "2026.10",
+        hash: "3".repeat(64),
+        updated_at: "2026-10-21T17:40:00Z",
+      },
+      { name: "antiga", origin: "local", enabled: false, mandatory: false, files: 1, rules: 3, bytes: 2048, state: "disabled", path: "/etc/vigiahost/rules.d/antiga" },
+      { name: "aberta", origin: "local", enabled: true, mandatory: false, files: 0, rules: 0, bytes: 0, state: "refused", problem: "permissões inseguras: gravável por outros usuários" },
+    ],
+  },
+  clamav: { state: "degraded", version: "1.4.3", signatures_version: "27794", signatures_date: "2026-10-18", mode: "clamd", lmd_signatures: ["/var/lib/clamav/rfxn.hdb", "/var/lib/clamav/rfxn.ndb"] },
+  lmd: {
+    installed: true,
+    usable: true,
+    enabled: false,
+    state: "disabled",
+    path: "/usr/local/maldetect",
+    version: "2.0.1",
+    signatures_version: "2026052490478",
+    signatures_date: "2026-05-24",
+    signatures: { md5: 0, sha256: 42634, hex: 2373, csig: 86, yara: 3706, user: 0 },
+  },
+};
+
+const overview = (executor: S["ExecutorStatus"]): S["Overview"] => ({
+  executor,
+  open_findings: { critical: 1, high: 1, medium: 0, low: 0, info: 0, total: 2 },
+  active_runs: [],
+  last_files_run: filesRun,
+  last_processes_run: processesRun,
+  recent_findings: [criticalFinding, processFinding],
+  engines: engines.engines,
+  has_runs: true,
+  has_schedules: true,
+});
+
+// --- Inventário ---
+
+const processInventory: S["ProcessInventory"] = {
+  run_id: PROC_RUN,
+  taken_at: "2026-10-21T09:00:20Z",
+  processes: [
+    {
+      pid: 812,
+      ppid: 1,
+      uid: 0,
+      user: "root",
+      comm: "sshd",
+      cmdline: ["/usr/sbin/sshd", "-D"],
+      exe: "/usr/sbin/sshd",
+      exe_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      package: "openssh-server-8.7p1-38.el9",
+      package_status: "mismatch",
+      unit: "sshd.service",
+      cgroup: "/system.slice/sshd.service",
+      cpu_percent: 0.1,
+      rss_bytes: 8_388_608,
+      threads: 1,
+      listening: ["0.0.0.0:22"],
+    },
+    {
+      pid: 4242,
+      ppid: 1,
+      uid: 1001,
+      user: "loja",
+      comm: "kworkerd",
+      cmdline: ["/tmp/.x/kworkerd", "-o", "pool.example.net:3333"],
+      exe: "/tmp/.x/kworkerd",
+      exe_deleted: true,
+      package: "-",
+      cgroup: "/user.slice/user-1001.slice",
+      cpu_percent: 97.5,
+      rss_bytes: 268_435_456,
+      threads: 8,
+      connected: ["203.0.113.7:3333"],
+      flags: ["Linux_Miner_XMRig"],
+    },
+  ],
+  hidden: {
+    processes: { checked: true, pid_max: 4194304, visible: 312, found: [{ pid: 31337, checks: ["getsid", "kill"], direct_access: true, comm: "kthreadx" }], discarded: 2 },
+    ports: { checked: true, probed: 131018, skipped: 0, listed: 14, netlink: true, found: [{ proto: "tcp", port: 31337, reason: "bind_only" }], discarded: 1 },
+    seconds: 4.2,
+  },
+};
+
+// --- Verificações do sistema ---
+
+const INTEGRITY_RUN = "r-20261021-integrity";
+const UPDATES_RUN = "r-20261021-updates";
+
+const integrityReport: S["IntegrityReport"] = {
+  run_id: INTEGRITY_RUN,
+  taken_at: "2026-10-21T04:00:00Z",
+  runs: [
+    { run_id: INTEGRITY_RUN, taken_at: "2026-10-21T04:00:00Z" },
+    { run_id: "r-20261020-integrity", taken_at: "2026-10-20T04:00:00Z" },
+  ],
+  manager: "rpm",
+  tools: ["rpm -Va"],
+  debsums_available: false,
+  packages: 412,
+  differences: 9,
+  ignored: { doc: 3, directory: 2 },
+  by_severity: { critical: 1, high: 1, info: 2 },
+  files: [
+    {
+      path: "/usr/bin/ps",
+      flags: "S.5....T.",
+      changes: ["size", "digest", "mtime"],
+      class: "binary",
+      severity: "critical",
+      signature: "integridade.binario_alterado",
+      description: "binário do sistema diferente do pacote instalado (alvo comum de rootkit)",
+      packages: [{ name: "procps-ng", version: "3.3.17-14.el9", arch: "x86_64" }],
+      algo: "sha256",
+      expected: "4f0a1c7e1a7c9f1d2b2e3d4c5b6a79881726354433221100ffeeddccbbaa9988",
+      actual: SHA,
+      sha256: SHA,
+    },
+    {
+      path: "/usr/bin/write",
+      flags: "......G..",
+      changes: ["group"],
+      class: "binary",
+      severity: "high",
+      signature: "integridade.permissoes_alteradas",
+      description: "permissões especiais diferentes do pacote",
+      packages: [{ name: "util-linux", version: "2.37.4-25.el9", arch: "x86_64" }],
+    },
+    {
+      path: "/etc/ssh/sshd_config",
+      flags: "S.5....T.",
+      changes: ["size", "digest", "mtime"],
+      config: true,
+      class: "config_sensitive",
+      severity: "info",
+      signature: "integridade.configuracao_alterada",
+      description: "configuração alterada",
+      packages: [{ name: "openssh-server", version: "8.7p1-38.el9", arch: "x86_64" }],
+    },
+  ],
+  signatures: {
+    manager: "rpm",
+    method: "package",
+    keys: [{ id: "b86b3716", summary: "AlmaLinux OS 9 <packager@almalinux.org> public key" }],
+    signed: 410,
+    unsigned: [{ name: "vigiahost", version: "0.1.7-1", arch: "x86_64" }],
+    unknown_key: [],
+    repos: [
+      { id: "baseos", name: "AlmaLinux 9 - BaseOS", file: "/etc/yum.repos.d/almalinux-baseos.repo", enabled: true, verified: true },
+      { id: "terceiro", file: "/etc/yum.repos.d/terceiro.repo", enabled: true, verified: false, problem: "gpgcheck_off" },
+    ],
+  },
+  seconds: 41.2,
+};
+
+const updatesReport: S["UpdatesReport"] = {
+  run_id: UPDATES_RUN,
+  taken_at: "2026-10-21T05:00:00Z",
+  runs: [{ run_id: UPDATES_RUN, taken_at: "2026-10-21T05:00:00Z" }],
+  manager: "rpm",
+  cache_updated_at: "2026-10-21T02:00:00Z",
+  cache_oldest_at: "2026-10-20T02:00:00Z",
+  refresh_allowed: false,
+  refreshed: false,
+  security: [
+    { name: "openssl", arch: "x86_64", installed: "1:3.5.8-1.el9_8", available: "1:3.5.8-2.el9_8", repo: "baseos", security: true, severity: "important", advisories: ["ALSA-2026:77396"], cves: ["CVE-2026-84782"] },
+    { name: "sudo", arch: "x86_64", installed: "1.9.5p2-10.el9", available: "1.9.5p2-11.el9_8", repo: "baseos", security: true, severity: "moderate", advisories: ["ALSA-2026:60226"], cves: [] },
+  ],
+  other: [{ name: "tzdata", arch: "noarch", installed: "2026c-1.el9", available: "2026e-1.el9", repo: "baseos", security: false }],
+  by_severity: { important: 1, moderate: 1 },
+  reboot: {
+    known: true,
+    required: true,
+    reasons: ["kernel instalado mais novo que o em uso"],
+    running_kernel: "5.14.0-570.el9.x86_64",
+    latest_kernel: "5.14.0-611.5.1.el9_7.x86_64",
+  },
+  services: [{ unit: "nginx.service", pids: [1201, 1202], files: ["/usr/lib64/libssl.so.3.5.8"], source: "needs-restarting" }],
+  processes: [{ pid: 4001, comm: "vim", uid: 1001, files: ["/usr/lib64/libcrypto.so.3.5.8"] }],
+  tools: { dnf: true, "needs-restarting": true },
+  seconds: 3.1,
+};
+
+const persistenceInventory: S["PersistenceInventory"] = {
+  run_id: PROC_RUN,
+  taken_at: "2026-10-21T09:00:20Z",
+  baseline: false,
+  items: [
+    {
+      kind: "cron",
+      path: "/var/spool/cron/loja",
+      detail: "*/5 * * * * /tmp/.x/kworkerd",
+      sha256: "fcde2b2edba56bf408601fb721fe9b5c338d10ee429ea04fae5511b68fbf8fb9",
+      owner: "loja",
+      package: "-",
+      change: "added",
+    },
+    {
+      kind: "systemd-unit",
+      path: "/etc/systemd/system/sshd.service.d/override.conf",
+      detail: "ExecStart=/usr/sbin/sshd -D",
+      owner: "root",
+      package: "-",
+      change: "",
+    },
+  ],
+  removed: [{ kind: "authorized-keys", path: "/home/loja/.ssh/authorized_keys", owner: "loja", change: "removed" }],
+};
+
+// --- Administração ---
+
+const users: S["User"][] = [
+  {
+    id: 1,
+    username: "admin",
+    display_name: "Ana Administradora",
+    role: "admin",
+    disabled: false,
+    mfa_enabled: true,
+    created_at: "2026-09-30T12:00:00Z",
+    last_login_at: "2026-10-22T11:30:00Z",
+  },
+  {
+    id: 2,
+    username: "suporte",
+    display_name: "Equipe de suporte",
+    role: "reader",
+    disabled: true,
+    mfa_enabled: false,
+    created_at: "2026-10-02T12:00:00Z",
+  },
+];
+
+const tokens: S["ApiToken"][] = [
+  {
+    id: 3,
+    name: "Monitoramento Zabbix",
+    username: "admin",
+    role: "reader",
+    prefix: "vh_3f9a",
+    created_at: "2026-10-05T12:00:00Z",
+    expires_at: "2027-01-03T12:00:00Z",
+    last_used: "2026-10-22T11:55:00Z",
+  },
+];
+
+const audit: S["AuditPage"] = {
+  chain_ok: true,
+  entries: [
+    {
+      id: 120,
+      at: "2026-10-22T11:30:00Z",
+      actor: "admin",
+      action: "login",
+      target: "admin",
+      detail: "",
+      ip: "198.51.100.20",
+    },
+    {
+      id: 119,
+      at: "2026-10-21T18:00:00Z",
+      actor: "admin",
+      action: "exception_created",
+      target: "exception:7",
+      detail: "hash_rule PHP_Shell_Upload",
+      ip: "198.51.100.20",
+    },
+  ],
+};
+
+const backups: S["BackupList"] = {
+  directory: "/var/lib/vigiahost/backups",
+  keep_automatic: 7,
+  backups: [
+    {
+      name: "vigiahost-20261022-030000.db",
+      created_at: "2026-10-22T03:00:00Z",
+      size: 4_718_592,
+      sha256: "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+      schema_version: 12,
+      product: "0.1.0",
+      origin: "automatic",
+    },
+  ],
+};
+
+const notificationChannels: S["NotificationChannel"][] = [
+  {
+    id: 1,
+    name: "Plantão por e-mail",
+    kind: "email",
+    enabled: true,
+    include_details: true,
+    email: {
+      host: "smtp.example.com",
+      port: 587,
+      security: "starttls",
+      username: "alertas",
+      from: "VigiaHost <alertas@example.com>",
+      to: ["plantao@example.com", "seguranca@example.com"],
+    },
+    secret_configured: true,
+    secret_readable: true,
+    last_state: "sent",
+    last_at: "2026-10-22T11:30:00Z",
+    created_by: "admin",
+    created_at: "2026-10-20T10:00:00Z",
+    updated_at: "2026-10-20T10:00:00Z",
+  },
+  {
+    id: 2,
+    name: "SIEM da equipe",
+    kind: "webhook",
+    enabled: false,
+    include_details: false,
+    webhook: { url: "https://siem.example.com/hooks/vigiahost/abcdefghijklmnopqrstuvwxyz0123456789", allow_private_network: false },
+    secret_configured: true,
+    secret_readable: false,
+    last_state: "failed",
+    last_at: "2026-10-22T09:00:00Z",
+    last_error: "webhook respondeu HTTP 401: assinatura recusada",
+    created_by: "admin",
+    created_at: "2026-10-21T10:00:00Z",
+    updated_at: "2026-10-21T10:00:00Z",
+  },
+];
+
+const notificationRules: S["NotificationRule"][] = [
+  {
+    id: 1,
+    channel_id: 1,
+    event: "finding_new",
+    min_severity: "high",
+    dedup_minutes: 1440,
+    enabled: true,
+    created_at: "2026-10-20T10:00:00Z",
+    updated_at: "2026-10-20T10:00:00Z",
+  },
+  {
+    id: 2,
+    channel_id: 2,
+    event: "executor_unavailable",
+    min_severity: "high",
+    dedup_minutes: 60,
+    enabled: false,
+    created_at: "2026-10-21T10:00:00Z",
+    updated_at: "2026-10-21T10:00:00Z",
+  },
+];
+
+const notificationOutbox: S["OutboxPage"] = {
+  entries: [
+    {
+      id: 3,
+      channel_id: 1,
+      channel_name: "Plantão por e-mail",
+      channel_kind: "email",
+      event: "finding_new",
+      summary: "12 achados novos (maior severidade: crítica)",
+      item_count: 12,
+      severity_counts: { critical: 2, high: 10 },
+      items: [{ severity: "critical", title: "YARA-X: PHP_Webshell_Generic", finding_id: 7, run_id: FILES_RUN }],
+      state: "pending",
+      attempts: 1,
+      max_attempts: 8,
+      next_attempt_at: "2026-10-22T12:00:30Z",
+      last_error: "SMTP RCPT TO plantao@example.com: 450 caixa ocupada",
+      created_at: "2026-10-22T11:58:00Z",
+      updated_at: "2026-10-22T11:59:00Z",
+    },
+    {
+      id: 2,
+      channel_id: 2,
+      channel_name: "SIEM da equipe",
+      channel_kind: "webhook",
+      event: "test",
+      summary: "mensagem de teste",
+      item_count: 1,
+      severity_counts: { info: 1 },
+      items: [{ severity: "info", title: "Mensagem de teste" }],
+      state: "failed",
+      attempts: 1,
+      max_attempts: 1,
+      last_error: "webhook respondeu HTTP 401: assinatura recusada",
+      created_at: "2026-10-22T09:00:00Z",
+      updated_at: "2026-10-22T09:00:00Z",
+    },
+    {
+      id: 1,
+      channel_id: 1,
+      channel_name: "Plantão por e-mail",
+      channel_kind: "email",
+      event: "backup_failed",
+      summary: "Cópia automática do banco falhou",
+      item_count: 1,
+      severity_counts: { high: 1 },
+      items: [{ severity: "high", title: "Cópia automática do banco falhou" }],
+      state: "sent",
+      attempts: 1,
+      max_attempts: 8,
+      last_error: "",
+      created_at: "2026-10-21T03:00:00Z",
+      updated_at: "2026-10-21T03:00:05Z",
+      sent_at: "2026-10-21T03:00:05Z",
+    },
+  ],
+};
+
+// --- Simulação da API ---
+
+type Mode = "ok" | "degraded" | "offline";
+type Mock = { mode?: Mode; session?: SessionKind };
+
+const fail = (route: Route, status: number, error: string) => route.fulfill({ status, json: { error } satisfies S["Error"] });
+
+/** Responde a toda a API do painel; `offline` derruba só a saúde e a visão geral (o serviço sumiu depois do login). */
+async function mockApi(page: Page, { mode = "ok", session = "admin" }: Mock = {}) {
+  await page.clock.setFixedTime(NOW);
+  await page.route("**/api/v1/**", (route) => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/^\/api\/v1/, "");
+    const method = route.request().method();
+    const executor = mode === "ok" ? executorUp : executorDown;
+
+    if (path === "/events") return route.fulfill({ status: 204 });
+    if (path === "/auth/session") return route.fulfill({ json: sessions[session] });
+    if (path === "/auth/challenge") return route.fulfill({ json: challenge });
+    if (method !== "GET") return fail(route, 405, "Simulação somente leitura");
+    if (session !== "admin") return fail(route, 401, "Sessão expirada");
+
+    if (path === "/health") {
+      if (mode === "offline") return route.abort("connectionrefused");
+      return route.fulfill({ status: mode === "ok" ? 200 : 503, json: mode === "ok" ? healthy : degraded });
+    }
+    if (path === "/overview") {
+      if (mode === "offline") return route.abort("connectionrefused");
+      return route.fulfill({ json: overview(executor) });
+    }
+    if (path === "/runs") {
+      const kind = url.searchParams.get("kind");
+      const runs = [processesRun, filesRun].filter((r) => !kind || r.kind === kind);
+      return route.fulfill({ json: { runs } satisfies S["RunPage"] });
+    }
+    const cmp = /^\/runs\/([^/]+)\/comparison$/.exec(path);
+    if (cmp) return route.fulfill({ json: comparison(decodeURIComponent(cmp[1] ?? "")) });
+    const run = /^\/runs\/([^/]+)$/.exec(path);
+    if (run) {
+      const detail = runDetails[decodeURIComponent(run[1] ?? "")];
+      return detail ? route.fulfill({ json: detail }) : fail(route, 404, "Execução não encontrada");
+    }
+    if (path === "/accounts") return route.fulfill({ json: accountList(url.searchParams.get("system") === "true") });
+    const acct = /^\/accounts\/(\d+)$/.exec(path);
+    if (acct) {
+      const found = [rootAccount, ...hostingAccounts].find((a) => String(a.uid) === acct[1]);
+      return found ? route.fulfill({ json: found }) : fail(route, 404, "conta não encontrada");
+    }
+    if (path === "/findings") return route.fulfill({ json: { findings: [criticalFinding, processFinding] } satisfies S["FindingPage"] });
+    if (path === `/findings/${criticalFinding.id}`) return route.fulfill({ json: findingDetail });
+    if (path === "/exceptions") return route.fulfill({ json: exceptions });
+    if (path === "/schedules") return route.fulfill({ json: schedules });
+    if (path === "/resources") return route.fulfill({ json: resources });
+    if (path === "/resources/suggestion") return route.fulfill({ json: suggestion });
+    if (path === "/engines") return route.fulfill({ json: engines });
+    if (path === "/rules") return route.fulfill({ json: rulesOverview });
+    if (path === "/inventory/processes") return route.fulfill({ json: processInventory });
+    if (path === "/inventory/persistence") return route.fulfill({ json: persistenceInventory });
+    if (path === "/integrity") return route.fulfill({ json: integrityReport });
+    if (path === "/updates") return route.fulfill({ json: updatesReport });
+    if (path === "/users") return route.fulfill({ json: users });
+    if (path === "/tokens") return route.fulfill({ json: tokens });
+    if (path === "/audit") return route.fulfill({ json: audit });
+    if (path === "/backups") return route.fulfill({ json: backups });
+    if (path === "/notifications/channels") return route.fulfill({ json: notificationChannels });
+    if (path === "/notifications/rules") return route.fulfill({ json: notificationRules });
+    if (path === "/notifications/outbox") return route.fulfill({ json: notificationOutbox });
+    return fail(route, 404, `Rota não simulada: ${path}`);
+  });
+}
+
+/** Espera as consultas secundárias da tela (painéis com "Carregando…") terminarem antes de avaliar. */
+async function expectLoaded(page: Page) {
+  await expect(page.getByText(/^Carregando/)).toHaveCount(0);
+}
+
+async function expectNoViolations(page: Page) {
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+  const summary = results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`);
+  expect(summary).toEqual([]);
+}
+
+// `ready` vem dos arquivos de tradução (src/i18n/pt-BR*.json) ou dos dados simulados: só aparece com a tela carregada.
+const pages: { name: string; path: string; mock?: Mock; ready: string }[] = [
+  { name: "visão geral", path: "/", ready: "Capacidades do sistema" },
+  { name: "visão geral sem executor", path: "/", mock: { mode: "degraded" }, ready: "não consegue falar com o executor" },
+  { name: "visão geral sem serviço", path: "/", mock: { mode: "offline" }, ready: "Sem resposta do serviço do VigiaHost" },
+  { name: "achados", path: "/achados", ready: "PHP_Webshell_Generic" },
+  { name: "detalhe do achado", path: `/achados/${criticalFinding.id}`, ready: location.path },
+  { name: "exceções", path: "/excecoes", ready: "Biblioteca legítima do tema" },
+  { name: "contas", path: "/contas", ready: "Contas de hospedagem: UID" },
+  { name: "detalhe da conta", path: "/contas/1001", ready: "Persistência da conta" },
+  { name: "achados da conta", path: "/achados?account=1001", ready: "loja (1001)" },
+  { name: "execuções", path: "/execucoes", ready: FILES_RUN },
+  { name: "detalhe da execução", path: `/execucoes/${FILES_RUN}`, ready: "Comparativo com execuções anteriores" },
+  { name: "execução em andamento", path: `/execucoes/${RUNNING_RUN}`, ready: "Ajustar limites agora" },
+  { name: "cobertura", path: "/cobertura", ready: "Última verificação de arquivos" },
+  { name: "processos", path: "/processos", ready: "kworkerd" },
+  { name: "persistência", path: "/processos?aba=persistencia", ready: "/var/spool/cron/loja" },
+  { name: "integridade", path: "/integridade", ready: "/usr/bin/ps" },
+  { name: "atualizações", path: "/atualizacoes", ready: "nginx.service" },
+  { name: "agendamentos", path: "/agendamentos", ready: "Varredura noturna" },
+  { name: "recursos", path: "/recursos", ready: "Por que esses valores" },
+  { name: "motores", path: "/motores", ready: "Assinaturas com mais de 3 dias" },
+  { name: "regras e fontes", path: "/regras", ready: "identificador $a duplicado" },
+  { name: "usuários", path: "/usuarios", ready: "Equipe de suporte" },
+  { name: "tokens", path: "/tokens", ready: "Monitoramento Zabbix" },
+  { name: "auditoria", path: "/auditoria", ready: "198.51.100.20" },
+  { name: "backup", path: "/backup", ready: "vigiahost-20261022-030000.db" },
+  { name: "notificações", path: "/notificacoes", ready: "Cópia automática do banco falhou" },
+  { name: "configurações", path: "/configuracoes", ready: "Aparência" },
+  { name: "catálogo", path: "/catalogo", ready: "ConfirmDialog" },
+  { name: "página planejada", path: "/evidencias", ready: "Planejada · 2" },
+  { name: "página inexistente", path: "/nao-existe", ready: "Ir para a visão geral" },
+  { name: "login", path: "/", mock: { session: "anonymous" }, ready: "Não sou um robô" },
+  { name: "login sem HTTPS", path: "/", mock: { session: "insecure" }, ready: "Esta conexão não é HTTPS" },
+  { name: "segundo fator", path: "/", mock: { session: "password" }, ready: "Confirmar código" },
+  { name: "recuperar senha", path: "/recuperar", mock: { session: "anonymous" }, ready: "Não sou um robô" },
+];
+
+for (const scheme of ["light", "dark"] as const) {
+  test.describe(`tema ${scheme === "light" ? "claro" : "escuro"}`, () => {
+    test.use({ colorScheme: scheme });
+    for (const p of pages) {
+      test(`${p.name} sem violações de acessibilidade`, async ({ page }) => {
+        await mockApi(page, p.mock);
+        await page.goto(p.path);
+        await expect(page.getByText(p.ready).first()).toBeVisible();
+        await expectLoaded(page);
+        await expectNoViolations(page);
+      });
+    }
+
+    test("diálogo de confirmação aberto sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/catalogo");
+      await page.getByRole("button", { name: "Abrir confirmação com senha" }).click();
+      await expect(page.getByRole("dialog", { name: "Criar exceção global?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("formulário de canal de notificação sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/notificacoes");
+      await expect(page.getByText("SIEM da equipe").first()).toBeVisible();
+      await page.getByRole("button", { name: "Criar canal" }).first().click();
+      await expect(page.getByRole("heading", { name: "Novo canal" })).toBeFocused();
+      await expectNoViolations(page);
+      await page.getByRole("radio", { name: /Webhook/ }).check();
+      await page.getByRole("button", { name: "Gerar segredo" }).click();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de verificar todas as contas sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/contas");
+      await expect(page.getByText("Contas de hospedagem: UID")).toBeVisible();
+      await page.getByRole("button", { name: "Verificar todas as contas" }).click();
+      await expect(page.getByRole("dialog", { name: "Verificar todas as contas?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de ajuste de limites em tempo real sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto(`/execucoes/${RUNNING_RUN}`);
+      const cpu = page.getByLabel("CPU (%)");
+      await cpu.fill("50");
+      await page.getByRole("button", { name: "Ajustar limites" }).click();
+      await expect(page.getByRole("dialog", { name: "Ajustar os limites desta execução?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+
+    test("confirmação de aplicar a sugestão sem violações", async ({ page }) => {
+      await mockApi(page);
+      await page.goto("/recursos");
+      await page.getByRole("button", { name: "Aplicar sugestão" }).click();
+      await expect(page.getByRole("dialog", { name: "Aplicar a sugestão como perfil próprio?" })).toBeVisible();
+      await expectNoViolations(page);
+    });
+  });
+}
+
+test("sem sessão, a raiz mostra o login com foco no título", async ({ page }) => {
+  await mockApi(page, { session: "anonymous" });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: "Entrar no VigiaHost" })).toBeFocused();
+  await expect(page).toHaveTitle("Entrar no VigiaHost · VigiaHost");
+  await expect(page.getByRole("navigation", { name: "Principal" })).toHaveCount(0);
+  await page.getByRole("link", { name: "Redefinir com o token do servidor" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Redefinir senha" })).toBeFocused();
+});
+
+test("link para pular a navegação é o primeiro foco e leva ao conteúdo", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.getByText("Capacidades do sistema")).toBeVisible();
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("link", { name: "Pular para o conteúdo" });
+  await expect(skip).toBeFocused();
+  await expect(skip).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("main")).toBeFocused();
+});
+
+test("navegar move o foco para o título da nova página", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/");
+  await page.getByRole("link", { name: "Configurações" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Configurações" })).toBeFocused();
+  await expect(page).toHaveTitle("Configurações · VigiaHost");
+});
+
+test("diálogo fecha com Esc e devolve o foco a quem o abriu", async ({ page }) => {
+  await mockApi(page);
+  await page.goto("/catalogo");
+  const opener = page.getByRole("button", { name: "Abrir confirmação simples" });
+  await opener.click();
+  const dialog = page.getByRole("dialog", { name: "Mover para quarentena?" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Cancelar" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+});
+
+test("escolha de tema vale na hora e persiste após recarregar", async ({ page }) => {
+  await mockApi(page);
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/configuracoes");
+  await page.getByLabel("Escuro").check();
+  const scheme = () => page.evaluate(() => getComputedStyle(document.documentElement).colorScheme);
+  await expect.poll(scheme).toBe("dark");
+  await page.reload();
+  await expect.poll(scheme).toBe("dark");
+  await page.getByLabel(/Sistema/).check();
+  await expect.poll(scheme).toBe("light dark");
+  expect(await page.evaluate(() => localStorage.getItem("vigiahost.color-scheme"))).toBeNull();
+});
+
+const reflow: { path: string; mock?: Mock }[] = [
+  { path: "/" },
+  { path: "/achados" },
+  { path: `/achados/${criticalFinding.id}` },
+  { path: "/contas" },
+  { path: "/contas/1001" },
+  { path: "/execucoes" },
+  { path: `/execucoes/${FILES_RUN}` },
+  { path: `/execucoes/${RUNNING_RUN}` },
+  { path: "/recursos" },
+  { path: "/processos" },
+  { path: "/integridade" },
+  { path: "/atualizacoes" },
+  { path: "/auditoria" },
+  { path: "/notificacoes" },
+  { path: "/regras" },
+  { path: "/catalogo" },
+  { path: "/configuracoes" },
+  { path: "/", mock: { session: "anonymous" } },
+];
+
+for (const r of reflow) {
+  const label = r.mock?.session === "anonymous" ? `${r.path} (login)` : r.path;
+  test(`sem rolagem horizontal em 320 px: ${label}`, async ({ page }) => {
+    await mockApi(page, r.mock);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto(r.path);
+    // Antes do painel aparece a tela de verificação da sessão (outro main, com h1 próprio), e o main do painel fica
+    // vazio enquanto a página carregada sob demanda chega: só o título dentro de #conteudo indica a tela montada.
+    await expect(page.locator(r.mock?.session === "anonymous" ? "main h1" : "#conteudo h1")).toBeVisible();
+    await expectLoaded(page);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+}
+
+test("menu móvel abre, mostra a navegação e fecha ao navegar", async ({ page }) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 375, height: 700 });
+  await page.goto("/");
+  const toggle = page.getByRole("button", { name: "Abrir menu" });
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("navigation", { name: "Principal" })).toBeHidden();
+  await toggle.click();
+  await expect(page.getByRole("button", { name: "Fechar menu" })).toHaveAttribute("aria-expanded", "true");
+  await page.getByRole("link", { name: "Configurações" }).click();
+  await expect(page.getByRole("navigation", { name: "Principal" })).toBeHidden();
+});

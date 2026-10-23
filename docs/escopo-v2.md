@@ -185,7 +185,7 @@ O inventário prévio permite **progresso real** (arquivos e bytes elegíveis ×
 |---|---|---|---|
 | Linguagem | Go | **Go 1.27** (mínimo 1.26), `CGO_ENABLED=0` nos binários principais | Cada versão principal é suportada até sair a segunda seguinte; 1.27 saiu em 19/08/2026. Binário estático evita dependência de glibc em sistemas antigos |
 | Recursos da linguagem | — | `os.Root` (acesso limitado a diretório), `http.CrossOriginProtection` (CSRF), `GOMAXPROCS` ciente de cgroup, `testing/synctest`, diretiva `tool` no `go.mod` | Reduzem dependências externas e código próprio de segurança |
-| HTTP/API | net/http + Chi | Mantido | — |
+| HTTP/API | net/http + Chi | **net/http com `ServeMux`** (padrões de método e caminho desde o Go 1.22); Chi só se faltar recurso | Menos dependências no serviço web |
 | Contrato | OpenAPI + oapi-codegen | Mantido (**v2.8.0**, suporte inicial a OpenAPI 3.1) + **cliente TypeScript gerado** do mesmo contrato | Evita divergência entre interface e API; manter 3.0.3 enquanto o suporte a 3.1 for parcial |
 | Banco local | SQLite + modernc.org/sqlite | Mantido, com WAL, `busy_timeout`, um único escritor, tabelas `STRICT`, FTS5 para busca | Concorrência previsível |
 | Consultas / migrações | sqlc / Goose | Mantidos; migrações compatíveis com a versão anterior e backup automático antes de migrar | Permite retornar à versão anterior |
@@ -220,7 +220,7 @@ Cada adaptador implementa: **descoberta** (caminho, versão, quem gerencia: dist
 | **ClamAV** | Assinaturas, inclusive as do LMD carregadas no clamd | Cliente nativo do socket Unix: `VERSION`, `STATS`, `FILDES` (passagem do descritor), `INSTREAM` para conteúdo extraído; `clamscan` com limites maiores para a fila de arquivos grandes | Concorrência limitada contra o clamd compartilhado (que também atende e-mail); não reiniciar nem reconfigurar o clamd do painel; ler e exibir `MaxFileSize`, `MaxScanSize`, `MaxRecursion`, `MaxFiles`; um único freshclam |
 | **YARA-X** | Regras específicas e personalizadas | Binário `yr` distribuído pelo produto em pacote próprio; `yr compile` + varredura com regras pré-compiladas, lista de arquivos e saída NDJSON; `--cpu-limit` disponível | Incompatibilidades com YARA 4.x (ex.: `{` sem escape em regex, escapes inválidos, base64 com menos de 3 caracteres) tratadas na compilação; `--relaxed-re-syntax` só como transição. A biblioteca Go exige a biblioteca C (cgo), por isso a CLI é preferida |
 | **YARA 4.x** (opcional) | Memória de processos por PID | Usado somente pelo inspetor de processos (Fase 3) | A documentação do YARA-X não descreve varredura de processos |
-| **LMD 2.0.1** | Assinaturas e rotinas voltadas a hospedagem; *hooks* de upload (Fase 3) | `--json-report`; alimentado por lista do inventário; estágio ClamAV desligado quando o clamd já é varrido; alertas próprios desligados (o produto notifica) | A 2.0 removeu Perl, tem estágio YARA/YARA-X e mudou formatos (`scanid` → `scan_id`). Medir em laboratório a sobreposição com as assinaturas rfxn carregadas no clamd antes de manter as duas passagens por padrão |
+| **LMD 2.0.1** | Assinaturas e rotinas voltadas a hospedagem; *hooks* de upload (Fase 3) | `--json-report`; alimentado por lista do inventário; estágio ClamAV desligado quando o clamd já é varrido; alertas próprios desligados (o produto notifica) | A 2.0 removeu Perl, tem estágio YARA/YARA-X e mudou formatos (`scanid` → `scan_id`). Sobreposição medida no laboratório: desligado por padrão, ligado pelo administrador ([ADR-023](adr/0023-papel-do-lmd.md)) |
 | **AIDE** | Integridade contra referência aprovada | Configuração dedicada do produto; `report_format=json`/`ndjson` (≥ 0.18), `num_workers`; código de saída como máscara (1 novos, 2 removidos, 4 alterados; ≥ 14 erros) | Triagem automática (seção 10); referência com hash, cópia exportável e aprovação explícita |
 | **Verificação de pacotes** | Conferir binários contra o pacote | `rpm -V`/`dpkg --verify` e, para alertas, comparação com o **pacote assinado baixado do repositório** (assinatura verificada, conteúdo extraído sem instalar) | O `md5sums` do dpkg não é assinado; a comparação com o pacote resolve isso |
 | **Chkrootkit 0.59** | Indícios complementares de rootkit | Execução isolada; saída interpretada com base de falsos positivos conhecidos validados por contexto (hash igual ao pacote assinado, dono do *listener*, versão do teste) | Sem pacote EL; pacote próprio ou função indisponível |
@@ -451,12 +451,12 @@ Ordem de prioridade: **evitar trabalho, depois torná-lo mais barato, depois faz
 - Separação core/executor com política no executor (seção 6.1).
 - *Hardening* systemd do core: usuário próprio, `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`, `ProtectKernel*`, `RestrictAddressFamilies`, `SystemCallFilter=@system-service`, `CapabilityBoundingSet` vazio, `MemoryDenyWriteExecute`, `ReadWritePaths` restrito; meta conferida com `systemd-analyze security`.
 - Execuções de scanners: somente leitura (`CAP_DAC_READ_SEARCH` quando possível), **sem rede** (`PrivateNetwork`), gravação apenas no diretório de saída. Atualizações de assinaturas em unidades separadas, com rede.
-- Autenticação: Argon2id com parâmetros documentados e compatíveis com servidores pequenos; TOTP e passkeys; códigos de recuperação; **reautenticação para ações sensíveis** (quarentena, restauração, exceções, aceitar referência do AIDE, usuários).
-- Sessões no servidor; cookies `Secure`, `HttpOnly`, `SameSite=Strict`, prefixo `__Host-`; expiração por inatividade e absoluta.
+- Autenticação ([ADR-016](adr/0016-autenticacao-do-painel.md)): Argon2id com parâmetros documentados e compatíveis com servidores pequenos; **TOTP obrigatório para administrador e operador** desde a 1A, passkeys na Fase 2 (E2.6); códigos de recuperação; caixa **"Não sou um robô" (ALTCHA, prova de trabalho local, sem terceiros)** no login, no primeiro acesso e na recuperação; **reautenticação para ações sensíveis** (quarentena, restauração, exceções, aceitar referência do AIDE, usuários), válida por 5 minutos.
+- Sessões no servidor; cookies `Secure`, `HttpOnly`, `SameSite=Strict`, prefixo `__Host-`; expiração por inatividade (30 min) e absoluta (12 h); identificador trocado no login, no segundo fator e na reautenticação.
 - CSRF com `http.CrossOriginProtection` + `SameSite`; CSP sem `inline`, `frame-ancestors 'none'`, HSTS quando o certificado for válido.
 - Limitação de tentativas e bloqueio progressivo; falhas de login registradas em formato consumível por fail2ban/LFD.
 - Tokens de API com escopo, validade e armazenamento por hash; perfis administrador, operador, leitura e auditor; perfis restritos a contas específicas (revendedor/cliente) na Fase 3/4.
-- Recuperação local: `vigiahost user reset-password` apenas como root, auditado.
+- Recuperação local: `vigiahost user reset <usuário>` apenas como root, gera token de uso único de 15 minutos, auditado.
 - **Dados controlados pelo atacante**: nomes de arquivo nunca renderizados como HTML; caracteres de controle e bidi exibidos de forma visível; exportação CSV protegida contra injeção de fórmula; logs estruturados.
 - Segredos (SMTP, Telegram, webhooks, chaves de feeds como Wordfence e abuse.ch) cifrados em repouso, nunca exibidos depois de salvos nem gravados em logs; chave entregue por `LoadCredential` quando disponível.
 - **Escopo por conta** (perfis de revendedor/cliente, Fase 3/4): filtro de conta aplicado no servidor em todas as consultas, exportações e eventos SSE; a matriz de autorização cobre perfil × conta.
@@ -516,7 +516,7 @@ O preview mostrou que uma lista plana de menus não comporta as cerca de 20 pág
 
 ### 14.4 Design system
 
-Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escuro, mapeados no Tailwind. Componentes de domínio documentados com variantes, estados e notas de acessibilidade: `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` (com reautenticação) e `EmptyState`. Catálogo de componentes (ex.: Storybook) com teste automatizado de acessibilidade. Fontes e ícones embarcados, sem CDN, compatíveis com a CSP e com servidores sem acesso à internet.
+Tokens (cor, tipografia, espaçamento, raio, elevação) para tema claro e escuro, mapeados no Tailwind. Componentes de domínio documentados com variantes, estados e notas de acessibilidade: `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` (com reautenticação) e `EmptyState`. Catálogo de componentes no servidor de desenvolvimento (rota `/catalogo`, fora do build de produção) com teste automatizado de acessibilidade (axe-core) nos dois temas ([ADR-017](adr/0017-base-da-interface.md)). Fontes e ícones embarcados, sem CDN, compatíveis com a CSP e com servidores sem acesso à internet.
 
 ---
 
@@ -612,7 +612,7 @@ test/{corpus,vm,golden}
 
 **Pipeline seguro**: *actions* do CI fixadas por SHA de commit, permissões mínimas por *job*, nenhum `pull_request_target` com código não confiável, varredura de segredos (ex.: gitleaks), verificação de licenças das dependências, varredura de segurança do código (SAST) em cada PR, `systemd-analyze security` das unidades como critério e axe-core nos testes E2E.
 
-**Dependências**: Renovate com idade mínima de release; pnpm com `minimumReleaseAge` e scripts de instalação bloqueados por padrão (lista explícita de pacotes autorizados); *lockfiles* obrigatórios; ferramentas Go fixadas pela diretiva `tool`.
+**Dependências**: Dependabot com espera mínima de 7 dias após cada release (*cooldown*); pnpm com `minimumReleaseAge` e scripts de instalação bloqueados por padrão (lista explícita de pacotes autorizados); *lockfiles* obrigatórios; ferramentas Go fixadas pela diretiva `tool`.
 
 **Processo**: repositório público `guigallina27/vigiahost` sob GPL-3.0 (conta pessoal; transferível para uma organização depois, com redirecionamento dos endereços antigos). Proteção de branch é gratuita em repositório público: bloqueio de *push* forçado e de exclusão e checagens obrigatórias do CI desde o início; revisão obrigatória quando houver um segundo mantenedor, porque o autor não pode aprovar o próprio PR. ADRs (seção 24), `SECURITY.md` com canal de divulgação privado, *tags* assinadas e aprovação exigida para *workflows* de colaboradores externos. CI de PRs em *runners* hospedados do GitHub (sem custo para repositório público); testes em VM só em eventos confiáveis (*push* na branch principal e *tags*), nunca em PRs de *forks*, em *runners* efêmeros e isolados do laboratório.
 
@@ -694,7 +694,7 @@ Metas de cobertura de código: ≥ 80% em política, fila, interpretadores e cor
 | Fonte padrão de regras YARA | Avaliar YARA Forge core + regras próprias; validar licenças |
 | Distribuir YARA-X no pacote | Sim, em pacote separado (BSD-3) |
 | Versão mínima do ClamAV | 1.4 LTS |
-| Papel do LMD | Decidir após medir sobreposição com assinaturas no clamd |
+| Papel do LMD | **Decidido (22/10/2026, [ADR-023](adr/0023-papel-do-lmd.md))**: motor opcional, desligado por padrão, ligado pelo administrador como fonte adicional de assinaturas sobre a lista do inventário, só leitura (quarentena, estágio ClamAV, alertas e ganchos desligados). No laboratório tudo o que o LMD achou o clamd com as `rfxn.*` também achou; fora do clamd ficam só as SHA-256 e as assinaturas compostas |
 | Porta e endereço padrão | `127.0.0.1` + porta alta configurável |
 | Telemetria | Nenhuma por padrão |
 | Retenção padrão | 90 dias execuções; 1 ano achados e auditoria |

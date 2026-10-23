@@ -1,0 +1,244 @@
+/* Design system do VigiaHost (escopo, seção 14.4).
+   Política de navegadores: Baseline 2024 (light-dark(), :has(), <dialog>), adequada a um painel administrativo;
+   recursos mais novos entram só como melhoria progressiva (ex.: closedby no <dialog>). ADR-017. */
+@import "@fontsource-variable/atkinson-hyperlegible-next";
+@import "@fontsource-variable/atkinson-hyperlegible-mono";
+@import "tailwindcss";
+
+@layer theme {
+  :root {
+    /* O tema segue o sistema; a escolha manual troca o <meta name="color-scheme"> e o :has() abaixo reflete no CSS. */
+    color-scheme: light dark;
+    &:has(> head > meta[name="color-scheme"][content="dark"]) {
+      color-scheme: dark;
+    }
+    &:has(> head > meta[name="color-scheme"][content="light"]) {
+      color-scheme: light;
+    }
+
+    /* Identidade "torre de vigia à noite": tinta azul-grafite, ação em azul-cobalto e o âmbar do farol só como sinal
+       da marca (logotipo e item ativo da navegação). Verde fica reservado ao estado "ok". Contraste conferido (axe). */
+    --vh-bg: light-dark(oklch(97.6% 0.005 260), oklch(16.5% 0.022 266));
+    --vh-surface: light-dark(oklch(99.5% 0.002 260), oklch(20.5% 0.026 266));
+    --vh-sunken: light-dark(oklch(94.8% 0.008 260), oklch(14% 0.02 266));
+    --vh-ink: light-dark(oklch(21% 0.03 266), oklch(94.5% 0.008 260));
+    --vh-ink-muted: light-dark(oklch(44% 0.03 264), oklch(76% 0.025 262));
+    /* Separadores decorativos; bordas que delimitam controles usam --vh-line-strong (≥ 3:1, WCAG 1.4.11). */
+    --vh-line: light-dark(oklch(88% 0.012 260), oklch(30% 0.03 266));
+    --vh-line-strong: light-dark(oklch(56% 0.03 264), oklch(60% 0.035 264));
+
+    --vh-accent: light-dark(oklch(47% 0.19 264), oklch(77% 0.12 266));
+    --vh-accent-ink: light-dark(oklch(99% 0.003 260), oklch(17% 0.04 266));
+    --vh-accent-soft: light-dark(oklch(93.5% 0.035 264), oklch(28% 0.07 266));
+    --vh-signal: oklch(81% 0.155 75);
+    --vh-focus: light-dark(oklch(44% 0.21 268), oklch(85% 0.14 78));
+
+    /* Barra lateral em tinta escura nos dois temas: o "console" do operador. */
+    --vh-nav-bg: light-dark(oklch(20% 0.04 268), oklch(12.5% 0.03 268));
+    --vh-nav-ink: oklch(94% 0.01 262);
+    --vh-nav-muted: oklch(74% 0.035 264);
+    --vh-nav-active: oklch(29% 0.065 268);
+    --vh-nav-focus: oklch(85% 0.14 78);
+
+    /* Tons de estado: texto (fg) sobre fundo (bg), sempre acompanhados de ícone e texto (WCAG 1.4.1).
+       "Baixo" usa azul-aço (matiz 225), distante do cobalto das ações. */
+    --vh-critical-fg: light-dark(oklch(46% 0.19 25), oklch(81% 0.11 22));
+    --vh-critical-bg: light-dark(oklch(94.5% 0.035 25), oklch(29% 0.075 25));
+    --vh-high-fg: light-dark(oklch(48% 0.15 45), oklch(83% 0.11 55));
+    --vh-high-bg: light-dark(oklch(94.5% 0.045 60), oklch(29% 0.06 50));
+    --vh-medium-fg: light-dark(oklch(46% 0.1 80), oklch(87% 0.12 88));
+    --vh-medium-bg: light-dark(oklch(95% 0.065 92), oklch(29% 0.05 85));
+    --vh-low-fg: light-dark(oklch(45% 0.1 228), oklch(84% 0.08 222));
+    --vh-low-bg: light-dark(oklch(94.5% 0.03 225), oklch(29% 0.05 228));
+    --vh-ok-fg: light-dark(oklch(43% 0.1 150), oklch(84% 0.1 150));
+    --vh-ok-bg: light-dark(oklch(94.5% 0.04 150), oklch(28% 0.05 150));
+    --vh-neutral-fg: light-dark(oklch(42% 0.02 264), oklch(82% 0.015 262));
+    --vh-neutral-bg: light-dark(oklch(93.5% 0.008 260), oklch(27% 0.02 266));
+
+    accent-color: var(--vh-accent);
+    scrollbar-color: var(--vh-line-strong) transparent;
+  }
+}
+
+/* Tokens expostos ao Tailwind (bg-surface, text-ink, font-mono...). */
+@theme inline {
+  --color-bg: var(--vh-bg);
+  --color-surface: var(--vh-surface);
+  --color-sunken: var(--vh-sunken);
+  --color-ink: var(--vh-ink);
+  --color-ink-muted: var(--vh-ink-muted);
+  --color-line: var(--vh-line);
+  --color-line-strong: var(--vh-line-strong);
+  --color-accent: var(--vh-accent);
+  --color-accent-ink: var(--vh-accent-ink);
+  --color-accent-soft: var(--vh-accent-soft);
+  --color-signal: var(--vh-signal);
+  --color-nav: var(--vh-nav-bg);
+  --color-nav-ink: var(--vh-nav-ink);
+  --color-nav-muted: var(--vh-nav-muted);
+  --color-nav-active: var(--vh-nav-active);
+
+  --font-sans: "Atkinson Hyperlegible Next Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono Variable", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-control: 0.375rem;
+  --radius-panel: 0.625rem;
+  --shadow-panel: 0 1px 0 oklch(0% 0 0 / 0.04), 0 1px 3px oklch(0% 0 0 / 0.06);
+}
+
+@layer base {
+  html {
+    background: var(--vh-bg);
+    color: var(--vh-ink);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    line-height: 1.5;
+    /* Texto técnico (caminhos, hashes, mensagens de erro) não pode empurrar o layout para fora da tela (1.4.10). */
+    overflow-wrap: break-word;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-block-size: 100dvh;
+  }
+
+  /* Foco visível próprio nos dois temas (WCAG 2.4.7), com contorno e não sombra, para valer no modo de alto contraste. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 3px solid var(--vh-focus);
+    outline-offset: 2px;
+  }
+
+  :where(h1, h2, h3) {
+    text-wrap: balance;
+  }
+
+  :where(p) {
+    text-wrap: pretty;
+  }
+
+  :where(code, kbd, samp) {
+    font-family: var(--font-mono);
+    font-size: 0.9375em;
+  }
+
+  ::selection {
+    background: var(--vh-accent-soft);
+    color: var(--vh-ink);
+  }
+}
+
+@layer components {
+  /* Oculta visualmente e mantém para leitores de tela; volta a aparecer quando recebe foco (link de pular). */
+  .visually-hidden:where(:not(:focus-within, :active)) {
+    position: absolute !important;
+    clip-path: inset(50%) !important;
+    overflow: hidden !important;
+    inline-size: 1px !important;
+    block-size: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  /* Rótulo técnico: caixa alta espaçada em fonte monoespaçada, usado em grupos de navegação e cabeçalhos de painel. */
+  .vh-label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Malha pontilhada discreta do cabeçalho das páginas; some no modo de alto contraste. */
+  .vh-grid-texture {
+    background-image: radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--vh-ink) 9%, transparent) 1px, transparent 0);
+    background-size: 14px 14px;
+  }
+
+  /* Tabela de dados: rola na horizontal dentro do próprio contêiner (.vh-table-wrap), nunca a página (1.4.10). */
+  .vh-table-wrap {
+    /* Posicionado para conter os .visually-hidden (absolutos) das células: sem isso eles escapam da rolagem e
+       alargam a página inteira. */
+    position: relative;
+    overflow-x: auto;
+    border: 1px solid var(--vh-line);
+    border-radius: var(--radius-panel);
+    background: var(--vh-surface);
+  }
+  .vh-table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    & th {
+      text-align: start;
+      font-weight: 600;
+      color: var(--vh-ink-muted);
+      background: var(--vh-sunken);
+      white-space: nowrap;
+    }
+    & th,
+    & td {
+      padding: 0.625rem 0.75rem;
+      border-block-end: 1px solid var(--vh-line);
+      vertical-align: top;
+    }
+    & tbody tr:last-child td {
+      border-block-end: 0;
+    }
+    & tbody tr:hover {
+      background: color-mix(in oklab, var(--vh-accent-soft) 45%, transparent);
+    }
+  }
+
+  .vh-dialog {
+    &::backdrop {
+      background: oklch(14% 0.04 268 / 0.6);
+    }
+  }
+
+  /* Fundo das telas de acesso: céu noturno com o facho do farol vindo do alto e anéis de varredura discretos. */
+  .vh-night {
+    background-color: var(--vh-nav-bg);
+    background-image:
+      radial-gradient(60rem 28rem at 50% -6rem, oklch(81% 0.155 75 / 0.16), transparent 70%),
+      repeating-radial-gradient(circle at 50% -6rem, transparent 0 46px, oklch(94% 0.01 262 / 0.045) 46px 47px),
+      linear-gradient(180deg, oklch(24% 0.06 268), var(--vh-nav-bg) 60%);
+    color: var(--vh-nav-ink);
+  }
+}
+
+/* Modo de cores forçadas (alto contraste do Windows): o navegador troca as cores; garantimos bordas e indicadores visíveis. */
+@media (forced-colors: active) {
+  .vh-tone {
+    border: 1px solid CanvasText !important;
+  }
+  .vh-meter-fill {
+    background: Highlight !important;
+    forced-color-adjust: none;
+  }
+}
+
+/* Caixa "Não sou um robô" (ALTCHA) com as cores e o foco do painel nos dois temas. */
+@layer components {
+  altcha-widget {
+    display: block;
+    --altcha-max-width: 100%;
+    --altcha-border-radius: var(--radius-control);
+    --altcha-color-base: var(--vh-surface);
+    --altcha-color-base-content: var(--vh-ink);
+    --altcha-color-neutral: var(--vh-line-strong);
+    --altcha-color-neutral-content: var(--vh-ink-muted);
+    --altcha-color-primary: var(--vh-accent);
+    --altcha-color-primary-content: var(--vh-accent-ink);
+    --altcha-color-error: var(--vh-critical-fg);
+    --altcha-color-error-content: var(--vh-critical-bg);
+    --altcha-color-success: var(--vh-ok-fg);
+    --altcha-color-success-content: var(--vh-ok-bg);
+    --altcha-checkbox-border-color: var(--vh-line-strong);
+    --altcha-checkbox-outline: 3px solid var(--vh-focus);
+    --altcha-checkbox-size: 24px;
+  }
+}

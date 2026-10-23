@@ -1,0 +1,262 @@
+{
+  "app": {
+    "name": "VigiaHost",
+    "skipToContent": "Skip to content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "mainNav": "Main",
+    "titleSuffix": "VigiaHost",
+    "planned": "Planned",
+    "devOnly": "Development"
+  },
+  "nav": {
+    "groups": {
+      "monitor": "Monitor",
+      "investigate": "Investigate",
+      "respond": "Respond",
+      "configure": "Configure",
+      "administer": "Administer",
+      "development": "Development"
+    },
+    "overview": "Overview",
+    "findings": "Findings",
+    "accounts": "Accounts",
+    "runs": "Runs",
+    "coverage": "Coverage",
+    "processes": "Processes and persistence",
+    "integrity": "Integrity",
+    "evidence": "Evidence",
+    "quarantine": "Quarantine",
+    "exceptions": "Exceptions",
+    "schedules": "Schedules",
+    "resources": "Resources",
+    "engines": "Engines and updates",
+    "rules": "Rules and sources",
+    "notifications": "Notifications",
+    "users": "Users and access",
+    "audit": "Audit",
+    "backup": "Backup",
+    "settings": "Settings",
+    "catalog": "Component catalog",
+    "tokens": "API tokens",
+    "updates": "Updates"
+  },
+  "severity": {
+    "label": "Severity",
+    "critical": "Critical",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "info": "Informational"
+  },
+  "findingState": {
+    "label": "Finding state",
+    "new": "New",
+    "in_review": "In review",
+    "confirmed": "Confirmed",
+    "resolved": "Resolved",
+    "false_positive": "False positive",
+    "excepted": "Covered by exception"
+  },
+  "runState": {
+    "label": "Run state",
+    "queued": "Queued",
+    "reserved": "Starting",
+    "running": "Running",
+    "completed": "Completed",
+    "partial": "Partial",
+    "failed": "Failed",
+    "engine_failure": "Engine failure",
+    "canceled": "Canceled",
+    "interrupted": "Interrupted"
+  },
+  "engineHealth": {
+    "label": "Engine health",
+    "operational": "Operational",
+    "degraded": "Degraded",
+    "unavailable": "Unavailable",
+    "disabled": "Turned off",
+    "not_installed": "Not installed"
+  },
+  "engineUpdate": {
+    "label": "Update",
+    "current": "Up to date",
+    "late": "Late",
+    "lastUpdate": "Last updated {{when}}"
+  },
+  "coverage": {
+    "value": "{{percent}} coverage",
+    "detail": "{{analyzed}} of {{eligible}} {{unit}} analyzed",
+    "skipped": "{{formatted}} left out",
+    "unitFiles": "files",
+    "empty": "Nothing eligible to analyze"
+  },
+  "path": {
+    "escaped": "Contains control or text-direction characters, shown as codes",
+    "escapedShort": "hidden characters"
+  },
+  "hash": {
+    "copy": "Copy {{algorithm}}",
+    "copied": "{{algorithm}} copied",
+    "copyFailed": "Could not copy; select the value manually",
+    "full": "Full {{algorithm}}: {{value}}"
+  },
+  "time": {
+    "zone": "{{zone}} time",
+    "unknown": "Unknown date"
+  },
+  "dialog": {
+    "cancel": "Cancel",
+    "object": "Object",
+    "impact": "Impact",
+    "reversible": "Reversible",
+    "reversibleYes": "Yes, it can be undone",
+    "reversibleNo": "No, it cannot be undone",
+    "reauth": "Confirm your password",
+    "reauthHint": "Sensitive actions ask for your password again, even with an active session.",
+    "countPrompt": "Type {{count}} to confirm the action on {{count}} items",
+    "countMismatch": "Type exactly {{count}}.",
+    "reauthCode": "Second-factor code"
+  },
+  "states": {
+    "loading": "Loading…",
+    "retry": "Try again",
+    "errorTitle": "Something went wrong",
+    "forbidden": "Your role has no access to this area.",
+    "unsupported": "Feature unavailable on this server"
+  },
+  "theme": {
+    "legend": "Theme",
+    "hint": "By default the panel follows the system theme.",
+    "system": "System",
+    "systemCurrent": "System (currently {{scheme}})",
+    "light": "Light",
+    "dark": "Dark",
+    "lightLower": "light",
+    "darkLower": "dark"
+  },
+  "overview": {
+    "title": "Overview",
+    "subtitle": "Service health and what this server supports",
+    "service": "Service",
+    "coreVersion": "Panel version",
+    "executor": "Executor",
+    "executorVersion": "Executor version",
+    "protocol": "Protocol",
+    "executorDown": "The panel is up but cannot reach the executor, which runs as root and performs the checks.",
+    "executorDownAction": "On the server, check the service with {{command}}.",
+    "system": "System",
+    "distro": "Distribution",
+    "kernel": "Kernel",
+    "arch": "Architecture",
+    "capabilities": "System capabilities",
+    "capSystemd": "systemd as init",
+    "capSystemdOff": "Without systemd, checks cannot run in isolated units.",
+    "capCgroup": "cgroup v2",
+    "capCgroupOff": "Without cgroup v2, resource profiles do not limit CPU and memory.",
+    "capPsi": "PSI (resource pressure)",
+    "capPsiOff": "Without PSI, automatic pause under load is disabled.",
+    "available": "Available",
+    "missing": "Missing",
+    "noSystem": "The executor did not report system data.",
+    "runsTitle": "No runs yet",
+    "runsDescription": "Checks arrive in the next release. For now, the panel shows service health and what this server supports.",
+    "unreachableTitle": "No response from the VigiaHost service",
+    "unreachableDescription": "The browser got no response from the panel ({{cause}}).",
+    "unreachableAction": "On the server, check the service with {{command}} and try again.",
+    "updatedAt": "Updated",
+    "staleWarning": "The last refresh failed; the data below may be out of date."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Preferences for this browser",
+    "appearance": "Appearance"
+  },
+  "planned": {
+    "title": "Planned page",
+    "description": "This area is part of the plan and has not been built yet."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The address does not match any page of the panel.",
+    "back": "Go to overview"
+  },
+  "captcha": {
+    "label": "I'm not a robot",
+    "verifying": "Verifying…",
+    "verified": "Verified",
+    "error": "Verification failed. Tick the box again.",
+    "expired": "Verification expired. Tick the box again.",
+    "required": "Tick the \"I'm not a robot\" box.",
+    "loading": "Loading verification…",
+    "loadError": "Could not load the \"I'm not a robot\" check. Reload the page."
+  },
+  "auth": {
+    "loadingTitle": "Opening the panel",
+    "unreachableTitle": "Panel unavailable",
+    "retry": "Try again",
+    "insecure": "This connection is neither HTTPS nor the SSH tunnel: the server refuses to log in so the password is not exposed. Use https:// or the tunnel's local address.",
+    "loginTitle": "Sign in to VigiaHost",
+    "loginSubtitle": "Use the user created on first access or by an administrator.",
+    "username": "Username",
+    "usernameHint": "Lowercase letters, digits, dot, hyphen or underscore.",
+    "usernamePlaceholder": "USER",
+    "password": "Password",
+    "loginAction": "Sign in",
+    "forgot": "Forgot your password?",
+    "forgotLink": "Reset it with the server token",
+    "mfaTitle": "Second factor",
+    "mfaSubtitle": "Enter the 6-digit code from your authenticator app or a recovery code.",
+    "mfaCode": "Code",
+    "mfaCodeHint": "Recovery codes work once each.",
+    "mfaAction": "Confirm code",
+    "backToLogin": "Back to sign in",
+    "mfaSetupTitle": "Set up the second factor",
+    "mfaSetupSubtitle": "Required for administrators and operators: protects the panel even if the password leaks.",
+    "mfaStepApp": "Open an authenticator app (Google Authenticator, Microsoft Authenticator, Aegis, 1Password…).",
+    "mfaStepScan": "Scan the QR below or type the key manually.",
+    "mfaStepCode": "Enter the 6-digit code the app shows.",
+    "mfaQrLabel": "QR code to add VigiaHost to the authenticator app",
+    "mfaManual": "Can't scan the QR? Show the key",
+    "mfaEnable": "Enable second factor",
+    "recoveryTitle": "Save your recovery codes",
+    "recoverySubtitle": "Each code replaces the app once. They will not be shown again.",
+    "recoveryDownload": "Download the codes as text",
+    "recoveryContinue": "I saved the codes, continue",
+    "setupTitle": "First access",
+    "setupSubtitle": "Create the panel administrator with the token shown on the server terminal.",
+    "setupToken": "First-access token",
+    "setupTokenHint": "As root on the server, run:",
+    "displayName": "Display name (optional)",
+    "newPassword": "New password",
+    "passwordHint": "12 to 256 characters. Prefer a long passphrase.",
+    "confirmPassword": "Repeat the password",
+    "passwordMismatch": "The passwords do not match.",
+    "setupAction": "Create administrator",
+    "recoverTitle": "Reset password",
+    "recoverSubtitle": "Use the recovery token generated on the server; it is valid for 15 minutes and once.",
+    "recoverToken": "Recovery token",
+    "recoverTokenHint": "As root on the server, run:",
+    "recoverAction": "Save new password",
+    "recoverDoneTitle": "Password reset",
+    "recoverDoneSubtitle": "Open sessions were closed. Sign in again with the new password.",
+    "logout": "Sign out",
+    "account": "Account",
+    "live": "Live",
+    "liveConnecting": "Connecting updates…",
+    "liveOffline": "No live updates"
+  },
+  "roles": {
+    "admin": "Administrator",
+    "operator": "Operator",
+    "reader": "Read-only",
+    "auditor": "Auditor"
+  },
+  "severityCounts": {
+    "label": "Open findings by severity",
+    "none": "No open findings"
+  },
+  "filterChip": {
+    "remove": "Remove filter: {{label}}"
+  }
+}

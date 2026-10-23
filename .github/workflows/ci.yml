@@ -1,0 +1,178 @@
+# Integração contínua. Actions fixadas por SHA de commit (comentário com a versão); permissões mínimas.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # O corepack baixa o pnpm fixado em web/package.json sem pedir confirmação.
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go ${{ matrix.go }} (análise, testes e fuzzing)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Versão mínima do go.mod e a estável atual.
+        go: ["1.26.x", "stable"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+      - run: make vet
+      - run: make test-race
+      - name: Fuzzing curto do protocolo do executor
+        run: go test -run='^$' -fuzz=FuzzCodecRead -fuzztime=30s ./internal/ipc
+      - name: Vulnerabilidades conhecidas (govulncheck)
+        if: matrix.go == 'stable'
+        run: make vuln
+
+  web:
+    name: Interface (lint, tipos, testes, acessibilidade e contrato)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      # pnpm na versão do packageManager de web/package.json, pelo corepack (sem action de terceiros).
+      - run: corepack enable pnpm
+      - run: make web-check
+      - name: Código gerado em dia com api/openapi.yaml
+        run: make check-generated
+      - name: Build com conferência de licenças e avisos de terceiros
+        run: make web
+      - name: Acessibilidade (axe-core) e teclado nos dois temas
+        working-directory: web
+        run: |
+          pnpm exec playwright install --with-deps chromium
+          pnpm test:a11y
+
+  lint:
+    name: golangci-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          version: v2.14.0
+
+  licenses:
+    name: Licenças das dependências
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - name: Somente licenças compatíveis com GPL-3.0 nos binários
+        run: >
+          go run github.com/google/go-licenses/v2@v2.0.1 check ./cmd/...
+          --allowed_licenses=MIT,ISC,BSD-2-Clause,BSD-3-Clause,Apache-2.0,MPL-2.0,LGPL-2.1,LGPL-3.0,GPL-3.0,Unlicense,CC0-1.0
+
+  secrets:
+    name: Segredos no histórico
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependency-review:
+    name: Revisão de dependências do PR
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+
+  packages:
+    name: Pacotes (systemd no Ubuntu e contêineres multi-distro)
+    needs: [go, web]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: corepack enable pnpm
+      - name: Gera pacotes de duas versões para testar atualização e retorno
+        run: |
+          mkdir -p pkgs
+          for v in 0.0.1 0.0.2; do
+            make package VERSION=$v
+            cp dist/*.deb dist/*.rpm pkgs/
+            rm -rf dist
+          done
+      - name: Ciclo de vida com systemd real (Ubuntu 24.04)
+        run: sudo bash test/lab/test-lifecycle.sh "$PWD/pkgs" 0.0.1 0.0.2
+      - name: Ciclo de vida em contêineres (níveis 1 e 2)
+        run: sudo bash test/lab/test-distros.sh "$PWD/pkgs" 0.0.1 0.0.2
+
+  # ARM64 nativo: no laboratório x86_64 os testes rodam sob qemu de modo usuário (test/lab/test-arm64.sh), que não
+  # exercita o detector de race nem o systemd; aqui os dois rodam numa máquina aarch64 de verdade.
+  arm64:
+    name: ARM64 (testes com race e ciclo de vida com systemd)
+    needs: [go, web]
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: corepack enable pnpm
+      - run: make test-race
+      - name: Gera pacotes arm64 de duas versões
+        run: |
+          mkdir -p pkgs
+          for v in 0.0.1 0.0.2; do
+            make package GOARCH=arm64 VERSION=$v
+            cp dist/*.deb dist/*.rpm pkgs/
+            rm -rf dist
+          done
+      - name: Ciclo de vida com systemd real (Ubuntu 24.04 arm64)
+        run: sudo bash test/lab/test-lifecycle.sh "$PWD/pkgs" 0.0.1 0.0.2

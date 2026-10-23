@@ -16,6 +16,7 @@
 | Repositório | **Público**, `guigallina27/vigiahost`, na conta pessoal; transferível para uma organização depois |
 | Distribuição | **Somente GitHub por enquanto**: Releases públicos (pré-lançamento até a 1.0) e, a partir do beta externo, Pages do próprio repositório (escopo, seção 15) |
 | Custódia das chaves | **Raiz GPG offline em dois tokens de hardware** com dois responsáveis; subchave anual e chave do cosign no *environment* `release` do CI, com aprovação manual |
+| Papel do LMD | **Motor opcional, desligado por padrão**, ligado pelo administrador como fonte adicional de assinaturas, só leitura ([ADR-023](adr/0023-papel-do-lmd.md), com as medições de sobreposição) |
 
 **Ações para começar a Fase 0** (todas suas, porque envolvem contas, compras ou dados de pessoas)
 
@@ -32,7 +33,6 @@
 |---|---|---|
 | Domínio próprio | Beta externo (fim da 1B) | Registrar `vigiahost.com.br` e `vigiahost.com` antes do beta; estavam livres em 22/10/2026 |
 | Fonte padrão de regras YARA | Épico E1.4 | YARA Forge core + regras próprias, após validar licenças |
-| Papel do LMD | Épico E1.10 | Medir a sobreposição no laboratório durante a 1A e decidir antes da 1B |
 | Central multiempresa | Acesso de revendedores e clientes (Fase 3) | Decidir antes da Fase 3 |
 | Organização própria no GitHub | Beta externo | Criar `vigiahost` no plano gratuito e transferir o repositório antes do beta; o nome estava livre em 22/10/2026 |
 
@@ -72,6 +72,18 @@ flowchart LR
 
 **Critério de saída**: pacote vazio instala, atualiza, volta de versão e remove nas distribuições do nível 1; CI verde com todos os critérios da seção 4; ADRs aceitos.
 
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E0.1 Repositório e CI | Workflows de CI e CodeQL, lint, `-race`, *fuzzing*, govulncheck, licenças, segredos e revisão de dependências, *actions* fixadas por SHA; job da interface (lint, tipos, testes, contrato gerado, axe-core); Dependabot com espera de 7 dias para Go, npm e *actions* | Primeira execução no GitHub: o Actions está bloqueado por pendência de cobrança da conta; até lá, cada job é reproduzido no laboratório |
+| E0.2 Pipeline de release | Pacotes DEB/RPM (nfpm) com unidades systemd, usuário de sistema e scripts de instalação, atualização, retorno e remoção | GoReleaser, assinatura, SBOM e proveniência (dependem do E0.7) |
+| E0.3 Laboratório e corpus | WSL AlmaLinux 9 isolado com systemd, cgroup v2 e PSI; testes de ciclo de vida com systemd e em 10 distribuições por contêiner; controles positivos inofensivos em [`internal/controls`](../internal/controls) (EICAR montado em tempo de execução e marcador YARA inerte); gerador [`gencorpus`](../test/corpus/gencorpus) com corpus de positivos, benigno (5 pacotes oficiais conferidos por SHA-256, 47.692 arquivos) e sintético determinístico (1 milhão de arquivos em 107 s); ClamAV 1.4.6 e YARA-X 1.21.0 conferidos no laboratório sem falso positivo nem falta ([ADR-018](adr/0018-arquivos-aos-motores-por-descritor.md)); cenário de processo a partir de `memfd` e de arquivo apagado; ARM64 com testes sob qemu de modo usuário, pacotes arm64 e job nativo `ubuntu-24.04-arm` no CI | Primeira execução do job ARM64 nativo (depende do Actions); VM ARM64 com kernel próprio fica para quando houver hardware ou nuvem ARM |
+| E0.4 Contrato e esqueleto | Core e executor com protocolo versionado (ADR-014), `SO_PEERCRED`, política, saúde, `doctor`, SQLite com Goose; contrato [`api/openapi.yaml`](../api/openapi.yaml) gerando o servidor Go (oapi-codegen) e o cliente TypeScript (openapi-typescript), conferidos por `make check-generated` | Consultas SQL escritas à mão em vez do sqlc ([ADR-019](adr/0019-consultas-sql-escritas-a-mao.md)) |
+| E0.5 Modelo de ameaças e ADRs | [Modelo de ameaças](modelo-ameacas.md) v0.1; ADRs 001–015, 017 e 018 aceitos em [`adr/`](adr/) | ADR-016 aceito e implementado na 1A, com o ALTCHA no login |
+| E0.6 Design system base | [Glossário](glossario.md); tokens claro/escuro com `light-dark()`; navegação agrupada; componentes `SeverityBadge`, `StatusBadge`, `PathText`, `HashText`, `Timestamp`, `CoverageBar`, `EngineHealth`, `ConfirmDialog` e `EmptyState`; Visão geral com dados reais de saúde; catálogo no servidor de desenvolvimento com axe-core nos dois temas, teclado e 320 px ([ADR-017](adr/0017-base-da-interface.md)) | Reautenticação real no `ConfirmDialog` e indicador de conexão do SSE entram com o E1.2 |
+| E0.7 Cerimônia das chaves | — | Tokens comprados e responsáveis indicados |
+
 ### Fase 1A — Detectar e explicar
 
 **Objetivo**: primeira versão útil, somente leitura, usada internamente em servidores próprios.
@@ -89,6 +101,14 @@ flowchart LR
 
 **Critério de saída**: detecta os controles positivos e o cenário `memfd` de laboratório; cobertura exibida; reinício no meio da execução sem duplicação; travas de recursos não contornáveis pela API; versão interna instalada em servidores próprios.
 
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E1.1 a E1.6 | Executor com política e unidades transitórias; core com fila, agendador, autenticação (senha, TOTP, ALTCHA) e SSE; varredura com YARA-X e ClamAV por descritor; inspetor de processos, rede e persistência; achados com ciclo de vida e cobertura por motor | Validação em servidores próprios |
+| E1.7 Instalação | `setup plan/apply/uninstall` com manifesto e backups datados, `doctor` ampliado, primeiro acesso; exercitado pelo `test/lab/test-lifecycle.sh` | — |
+| E1.8 Interface 1A | Acesso (login, primeiro acesso, segundo fator, recuperação), Visão geral, Execuções, Cobertura, Achados, Exceções, Processos e persistência, Agendamentos, Recursos, Motores, Usuários, Tokens, Auditoria, Backup e Regras e fontes; axe-core sem violações nos dois temas e sem rolagem horizontal a 320 px | — |
+
 ### Fase 1B — Contas e operação
 
 | Épico | Entregas | Tamanho | Depende de |
@@ -101,6 +121,36 @@ flowchart LR
 | E1.14 Backup | `VACUUM INTO`, configurações e manifestos; restauração testada no CI | P | E1.2 |
 
 **Critério de saída**: escopo por conta correto em laboratório com 500 contas; rotina diária incremental dentro da janela no servidor de referência; primeira versão no canal beta.
+
+**Situação em 22/10/2026**: E1.11 (exceções por hash, hash + regra e regra + prefixo, com validade, justificativa e auditoria) e E1.14 (cópia antes de migrar, cópia automática diária com retenção de 7, cópia manual pelo painel e pelo terminal, `vigiahost backup restore` com cópia `pre-restore` e recusa com o serviço ativo) implementados. Perfis próprios de recursos (parte do E1.13) já estão na API e na tela Recursos. E1.9 implementado:
+- **Descoberta e escopo:** contas descobertas pelo executor (`getent passwd` e `UID_MIN`/`UID_MAX`, protocolo 1.1). O escopo por conta cobre o diretório pessoal e, em `/tmp`, `/var/tmp` e `/dev/shm`, só os arquivos do UID.
+- **Atribuição:** achados ligados à conta pelo UID, pelo caminho e pelo dono.
+- **Telas e agendamentos:** telas Contas e Detalhe da conta, verificação e agendamento por conta ou de todas.
+- **Validação em laboratório:** teste real aprovado com 503 contas. A lista sai em menos de 200 ms, "verificar todas" roda em 3 s e cada achado foi atribuído só à conta dona.
+
+Os testes reais também corrigiram três problemas:
+- o limite do IPC agora vale por sentido (2 MiB nos pedidos e 16 MiB nas respostas);
+- cópias de `/etc/skel` em contas novas e a remoção dos arquivos de shell de contas apagadas não viram mais achado;
+- arquivo apagado durante a varredura não conta mais como "sem permissão".
+
+O critério das 500 contas está cumprido.
+
+E1.13 concluído ([ADR-020](adr/0020-ajuste-em-tempo-real-e-limitacao-por-pressao.md)):
+- **Sugestão pelo hardware:** usa núcleos, memória, tipo de disco (rotacional, SSD ou NVMe), pressão média de 5 minutos, carga e as últimas execuções. Cada limite vem com a explicação, e "Aplicar sugestão" grava o perfil próprio `sugerido`.
+- **Ajuste em tempo real:** feito pela operação `run.adjust` (protocolo 1.2), que usa `SetUnitProperties` só com CPU, memória, banda de leitura e peso de E/S. As travas são reaplicadas pelo executor. A rota exige administrador e reautenticação e grava auditoria.
+- **Limitação por PSI no runner:** reduz o paralelismo, pausa os lotes e retoma, e os eventos ficam no resumo.
+- **Métricas por execução:** etapas, arquivos/s, MB/s, CPU e pico de memória do cgroup, tempo limitado e vazão por motor, com comparativo das últimas execuções do mesmo tipo. Os dados vêm da migração 00008.
+- **Validação em laboratório:** aprovada com systemd real (ajuste conferido em `cpu.max` e `memory.max`, métricas reais do cgroup).
+
+E1.12 implementado ([ADR-021](adr/0021-notificacoes-e-segredos-de-integracoes.md), formato em [notificacoes.md](notificacoes.md)): canais de e-mail (STARTTLS, TLS ou relé local) e webhook assinado no padrão Standard Webhooks; regras por canal e evento (achado novo por severidade mínima, execução com falha ou parcial, motor ou autoteste, executor indisponível, cópia do banco com falha); caixa de saída com recuo, deduplicação, agrupamento e reenvio; segredos cifrados com a chave fora do banco; tela Notificações com botão de teste. Falta validar a entrega real no laboratório com o pacote instalado.
+
+E1.10 implementado ([ADR-023](adr/0023-papel-do-lmd.md)):
+- **Papel decidido pela medição:** no laboratório (14 positivos, 47.692 benignos, 20.006 sintéticos), tudo o que o LMD 2.0.1 achou o clamd com as `rfxn.*` também achou, sem falso positivo em nenhum dos dois. O LMD fica opcional e desligado por padrão.
+- **Adaptador:** descoberta (versão, assinaturas, dono root), lista do inventário por descritor, `--json-report` com o `session.tsv` de reserva, quarentena, estágio ClamAV, alertas e ganchos desligados à força, autoteste com EICAR em memória, cobertura e achados do motor `lmd` com a fonte `rfxn`, cache incremental pela versão do LMD.
+- **Tela Regras e fontes** (resto do E1.8): fontes YARA embarcadas e locais (`/etc/vigiahost/rules.d`) com licença, versão, hash, regras e estado; compilação com validação numa unidade isolada; ativar e desativar fonte; assinaturas do ClamAV e do LMD; ligar e desligar o LMD. Ações só do administrador, com reautenticação nas trocas e auditoria.
+- **Validação em laboratório:** varredura real na unidade transitória com as proteções do produto (3 achados do LMD nos positivos; cache na segunda execução) e compilação manual com fonte válida, com erro, com permissão aberta e desativada.
+
+A Fase 1B está completa.
 
 ### Fase 2 — Gestão completa local
 
@@ -116,6 +166,13 @@ flowchart LR
 | E2.8 TUF para tarball e políticas SELinux/AppArmor | M | Testes em modo *enforcing* |
 
 **Critério de saída**: quarentena aprovada nos testes de corrida; triagem do AIDE explica alterações de pacotes atualizados; candidata à versão 1.0 estável.
+
+**Situação em 22/10/2026**
+
+| Épico | Situação | Falta |
+|---|---|---|
+| E2.2 Verificação contra pacote assinado | Implementado: pacote `internal/pkgverify` (`rpm -Va`, `dpkg --verify` + `debsums` quando instalado, dono do arquivo com cache, resumo esperado no pacote, assinatura dos pacotes RPM e dos índices APT, repositórios sem verificação), classificação por tipo de arquivo e gravidade, tipo de execução `integrity` em unidade própria ([ADR-022](adr/0022-verificacoes-do-sistema.md)), executável de processo diferente do pacote na inspeção, tela Integridade. Validado no laboratório (AlmaLinux 9) e em contêineres Debian 12, Ubuntu 24.04, AlmaLinux 8 e 9 e Rocky 10 | Triagem do AIDE e do Chkrootkit (E2.1 e E2.3) passam a consultar o `pkgverify` |
+| E2.4 Correções pendentes, serviços a reiniciar, processos e portas ocultos | Implementado: tipo `updates` (dnf `updateinfo`/`check-update` só com o cache, `apt-get -s` sem trava, idade da lista, atualização da lista só com `refresh_package_metadata` no `executor.json`), serviços e processos com biblioteca apagada em uso (próprio por `/proc/PID/maps`, `needs-restarting` e `needrestart` quando instalados), reinício pendente; processos ocultos (sinal 0, `getpgid`, `getsid` contra `/proc` e as threads) e portas ocultas (`/proc/net`, netlink e `bind` nas portas não listadas), confirmados duas vezes; tela Atualizações e painel na tela de processos | Teste positivo de oculto exige rootkit de laboratório (as regras foram cobertas por simulação e sem falso positivo em 131 mil portas reais) |
 
 ### Fase 3 — Hospedagem e tempo real
 

@@ -1,0 +1,4 @@
+#LMD:v1	scan	261022-2001.201	vigiahost-lab	/var/tmp/e110/capture/lista	/var/tmp/e110/capture/lista	Oct 22 2026 20:01:43 -0300	Oct 22 2026 20:01:48 -0300	5	0	5	3	0	2.0.1	2026052490478	sha256	native	0	ff81bfcadb10607d4d7a8c9bb7a75750
+{SHA256}test.test.eicar.29805	/proc/131/fd/10	-	SHA256	SHA-256 Hash	275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f	64	root	root	500	1792710103
+{HEX}test.test.eicar	/proc/131/fd/11	-	HEX	HEX Pattern	692e3d3d05c8c669ea915e7a8ed4f23f	64	root	root	500	1792710103
+{HEX}php.inject.generic.564	/proc/131/fd/12	-	HEX	HEX Pattern	4ad3b466a91f33c89ce903406a288a07	64	root	root	500	1792710103

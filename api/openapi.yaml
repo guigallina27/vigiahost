@@ -1,0 +1,2835 @@
+# Contrato da API do core. Fonte única dos tipos do servidor (oapi-codegen) e do cliente da interface (openapi-typescript).
+# Mantido em OpenAPI 3.0.3 enquanto o suporte do oapi-codegen a 3.1 for parcial (escopo, seção 6.3).
+# Depois de alterar: make generate (o CI e o laboratório conferem se o código gerado está em dia).
+openapi: 3.0.3
+info:
+  title: VigiaHost
+  version: 0.3.0
+  description: >
+    API do serviço web do VigiaHost. Todas as rotas ficam sob /api/v1. A interface autentica por cookie de sessão
+    (__Host-vh_session); automações usam token de API no cabeçalho Authorization (Bearer). Ações sensíveis exigem
+    reautenticação recente e respondem 403 com code=reauth_required quando ela falta.
+  license:
+    name: GPL-3.0-only
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+servers:
+  - url: /
+security:
+  - cookieAuth: []
+  - bearerAuth: []
+tags:
+  - name: sistema
+  - name: autenticacao
+  - name: execucoes
+  - name: achados
+  - name: inventario
+  - name: contas
+  - name: configuracao
+  - name: administracao
+paths:
+  /api/v1/health:
+    get:
+      operationId: getHealth
+      summary: Saúde do core e da conexão com o executor
+      description: >
+        Responde 200 quando o executor está conectado e 503 quando não está; o corpo é o mesmo nos dois casos.
+        Não exige autenticação e não expõe dados de varredura.
+      tags: [sistema]
+      security: []
+      responses:
+        "200":
+          description: Core e executor operacionais
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: Core no ar, mas sem conexão com o executor
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      summary: Estado da sessão atual
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Estado da sessão (autenticada ou não)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+  /api/v1/auth/challenge:
+    get:
+      operationId: getAuthChallenge
+      summary: Desafio da caixa "não sou um robô" (ALTCHA, prova de trabalho resolvida pelo navegador)
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Desafio assinado, válido por 10 minutos e aceito uma única vez
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthChallenge" }
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Login com usuário e senha
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Senha aceita; a sessão pode ainda exigir o segundo fator (stage)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/verify:
+    post:
+      operationId: verifyMfa
+      summary: Segundo fator do login (código TOTP ou de recuperação)
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: Sessão completa
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/mfa/setup:
+    post:
+      operationId: beginMfaSetup
+      summary: Gera o segredo do aplicativo autenticador
+      description: Permitido na etapa mfa_setup ou, para trocar de aparelho, na sessão completa com reautenticação.
+      tags: [autenticacao]
+      security: []
+      responses:
+        "200":
+          description: Segredo pendente até a confirmação
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaSetup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/mfa/enable:
+    post:
+      operationId: enableMfa
+      summary: Confirma o segredo com um código e devolve os códigos de recuperação (exibidos uma vez)
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CodeRequest" }
+      responses:
+        "200":
+          description: Segundo fator ativo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MfaEnabled" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Encerra a sessão
+      tags: [autenticacao]
+      security: []
+      responses:
+        "204": { description: Sessão encerrada }
+  /api/v1/auth/reauth:
+    post:
+      operationId: reauth
+      summary: Reautenticação para ações sensíveis (vale 5 minutos)
+      tags: [autenticacao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReauthRequest" }
+      responses:
+        "200":
+          description: Reautenticado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /api/v1/auth/password:
+    post:
+      operationId: changePassword
+      summary: Troca a própria senha (encerra as outras sessões)
+      tags: [autenticacao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PasswordChange" }
+      responses:
+        "204": { description: Senha trocada }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/auth/setup:
+    post:
+      operationId: setupFirstAdmin
+      summary: Primeiro acesso — cria o administrador com o token exibido no terminal
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetupRequest" }
+      responses:
+        "200":
+          description: Administrador criado; falta configurar o segundo fator
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/auth/reset:
+    post:
+      operationId: resetWithToken
+      summary: Redefine a senha com o token de recuperação gerado pelo root
+      tags: [autenticacao]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetRequest" }
+      responses:
+        "204": { description: Senha redefinida; o segundo fator é configurado de novo no próximo login }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/overview:
+    get:
+      operationId: getOverview
+      summary: Resumo para a Visão geral
+      tags: [sistema]
+      responses:
+        "200":
+          description: Resumo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Overview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/events:
+    get:
+      operationId: streamEvents
+      summary: Eventos ao vivo (SSE) — execuções, achados novos e agendamentos
+      tags: [sistema]
+      responses:
+        "200":
+          description: Fluxo text/event-stream; cada evento traz o tipo e o identificador, e a interface busca o estado pela API
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/runs:
+    get:
+      operationId: listRuns
+      summary: Lista execuções (mais recentes primeiro)
+      tags: [execucoes]
+      parameters:
+        - { name: status, in: query, schema: { type: array, items: { $ref: "#/components/schemas/RunStatus" } }, style: form, explode: true }
+        - { name: kind, in: query, schema: { $ref: "#/components/schemas/RunKind" } }
+        - { name: account, in: query, description: Somente execuções que cobriram esta conta (UID), schema: { type: integer, format: int64 } }
+        - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: string } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página de execuções
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createRun
+      summary: Enfileira uma execução
+      tags: [execucoes]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          description: Repetir a mesma chave devolve a execução já criada (clique duplo, nova tentativa)
+          schema: { type: string, maxLength: 128 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunCreate" }
+      responses:
+        "201":
+          description: Execução na fila
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/runs/{runId}:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    get:
+      operationId: getRun
+      summary: Detalhe da execução com a cobertura por motor
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/runs/{runId}/cancel:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: cancelRun
+      summary: Cancela (na fila ou em andamento; encerra o cgroup inteiro)
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/pause:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: pauseRun
+      summary: Pausa pelo freezer do cgroup v2
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/resume:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: resumeRun
+      summary: Retoma uma execução pausada
+      tags: [execucoes]
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/limits:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: setRunLimits
+      summary: Troca o perfil de recursos da execução em andamento (aplicado na hora pelo cgroup)
+      tags: [execucoes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunLimitsRequest" }
+      responses:
+        "200":
+          description: Execução
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+
+  /api/v1/runs/{runId}/adjust:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    post:
+      operationId: adjustRunLimits
+      summary: >
+        Ajusta CPU, memória e E/S da execução em andamento, campo a campo (administrador, com reautenticação). O
+        executor junta o pedido ao perfil efetivo que ele guarda e aplica as mesmas travas do início; a API não
+        consegue contorná-las.
+      tags: [execucoes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RunAdjustRequest" }
+      responses:
+        "200":
+          description: Execução com os limites efetivos e o histórico de ajustes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Run" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/runs/{runId}/comparison:
+    parameters:
+      - { $ref: "#/components/parameters/RunId" }
+    get:
+      operationId: getRunComparison
+      summary: Desempenho desta execução ao lado das últimas execuções terminadas do mesmo tipo
+      tags: [execucoes]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 2, maximum: 30, default: 10 } }
+      responses:
+        "200":
+          description: Comparativo (mais recentes primeiro)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RunComparison" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/accounts:
+    get:
+      operationId: listAccounts
+      summary: Contas do servidor com achados abertos, última verificação, processos e persistência
+      tags: [contas]
+      parameters:
+        - { name: system, in: query, description: Incluir contas de sistema (root, serviços), schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Contas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AccountList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/accounts/{uid}:
+    parameters:
+      - { name: uid, in: path, required: true, schema: { type: integer, format: int64, minimum: 0 } }
+    get:
+      operationId: getAccount
+      summary: Uma conta do servidor com o resumo de risco
+      tags: [contas]
+      responses:
+        "200":
+          description: Conta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Account" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/findings:
+    get:
+      operationId: listFindings
+      summary: Lista achados (mais recentes primeiro)
+      tags: [achados]
+      parameters:
+        - { name: state, in: query, schema: { type: array, items: { $ref: "#/components/schemas/FindingState" } }, style: form, explode: true }
+        - { name: severity, in: query, schema: { type: array, items: { $ref: "#/components/schemas/Severity" } }, style: form, explode: true }
+        - { name: kind, in: query, schema: { type: array, items: { $ref: "#/components/schemas/FindingKind" } }, style: form, explode: true }
+        - { name: category, in: query, schema: { type: array, items: { type: string } }, style: form, explode: true }
+        - { name: run, in: query, description: Somente achados vistos nesta execução, schema: { type: string } }
+        - { name: account, in: query, description: "Somente achados da conta (UID): arquivos do UID ou no diretório pessoal, processos do UID e persistência da conta", schema: { type: integer, format: int64 } }
+        - { name: q, in: query, description: Trecho do caminho, da assinatura ou o SHA-256, schema: { type: string, maxLength: 512 } }
+        - { name: before, in: query, description: Cursor (next_before da página anterior), schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página de achados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/findings/{findingId}:
+    parameters:
+      - { $ref: "#/components/parameters/FindingId" }
+    get:
+      operationId: getFinding
+      summary: Detalhe do achado com localizações e histórico
+      tags: [achados]
+      responses:
+        "200":
+          description: Achado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/findings/{findingId}/transition:
+    parameters:
+      - { $ref: "#/components/parameters/FindingId" }
+    post:
+      operationId: transitionFinding
+      summary: Muda o estado do achado no ciclo de vida
+      tags: [achados]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FindingTransition" }
+      responses:
+        "200":
+          description: Achado atualizado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FindingDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/exceptions:
+    get:
+      operationId: listExceptions
+      summary: Lista exceções
+      tags: [achados]
+      parameters:
+        - { name: all, in: query, description: Inclui revogadas, schema: { type: boolean } }
+      responses:
+        "200":
+          description: Exceções
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Exception" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createException
+      summary: Cria exceção (exige reautenticação; regra global só administrador)
+      tags: [achados]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExceptionCreate" }
+      responses:
+        "201":
+          description: Exceção criada e aplicada aos achados abertos que ela cobre
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Exception" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/exceptions/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    delete:
+      operationId: revokeException
+      summary: Revoga a exceção
+      tags: [achados]
+      responses:
+        "204": { description: Revogada }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /api/v1/schedules:
+    get:
+      operationId: listSchedules
+      summary: Lista agendamentos
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Agendamentos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Schedule" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createSchedule
+      summary: Cria agendamento
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "201":
+          description: Agendamento criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/schedules/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateSchedule
+      summary: Altera agendamento
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "200":
+          description: Agendamento
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: deleteSchedule
+      summary: Remove agendamento (as execuções criadas por ele continuam)
+      tags: [configuracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/schedules/preview:
+    post:
+      operationId: previewSchedule
+      summary: Valida a expressão e mostra os próximos horários
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CronPreviewRequest" }
+      responses:
+        "200":
+          description: Próximos horários
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CronPreview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/resources:
+    get:
+      operationId: getResources
+      summary: Hardware e perfis de recursos efetivos
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Recursos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/resources/suggestion:
+    get:
+      operationId: getResourceSuggestion
+      summary: Perfil sugerido pelo hardware, pela pressão típica e pelo histórico das execuções, com a explicação
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Sugestão
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProfileSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/resources/profiles/{name}:
+    parameters:
+      - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,31}$" } }
+    put:
+      operationId: saveResourceProfile
+      summary: Grava perfil personalizado (administrador, com reautenticação; travas do executor continuam valendo)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResourceProfile" }
+      responses:
+        "200":
+          description: Recursos atualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      operationId: deleteResourceProfile
+      summary: Volta o perfil ao pré-definido (ou remove o personalizado)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Recursos atualizados
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resources" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/v1/inventory/processes:
+    get:
+      operationId: getProcessInventory
+      summary: Processos da última inspeção (ou da execução informada), com segredos da linha de comando mascarados
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Instantâneo dos processos
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProcessInventory" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/inventory/persistence:
+    get:
+      operationId: getPersistenceInventory
+      summary: Inventário de persistência da última inspeção, com o que mudou em relação à anterior
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Inventário de persistência
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PersistenceInventory" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/integrity:
+    get:
+      operationId: getIntegrity
+      summary: Verificação contra os pacotes da última execução de integridade (ou da informada)
+      description: >-
+        Arquivos que diferem do registrado no pacote (rpm -Va, dpkg --verify, debsums), classificados pelo tipo do
+        arquivo, e a situação das assinaturas dos pacotes e dos repositórios.
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Relatório de integridade
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntegrityReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/updates:
+    get:
+      operationId: getUpdates
+      summary: Correções pendentes, reinício e serviços a reiniciar da última execução de atualizações (ou da informada)
+      tags: [inventario]
+      parameters:
+        - { $ref: "#/components/parameters/SnapshotRun" }
+      responses:
+        "200":
+          description: Relatório de atualizações
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UpdatesReport" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/engines:
+    get:
+      operationId: getEngines
+      summary: Saúde dos motores (versões, assinaturas, autoteste da última execução)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Motores
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EngineStatus" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/v1/rules:
+    get:
+      operationId: getRules
+      summary: Fontes de regras YARA, assinaturas do ClamAV e do LMD, com o estado da última compilação
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Regras e fontes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /api/v1/rules/compile:
+    post:
+      operationId: compileRules
+      summary: >
+        Recompila o conjunto de regras com validação (cada fonte compilada sozinha, controle positivo no conjunto),
+        numa unidade isolada do executor; responde na hora com compiling=true (administrador)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Compilação iniciada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "503": { $ref: "#/components/responses/ExecutorUnavailable" }
+  /api/v1/rules/sources/{name}:
+    parameters:
+      - { name: name, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9][a-z0-9_-]{0,31}$" } }
+    put:
+      operationId: setRuleSource
+      summary: Ativa ou desativa uma fonte de regras YARA e pede nova compilação (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ToggleInput" }
+      responses:
+        "200":
+          description: Regras atualizadas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/rules/lmd:
+    put:
+      operationId: setLmd
+      summary: >
+        Liga ou desliga o LMD como fonte adicional de assinaturas nas varreduras de arquivos (administrador, com
+        reautenticação); ligar exige o LMD 2.x instalado
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ToggleInput" }
+      responses:
+        "200":
+          description: Regras atualizadas
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RulesOverview" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/notifications/channels:
+    get:
+      operationId: listNotificationChannels
+      summary: Canais de notificação (administrador; segredos nunca voltam, só se estão configurados)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Canais por nome
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NotificationChannel" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createNotificationChannel
+      summary: Cria canal de e-mail ou webhook (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationChannelInput" }
+      responses:
+        "201":
+          description: Canal criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationChannel" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/channels/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateNotificationChannel
+      summary: Altera canal (o tipo não muda; segredo ausente mantém o atual)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationChannelInput" }
+      responses:
+        "200":
+          description: Canal
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationChannel" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteNotificationChannel
+      summary: Remove canal e regras dele; mensagens pendentes viram falha e o histórico fica
+      tags: [configuracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/notifications/channels/{id}/test:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: testNotificationChannel
+      summary: Envia uma mensagem de teste agora e devolve o resultado real do envio
+      description: >
+        O envio é síncrono, com tempo limite. Falha de envio responde 200 com ok=false e a causa em error (servidor
+        recusou, certificado inválido, destino bloqueado pela política de rede...). O teste fica na caixa de saída e na
+        auditoria.
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Resultado do envio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationTestResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/rules:
+    get:
+      operationId: listNotificationRules
+      summary: Regras de envio (qual evento vai para qual canal)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Regras
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/NotificationRule" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createNotificationRule
+      summary: Cria regra de envio (administrador, com reautenticação)
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationRuleInput" }
+      responses:
+        "201":
+          description: Regra criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/notifications/rules/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    put:
+      operationId: updateNotificationRule
+      summary: Altera regra de envio
+      tags: [configuracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NotificationRuleInput" }
+      responses:
+        "200":
+          description: Regra
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotificationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteNotificationRule
+      summary: Remove regra de envio
+      tags: [configuracao]
+      responses:
+        "204": { description: Removida }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/notifications/outbox:
+    get:
+      operationId: listNotificationOutbox
+      summary: Caixa de saída (mensagens pendentes, enviadas e com falha, da mais nova para a mais antiga)
+      tags: [configuracao]
+      parameters:
+        - { name: state, in: query, schema: { $ref: "#/components/schemas/OutboxState" } }
+        - { name: channel_id, in: query, schema: { type: integer, format: int64 } }
+        - { name: before, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página da caixa de saída
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OutboxPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/notifications/outbox/{id}/retry:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: retryNotification
+      summary: Reenvia a mensagem agora (falha definitiva volta com as tentativas zeradas)
+      tags: [configuracao]
+      responses:
+        "200":
+          description: Mensagem de volta à fila de envio
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OutboxEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      summary: Lista usuários do painel
+      tags: [administracao]
+      responses:
+        "200":
+          description: Usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createUser
+      summary: Cria usuário (administrador, com reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreate" }
+      responses:
+        "201":
+          description: Usuário criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/users/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    patch:
+      operationId: updateUser
+      summary: Altera perfil, nome ou bloqueio (administrador, com reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdate" }
+      responses:
+        "200":
+          description: Usuário
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+    delete:
+      operationId: deleteUser
+      summary: Remove usuário (administrador, com reautenticação)
+      tags: [administracao]
+      responses:
+        "204": { description: Removido }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/users/{id}/mfa-reset:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    post:
+      operationId: resetUserMfa
+      summary: Apaga o segundo fator do usuário (configura de novo no próximo login)
+      tags: [administracao]
+      responses:
+        "204": { description: Segundo fator apagado e sessões encerradas }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/tokens:
+    get:
+      operationId: listApiTokens
+      summary: Tokens de API (os próprios; o administrador vê todos)
+      tags: [administracao]
+      responses:
+        "200":
+          description: Tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ApiToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createApiToken
+      summary: Cria token de API (exibido uma vez; exige reautenticação)
+      tags: [administracao]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApiTokenCreate" }
+      responses:
+        "201":
+          description: Token criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiTokenCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /api/v1/tokens/{id}:
+    parameters:
+      - { $ref: "#/components/parameters/Id" }
+    delete:
+      operationId: revokeApiToken
+      summary: Revoga token de API
+      tags: [administracao]
+      responses:
+        "204": { description: Revogado }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/v1/backups:
+    get:
+      operationId: listBackups
+      summary: Cópias do banco do core (administrador)
+      tags: [administracao]
+      responses:
+        "200":
+          description: Cópias, da mais nova para a mais antiga
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createBackup
+      summary: Faz uma cópia manual do banco agora (exige reautenticação)
+      description: >
+        Cópia consistente com VACUUM INTO, sem parar o serviço. A restauração não é feita pela interface: exige parar o
+        serviço e rodar "vigiahost backup restore" como root.
+      tags: [administracao]
+      responses:
+        "201":
+          description: Cópia criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupInfo" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /api/v1/audit:
+    get:
+      operationId: listAudit
+      summary: Auditoria (administrador e auditor) com conferência da cadeia
+      tags: [administracao]
+      parameters:
+        - { name: before, in: query, schema: { type: integer, format: int64 } }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: Página da auditoria
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: __Host-vh_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Token de API (vht_...) para automação; não serve para a interface.
+  parameters:
+    SnapshotRun:
+      name: run_id
+      in: query
+      description: Execução da verificação; sem ele, a mais recente
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,39}$" }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500, default: 50 }
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[a-z0-9][a-z0-9-]{0,39}$" }
+    FindingId:
+      name: findingId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+  responses:
+    BadRequest:
+      description: Pedido inválido (a mensagem explica o campo)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Sem sessão, sessão expirada ou credencial incorreta
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Perfil sem permissão ou reautenticação necessária (code=reauth_required)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Não encontrado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: O estado atual não permite a operação
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Muitas tentativas; bloqueio temporário
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    ExecutorUnavailable:
+      description: Executor fora do ar
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error: { type: string, description: Mensagem para o operador }
+        code:
+          type: string
+          description: Código estável para a interface (reauth_required, mfa_required, forbidden, locked...)
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version, executor]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded]
+          description: "ok: executor conectado; degraded: core sem executor."
+        version:
+          type: string
+          description: Versão do core.
+          example: 0.1.0
+        executor:
+          $ref: "#/components/schemas/ExecutorStatus"
+    ExecutorStatus:
+      type: object
+      additionalProperties: false
+      required: [connected]
+      properties:
+        connected:
+          type: boolean
+        version:
+          type: string
+          description: Versão do executor informada no handshake.
+        protocol:
+          type: string
+          description: Versão do protocolo core–executor (maior.menor).
+          example: "1.0"
+        error:
+          type: string
+          description: Motivo da falha de conexão ou da consulta de capacidades.
+        system:
+          $ref: "#/components/schemas/SystemCapabilities"
+    SystemCapabilities:
+      type: object
+      additionalProperties: false
+      description: Sistema detectado pelo executor (escopo, seção 5.3).
+      required: [distro_id, distro_version, distro_name, kernel, arch, systemd, cgroup_v2, psi]
+      properties:
+        distro_id:
+          type: string
+          example: almalinux
+        distro_version:
+          type: string
+          example: "9.8"
+        distro_name:
+          type: string
+          example: AlmaLinux 9.8 (Olive Jaguar)
+        distro_like:
+          type: array
+          items: { type: string }
+        kernel:
+          type: string
+        arch:
+          type: string
+          example: amd64
+        systemd:
+          type: boolean
+          description: systemd é o init em execução.
+        cgroup_v2:
+          type: boolean
+          description: Hierarquia unificada do cgroup v2 disponível (necessária para os perfis de recursos).
+        psi:
+          type: boolean
+          description: Pressure Stall Information disponível (pausa por pressão).
+
+    Role:
+      type: string
+      enum: [admin, operator, reader, auditor]
+    SessionStage:
+      type: string
+      enum: [password, mfa_setup, full]
+      description: "password: falta o segundo fator; mfa_setup: falta configurar o segundo fator; full: sessão completa."
+    CurrentUser:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, role, mfa_enabled]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        mfa_enabled: { type: boolean }
+        mfa_required: { type: boolean }
+        recovery_codes_left: { type: integer }
+    Session:
+      type: object
+      additionalProperties: false
+      required: [authenticated, setup_required, secure_transport]
+      properties:
+        authenticated:
+          type: boolean
+          description: Sessão completa (todas as etapas concluídas).
+        setup_required:
+          type: boolean
+          description: Nenhum usuário criado ainda (primeiro acesso com o token do terminal).
+        secure_transport:
+          type: boolean
+          description: Conexão por HTTPS ou endereço local; sem isso o login é recusado.
+        stage: { $ref: "#/components/schemas/SessionStage" }
+        user: { $ref: "#/components/schemas/CurrentUser" }
+        reauth_until: { type: string, format: date-time }
+        idle_timeout_seconds: { type: integer }
+    AuthChallenge:
+      type: object
+      required: [parameters, signature]
+      properties:
+        parameters:
+          type: object
+          additionalProperties: true
+          description: Parâmetros do desafio ALTCHA v2 (algoritmo, nonce, salt, custo, expiração)
+        signature: { type: string }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password, altcha]
+      properties:
+        username: { type: string, maxLength: 64 }
+        password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
+    CodeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, maxLength: 32, description: Código TOTP de 6 dígitos ou código de recuperação }
+    ReauthRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password: { type: string, maxLength: 256 }
+        code: { type: string, maxLength: 32 }
+    MfaSetup:
+      type: object
+      additionalProperties: false
+      required: [secret, uri, matrix]
+      properties:
+        secret: { type: string, description: Segredo em base32 para digitar no aplicativo }
+        uri: { type: string, description: Endereço otpauth:// do QR }
+        matrix:
+          type: array
+          description: QR como linhas de "0" e "1" (a interface desenha em SVG)
+          items: { type: string }
+    MfaEnabled:
+      type: object
+      additionalProperties: false
+      required: [session, recovery_codes]
+      properties:
+        session: { $ref: "#/components/schemas/Session" }
+        recovery_codes:
+          type: array
+          items: { type: string }
+    PasswordChange:
+      type: object
+      additionalProperties: false
+      required: [current, new]
+      properties:
+        current: { type: string, maxLength: 256 }
+        new: { type: string, maxLength: 256 }
+    SetupRequest:
+      type: object
+      additionalProperties: false
+      required: [token, username, password, altcha]
+      properties:
+        token: { type: string, maxLength: 128 }
+        username: { type: string, maxLength: 64 }
+        display_name: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
+    ResetRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password, altcha]
+      properties:
+        token: { type: string, maxLength: 128 }
+        password: { type: string, maxLength: 256 }
+        altcha: { type: string, maxLength: 16384, description: Payload do widget ALTCHA (JSON em base64) }
+
+    Severity:
+      type: string
+      enum: [critical, high, medium, low, info]
+    FindingState:
+      type: string
+      enum: [new, in_review, confirmed, resolved, false_positive, excepted]
+    FindingKind:
+      type: string
+      description: system é o achado do sistema como um todo (correções pendentes, repositório sem assinatura, porta oculta)
+      enum: [file, process, persistence, system]
+    RunKind:
+      type: string
+      enum: [files, processes, integrity, updates]
+    RunStatus:
+      type: string
+      enum: [queued, reserved, running, completed, partial, failed, engine_failure, canceled, interrupted]
+    SeverityCounts:
+      type: object
+      additionalProperties: false
+      required: [critical, high, medium, low, info, total]
+      properties:
+        critical: { type: integer, format: int64 }
+        high: { type: integer, format: int64 }
+        medium: { type: integer, format: int64 }
+        low: { type: integer, format: int64 }
+        info: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
+    Overview:
+      type: object
+      additionalProperties: false
+      required: [executor, open_findings, active_runs, recent_findings, engines, has_runs, has_schedules]
+      properties:
+        executor: { $ref: "#/components/schemas/ExecutorStatus" }
+        open_findings: { $ref: "#/components/schemas/SeverityCounts" }
+        active_runs:
+          type: array
+          items: { $ref: "#/components/schemas/Run" }
+        last_files_run: { $ref: "#/components/schemas/Run" }
+        last_processes_run: { $ref: "#/components/schemas/Run" }
+        recent_findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineHealth" }
+        has_runs: { type: boolean }
+        has_schedules: { type: boolean }
+
+    ResourceProfile:
+      type: object
+      additionalProperties: false
+      required: [name, cpu_quota_percent, memory_max_bytes, io_read_bytes_per_sec, io_weight, workers, clamd_concurrency, max_runtime_sec, nice, max_file_bytes]
+      properties:
+        name: { type: string }
+        cpu_quota_percent: { type: integer, description: "Soma de núcleos em % (200 = dois núcleos)" }
+        memory_max_bytes: { type: integer, format: int64 }
+        io_read_bytes_per_sec: { type: integer, format: int64, description: 0 = sem limite de banda (só peso) }
+        io_weight: { type: integer }
+        workers: { type: integer }
+        clamd_concurrency: { type: integer }
+        max_runtime_sec: { type: integer }
+        nice: { type: integer }
+        max_file_bytes: { type: integer, format: int64 }
+        pressure_cpu: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de CPU (PSI avg10, %) para reduzir o ritmo; 0 desliga" }
+        pressure_io: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de E/S (PSI avg10, %); 0 desliga" }
+        pressure_memory: { type: integer, minimum: 0, maximum: 100, description: "Limiar de pressão de memória (PSI avg10, %); 0 desliga" }
+    ProfileEntry:
+      type: object
+      additionalProperties: false
+      required: [profile, custom, preset]
+      properties:
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        custom: { type: boolean, description: Alterado pelo operador }
+        preset: { type: boolean, description: Um dos pré-definidos (leve, padrao, intensivo) }
+    Hardware:
+      type: object
+      additionalProperties: false
+      required: [cpus, memory_bytes, rotational, allow_no_reserve, systemd_version, freezer]
+      properties:
+        cpus: { type: integer }
+        memory_bytes: { type: integer, format: int64 }
+        rotational: { type: boolean }
+        allow_no_reserve: { type: boolean }
+        systemd_version: { type: string }
+        freezer: { type: boolean, description: Pausa disponível (systemd 246+ e cgroup v2) }
+        disk_type: { $ref: "#/components/schemas/DiskType" }
+        pressure: { $ref: "#/components/schemas/HostPressure" }
+        load_avg: { type: number, description: Carga média de 15 minutos }
+    DiskType:
+      type: string
+      enum: [hdd, ssd, nvme]
+    PressureStat:
+      type: object
+      additionalProperties: false
+      required: [avg10, avg60, avg300]
+      properties:
+        avg10: { type: number }
+        avg60: { type: number }
+        avg300: { type: number }
+    HostPressure:
+      type: object
+      additionalProperties: false
+      description: Pressão (PSI "some") do servidor no momento da consulta, em % do tempo
+      required: [cpu, io, memory]
+      properties:
+        cpu: { $ref: "#/components/schemas/PressureStat" }
+        io: { $ref: "#/components/schemas/PressureStat" }
+        memory: { $ref: "#/components/schemas/PressureStat" }
+    SuggestionReason:
+      type: object
+      additionalProperties: false
+      required: [code, values]
+      properties:
+        code:
+          type: string
+          description: Código da explicação (a interface traduz e preenche os valores)
+          enum: [cpu_busy, cpu_idle, cpu_normal, memory_normal, memory_small, memory_pressure, disk_hdd, disk_ssd, disk_nvme, workers_cpu, io_busy, history_limited, nice, pressure_thresholds, pressure_unavailable]
+        values:
+          type: object
+          additionalProperties: { type: number }
+    SuggestionBasis:
+      type: object
+      additionalProperties: false
+      required: [cpus, memory_bytes, disk_type, psi, cpu_pressure, io_pressure, memory_pressure, load_avg, history_runs, limited_ratio]
+      properties:
+        cpus: { type: integer }
+        memory_bytes: { type: integer, format: int64 }
+        disk_type: { $ref: "#/components/schemas/DiskType" }
+        psi: { type: boolean, description: Pressão legível no servidor }
+        cpu_pressure: { type: number, description: Média de 5 minutos (%) }
+        io_pressure: { type: number }
+        memory_pressure: { type: number }
+        load_avg: { type: number }
+        history_runs: { type: integer, description: Execuções recentes com métricas consideradas }
+        limited_ratio: { type: number, description: Fração do tempo dessas execuções limitada por pressão (0 a 1) }
+    ProfileSuggestion:
+      type: object
+      additionalProperties: false
+      required: [profile, reasons, basis]
+      properties:
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        reasons:
+          type: array
+          items: { $ref: "#/components/schemas/SuggestionReason" }
+        basis: { $ref: "#/components/schemas/SuggestionBasis" }
+    Resources:
+      type: object
+      additionalProperties: false
+      required: [profiles]
+      properties:
+        hardware: { $ref: "#/components/schemas/Hardware" }
+        executor_error: { type: string }
+        profiles:
+          type: array
+          items: { $ref: "#/components/schemas/ProfileEntry" }
+
+    RunSummary:
+      type: object
+      additionalProperties: false
+      required: [status, files_seen, files_eligible, bytes_eligible, findings, objects, cache_hits, files_per_second, mb_per_second]
+      properties:
+        status: { $ref: "#/components/schemas/RunStatus" }
+        error: { type: string }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        files_seen: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        skipped:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        findings: { type: integer, format: int64 }
+        objects: { type: integer, format: int64 }
+        cache_hits: { type: integer, format: int64 }
+        files_per_second: { type: number }
+        mb_per_second: { type: number }
+        warnings:
+          type: array
+          items: { type: string }
+        metrics: { $ref: "#/components/schemas/RunMetrics" }
+    PhaseTiming:
+      type: object
+      additionalProperties: false
+      required: [phase, seconds]
+      properties:
+        phase: { type: string }
+        seconds: { type: number }
+    ThrottleEvent:
+      type: object
+      additionalProperties: false
+      required: [at, action, resource, pressure, threshold, workers]
+      properties:
+        at: { type: string, format: date-time }
+        action: { type: string, enum: [reduce, pause, raise, restore] }
+        resource: { $ref: "#/components/schemas/PressureResource" }
+        pressure: { type: number, description: "Pressão medida (avg10, em %)" }
+        threshold: { type: integer }
+        workers: { type: integer, description: Workers liberados depois da mudança (0 = pausada) }
+    PressureResource:
+      type: string
+      enum: [cpu, io, memory]
+    ThrottleStats:
+      type: object
+      additionalProperties: false
+      required: [available, enabled, limited_seconds, paused_seconds, events, events_dropped]
+      properties:
+        available: { type: boolean, description: PSI legível no servidor }
+        enabled: { type: boolean, description: O perfil tinha algum limiar de pressão ligado }
+        limited_seconds: { type: number, description: Tempo com paralelismo reduzido ou pausado }
+        paused_seconds: { type: number }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ThrottleEvent" }
+        events_dropped: { type: integer }
+    RunMetrics:
+      type: object
+      additionalProperties: false
+      required: [phases, cpu_seconds, memory_peak_bytes, bytes_read, source, throttle]
+      properties:
+        phases:
+          type: array
+          items: { $ref: "#/components/schemas/PhaseTiming" }
+        cpu_seconds: { type: number, description: CPU consumida pela unidade (usuário + sistema) }
+        cpu_seconds_per_gb: { type: number, description: CPU por GiB lido }
+        memory_peak_bytes: { type: integer, format: int64 }
+        bytes_read: { type: integer, format: int64 }
+        source:
+          type: string
+          enum: [cgroup, rusage, none]
+          description: cgroup = unidade inteira; rusage = só o processo principal (sem cgroup v2)
+        throttle: { $ref: "#/components/schemas/ThrottleStats" }
+    ThrottleState:
+      type: object
+      additionalProperties: false
+      required: [state, workers, resource, pressure]
+      properties:
+        state: { type: string, enum: [reduced, paused] }
+        workers: { type: integer }
+        resource: { $ref: "#/components/schemas/PressureResource" }
+        pressure: { type: number }
+    RunLimitSet:
+      type: object
+      additionalProperties: false
+      required: [cpu_quota_percent, memory_max_bytes, io_read_bytes_per_sec, io_weight]
+      properties:
+        cpu_quota_percent: { type: integer }
+        memory_max_bytes: { type: integer, format: int64 }
+        io_read_bytes_per_sec: { type: integer, format: int64 }
+        io_weight: { type: integer }
+    RunAdjustment:
+      type: object
+      additionalProperties: false
+      required: [at, actor, before, after]
+      properties:
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        before: { $ref: "#/components/schemas/RunLimitSet" }
+        after: { $ref: "#/components/schemas/RunLimitSet" }
+    Run:
+      type: object
+      additionalProperties: false
+      required: [id, kind, status, origin, requested_by, paths, exclude, incremental, profile, priority, attempts, created_at, phase, paused, files_seen, files_eligible, files_processed, bytes_eligible, bytes_processed, findings_count, error]
+      properties:
+        id: { type: string }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        origin: { type: string, enum: [manual, schedule, system] }
+        requested_by: { type: string }
+        schedule_id: { type: integer, format: int64 }
+        scheduled_for: { type: string, format: date-time }
+        paths: { type: array, items: { type: string } }
+        accounts: { type: array, description: Contas (UID) cobertas pela execução, items: { type: integer, format: int64 } }
+        exclude: { type: array, items: { type: string } }
+        incremental: { type: boolean }
+        profile: { $ref: "#/components/schemas/ResourceProfile" }
+        priority: { type: integer }
+        attempts: { type: integer }
+        created_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        phase: { type: string }
+        paused: { type: boolean }
+        files_seen: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+        files_processed: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        bytes_processed: { type: integer, format: int64 }
+        findings_count: { type: integer, format: int64 }
+        error: { type: string }
+        summary: { $ref: "#/components/schemas/RunSummary" }
+        throttle: { $ref: "#/components/schemas/ThrottleState" }
+        adjustments:
+          type: array
+          description: Ajustes de limites feitos durante a execução (mais antigos primeiro)
+          items: { $ref: "#/components/schemas/RunAdjustment" }
+    EngineCoverage:
+      type: object
+      additionalProperties: false
+      required: [engine, version, rules_version, available, selftest_passed, selftest_detail, eligible, analyzed, from_cache, bytes_analyzed, seconds, skipped, errors, error]
+      properties:
+        engine: { type: string }
+        version: { type: string }
+        rules_version: { type: string }
+        available: { type: boolean }
+        selftest_passed: { type: boolean }
+        selftest_detail: { type: string }
+        eligible: { type: integer, format: int64 }
+        analyzed: { type: integer, format: int64 }
+        from_cache: { type: integer, format: int64 }
+        bytes_analyzed: { type: integer, format: int64 }
+        seconds: { type: number }
+        skipped:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        errors:
+          type: object
+          additionalProperties: { type: integer, format: int64 }
+        error: { type: string }
+        files_per_second: { type: number, description: Arquivos analisados de fato (sem o cache) por segundo de motor }
+        mb_per_second: { type: number, description: MiB analisados por segundo de motor }
+    RunDetail:
+      type: object
+      additionalProperties: false
+      required: [run, engines]
+      properties:
+        run: { $ref: "#/components/schemas/Run" }
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineCoverage" }
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [runs]
+      properties:
+        runs:
+          type: array
+          items: { $ref: "#/components/schemas/Run" }
+        next_before: { type: string }
+    RunCreate:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      properties:
+        kind: { $ref: "#/components/schemas/RunKind" }
+        paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
+        exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
+        incremental: { type: boolean, default: true }
+        profile: { type: string, description: "Nome do perfil de recursos (padrão: padrao)" }
+        priority: { type: integer, minimum: -10, maximum: 10 }
+    RunLimitsRequest:
+      type: object
+      additionalProperties: false
+      required: [profile]
+      properties:
+        profile: { type: string }
+    RunAdjustRequest:
+      type: object
+      additionalProperties: false
+      description: Campo ausente mantém o valor atual; ao menos um precisa vir
+      properties:
+        cpu_quota_percent: { type: integer, minimum: 0, description: "Soma de núcleos em % (0 = sem limite, só com liberação local)" }
+        memory_max_bytes: { type: integer, format: int64, minimum: 0 }
+        io_read_bytes_per_sec: { type: integer, format: int64, minimum: 0, description: 0 = sem limite de banda }
+        io_weight: { type: integer, minimum: 1, maximum: 10000 }
+        no_reserve:
+          type: boolean
+          description: Pede limites acima da reserva do sistema; só vale se a configuração local do executor permitir
+    RunPerformance:
+      type: object
+      additionalProperties: false
+      required: [id, status, profile, created_at, duration_seconds, files_eligible, bytes_eligible, files_per_second, mb_per_second, cache_hits, findings, current]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        profile: { type: string }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        duration_seconds: { type: number }
+        files_eligible: { type: integer, format: int64 }
+        bytes_eligible: { type: integer, format: int64 }
+        files_per_second: { type: number }
+        mb_per_second: { type: number }
+        cache_hits: { type: integer, format: int64 }
+        findings: { type: integer, format: int64 }
+        cpu_seconds: { type: number }
+        memory_peak_bytes: { type: integer, format: int64 }
+        limited_seconds: { type: number }
+        current: { type: boolean, description: É a execução consultada }
+    RunComparison:
+      type: object
+      additionalProperties: false
+      required: [kind, runs]
+      properties:
+        kind: { $ref: "#/components/schemas/RunKind" }
+        runs:
+          type: array
+          items: { $ref: "#/components/schemas/RunPerformance" }
+
+    Location:
+      type: object
+      additionalProperties: false
+      required: [path, dev, ino, size, mode, uid, gid, nlink]
+      properties:
+        path: { type: string, description: Caminho para exibição (bytes inválidos substituídos) }
+        path_hex: { type: string, description: Bytes exatos em hexadecimal quando o nome não é UTF-8 válido }
+        dev: { type: integer, format: int64 }
+        ino: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        mode: { type: integer, format: int64 }
+        uid: { type: integer, format: int64 }
+        gid: { type: integer, format: int64 }
+        nlink: { type: integer, format: int64 }
+        mtime: { type: string, format: date-time }
+        ctime: { type: string, format: date-time }
+    ProcessEvidence:
+      type: object
+      additionalProperties: false
+      required: [pid, ppid, uid, comm, exe]
+      properties:
+        pid: { type: integer }
+        ppid: { type: integer }
+        uid: { type: integer, format: int64 }
+        comm: { type: string }
+        exe: { type: string }
+        cmdline: { type: array, items: { type: string } }
+        unit: { type: string }
+        cgroup: { type: string }
+        exe_sha256: { type: string }
+        start_time: { type: string }
+        listening: { type: array, items: { type: string } }
+        connected: { type: array, items: { type: string } }
+    ProcessInfo:
+      type: object
+      additionalProperties: false
+      required: [pid, ppid, uid, comm, exe, cpu_percent, rss_bytes, threads]
+      properties:
+        pid: { type: integer }
+        ppid: { type: integer }
+        uid: { type: integer, format: int64 }
+        user: { type: string }
+        comm: { type: string }
+        cmdline: { type: array, items: { type: string } }
+        exe: { type: string }
+        exe_deleted: { type: boolean }
+        exe_memfd: { type: boolean }
+        exe_sha256: { type: string }
+        package: { type: string, description: 'Pacote dono do executável; "-" quando nenhum pacote o reconhece' }
+        package_status:
+          type: string
+          enum: [match, mismatch]
+          description: O executável confere (match) ou não (mismatch) com o resumo registrado no pacote
+        unit: { type: string }
+        cgroup: { type: string }
+        start_ticks: { type: integer, format: int64 }
+        cpu_percent: { type: number }
+        rss_bytes: { type: integer, format: int64 }
+        threads: { type: integer }
+        listening: { type: array, items: { type: string } }
+        connected: { type: array, items: { type: string } }
+        flags: { type: array, items: { type: string }, description: Assinaturas que casaram neste processo }
+    ProcessInventory:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, processes]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        processes: { type: array, items: { $ref: "#/components/schemas/ProcessInfo" } }
+        hidden: { $ref: "#/components/schemas/HiddenReport" }
+    HiddenReport:
+      type: object
+      additionalProperties: false
+      description: Processos e portas que o kernel confirma mas as listagens escondem (conferidos duas vezes)
+      required: [processes, ports, seconds]
+      properties:
+        processes: { $ref: "#/components/schemas/HiddenProcesses" }
+        ports: { $ref: "#/components/schemas/HiddenPorts" }
+        seconds: { type: number }
+    HiddenProcesses:
+      type: object
+      additionalProperties: false
+      required: [checked, pid_max, visible, found, discarded]
+      properties:
+        checked: { type: boolean }
+        pid_max: { type: integer }
+        visible: { type: integer, description: Processos e threads listados no /proc }
+        found:
+          type: array
+          items: { $ref: "#/components/schemas/HiddenProcess" }
+        discarded: { type: integer, description: Candidatos descartados por serem efêmeros }
+        error: { type: string }
+    HiddenProcess:
+      type: object
+      additionalProperties: false
+      required: [pid, checks, direct_access]
+      properties:
+        pid: { type: integer }
+        checks: { type: array, items: { type: string }, description: Chamadas que confirmaram o processo }
+        direct_access: { type: boolean, description: /proc/PID abre mesmo fora da listagem }
+        comm: { type: string }
+        exe: { type: string }
+    HiddenPorts:
+      type: object
+      additionalProperties: false
+      required: [checked, probed, skipped, listed, netlink, found, discarded]
+      properties:
+        checked: { type: boolean }
+        probed: { type: integer }
+        skipped: { type: integer }
+        listed: { type: integer }
+        netlink: { type: boolean }
+        found:
+          type: array
+          items: { $ref: "#/components/schemas/HiddenPort" }
+        discarded: { type: integer }
+        error: { type: string }
+    HiddenPort:
+      type: object
+      additionalProperties: false
+      required: [proto, port, reason]
+      properties:
+        proto: { type: string, enum: [tcp, udp] }
+        port: { type: integer }
+        reason: { type: string, enum: [bind_only, netlink_only, proc_only] }
+    ReportRun:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+    PackageRef:
+      type: object
+      additionalProperties: false
+      required: [name, version]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        arch: { type: string }
+    IntegrityFile:
+      type: object
+      additionalProperties: false
+      required: [path, flags, changes, class, severity, signature, description]
+      properties:
+        path: { type: string }
+        flags: { type: string, description: 'Marcas da ferramenta (S.5....T.); "missing" para arquivo ausente' }
+        changes:
+          type: array
+          items: { type: string, enum: [size, mode, digest, device, link, user, group, mtime, capabilities, missing] }
+        config: { type: boolean }
+        class: { type: string, enum: [binary, library, pam_module, kernel_module, config_sensitive, config, doc, other] }
+        severity: { $ref: "#/components/schemas/Severity" }
+        signature: { type: string }
+        description: { type: string }
+        packages: { type: array, items: { $ref: "#/components/schemas/PackageRef" } }
+        algo: { type: string }
+        expected: { type: string }
+        actual: { type: string }
+        sha256: { type: string }
+    SigningKey:
+      type: object
+      additionalProperties: false
+      required: [id, summary]
+      properties:
+        id: { type: string }
+        summary: { type: string }
+    KeyedPackage:
+      type: object
+      additionalProperties: false
+      required: [name, version, key_id]
+      properties:
+        name: { type: string }
+        version: { type: string }
+        arch: { type: string }
+        key_id: { type: string }
+    PackageRepo:
+      type: object
+      additionalProperties: false
+      required: [id, file, enabled, verified]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        file: { type: string }
+        enabled: { type: boolean }
+        verified: { type: boolean }
+        problem: { type: string, enum: [gpgcheck_off, trusted, allow_insecure, unsigned_list, apt_conf_insecure] }
+    PackageSignatures:
+      type: object
+      additionalProperties: false
+      required: [manager, method, signed, repos]
+      properties:
+        manager: { type: string }
+        method: { type: string, enum: [package, repository] }
+        keys: { type: array, items: { $ref: "#/components/schemas/SigningKey" } }
+        signed: { type: integer }
+        unsigned: { type: array, items: { $ref: "#/components/schemas/PackageRef" } }
+        unknown_key: { type: array, items: { $ref: "#/components/schemas/KeyedPackage" } }
+        repos: { type: array, items: { $ref: "#/components/schemas/PackageRepo" } }
+        warnings: { type: array, items: { type: string } }
+    IntegrityReport:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, runs, manager, tools, debsums_available, packages, differences, files, ignored, by_severity, seconds]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        runs:
+          type: array
+          description: Execuções guardadas, da mais recente para a mais antiga
+          items: { $ref: "#/components/schemas/ReportRun" }
+        manager: { type: string, description: rpm, dpkg ou vazio quando nenhum gerenciador foi encontrado }
+        tools: { type: array, items: { type: string } }
+        debsums_available: { type: boolean }
+        packages: { type: integer }
+        differences: { type: integer, description: Linhas apontadas pela ferramenta, inclusive as ignoradas }
+        files: { type: array, items: { $ref: "#/components/schemas/IntegrityFile" } }
+        truncated: { type: integer, description: Diferenças além do limite da lista (os achados existem todos) }
+        ignored: { type: object, additionalProperties: { type: integer } }
+        by_severity: { type: object, additionalProperties: { type: integer } }
+        signatures: { $ref: "#/components/schemas/PackageSignatures" }
+        signature_error: { type: string }
+        error: { type: string }
+        warnings: { type: array, items: { type: string } }
+        seconds: { type: number }
+    PackageUpdate:
+      type: object
+      additionalProperties: false
+      required: [name, available, security]
+      properties:
+        name: { type: string }
+        arch: { type: string }
+        installed: { type: string }
+        available: { type: string }
+        repo: { type: string }
+        security: { type: boolean }
+        severity: { type: string, description: critical, important, moderate, low ou unknown }
+        advisories: { type: array, items: { type: string } }
+        cves: { type: array, items: { type: string } }
+    RebootStatus:
+      type: object
+      additionalProperties: false
+      required: [known, required, running_kernel]
+      properties:
+        known: { type: boolean, description: Houve como saber (kernel por pacote, needs-restarting ou needrestart) }
+        required: { type: boolean }
+        reasons: { type: array, items: { type: string } }
+        running_kernel: { type: string }
+        latest_kernel: { type: string }
+        packages: { type: array, items: { type: string } }
+    RestartService:
+      type: object
+      additionalProperties: false
+      required: [unit, source]
+      properties:
+        unit: { type: string }
+        pids: { type: array, items: { type: integer } }
+        files: { type: array, items: { type: string } }
+        source: { type: string, description: needs-restarting, needrestart ou maps }
+    RestartProcess:
+      type: object
+      additionalProperties: false
+      required: [pid, comm, uid, files]
+      properties:
+        pid: { type: integer }
+        comm: { type: string }
+        uid: { type: integer, format: int64 }
+        files: { type: array, items: { type: string } }
+    UpdatesReport:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, runs, manager, refresh_allowed, refreshed, security, other, by_severity, reboot, services, processes, tools, seconds]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        runs: { type: array, items: { $ref: "#/components/schemas/ReportRun" } }
+        manager: { type: string }
+        cache_updated_at: { type: string, format: date-time, description: Lista de pacotes mais recente no cache }
+        cache_oldest_at: { type: string, format: date-time, description: Lista mais antiga entre os repositórios }
+        refresh_allowed: { type: boolean, description: O root liberou atualizar a lista de pacotes (executor.json) }
+        refreshed: { type: boolean }
+        refresh_error: { type: string }
+        security: { type: array, items: { $ref: "#/components/schemas/PackageUpdate" } }
+        other: { type: array, items: { $ref: "#/components/schemas/PackageUpdate" } }
+        by_severity: { type: object, additionalProperties: { type: integer } }
+        reboot: { $ref: "#/components/schemas/RebootStatus" }
+        services: { type: array, items: { $ref: "#/components/schemas/RestartService" } }
+        processes: { type: array, items: { $ref: "#/components/schemas/RestartProcess" } }
+        tools: { type: object, additionalProperties: { type: boolean } }
+        error: { type: string }
+        warnings: { type: array, items: { type: string } }
+        seconds: { type: number }
+        notes: { type: object, additionalProperties: { type: string } }
+    PersistenceInventory:
+      type: object
+      additionalProperties: false
+      required: [run_id, taken_at, baseline, items]
+      properties:
+        run_id: { type: string }
+        taken_at: { type: string, format: date-time }
+        baseline: { type: boolean, description: Primeira inspeção, sem comparação com uma anterior }
+        items: { type: array, items: { $ref: "#/components/schemas/PersistenceEntry" } }
+        removed: { type: array, items: { $ref: "#/components/schemas/PersistenceEntry" } }
+    PersistenceEntry:
+      type: object
+      additionalProperties: false
+      required: [kind, path]
+      properties:
+        kind: { type: string }
+        path: { type: string }
+        detail: { type: string }
+        sha256: { type: string }
+        owner: { type: string }
+        package: { type: string }
+        change: { type: string, enum: [added, changed, removed, ""] }
+    Finding:
+      type: object
+      additionalProperties: false
+      required: [id, kind, engine, engine_version, rules_version, signature, source, license, author, reference, description, category, severity, file_type, state, assignee, first_run, last_run, first_seen, last_seen, state_changed, times_seen, locations_count, evidence]
+      properties:
+        id: { type: integer, format: int64 }
+        kind: { $ref: "#/components/schemas/FindingKind" }
+        engine: { type: string }
+        engine_version: { type: string }
+        rules_version: { type: string }
+        signature: { type: string }
+        source: { type: string }
+        license: { type: string }
+        author: { type: string }
+        reference: { type: string }
+        description: { type: string }
+        category: { type: string }
+        severity: { $ref: "#/components/schemas/Severity" }
+        sha256: { type: string }
+        file_type: { type: string }
+        state: { $ref: "#/components/schemas/FindingState" }
+        assignee: { type: string }
+        exception_id: { type: integer, format: int64 }
+        first_run: { type: string }
+        last_run: { type: string }
+        first_seen: { type: string, format: date-time }
+        last_seen: { type: string, format: date-time }
+        state_changed: { type: string, format: date-time }
+        times_seen: { type: integer, format: int64 }
+        location: { $ref: "#/components/schemas/Location" }
+        locations_count: { type: integer, format: int64 }
+        evidence:
+          type: object
+          additionalProperties: { type: string }
+        process: { $ref: "#/components/schemas/ProcessEvidence" }
+        persistence: { $ref: "#/components/schemas/PersistenceEntry" }
+        subject: { type: string, description: 'Assunto do achado do sistema ("security-updates", "repo:epel", "tcp/31337")' }
+    FindingEvent:
+      type: object
+      additionalProperties: false
+      required: [at, actor, action, from, to, note]
+      properties:
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string }
+        from: { type: string }
+        to: { type: string }
+        note: { type: string }
+    FindingDetail:
+      type: object
+      additionalProperties: false
+      required: [finding, locations, events, allowed_transitions]
+      properties:
+        finding: { $ref: "#/components/schemas/Finding" }
+        locations:
+          type: array
+          items: { $ref: "#/components/schemas/Location" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/FindingEvent" }
+        allowed_transitions:
+          type: array
+          items: { $ref: "#/components/schemas/FindingState" }
+    FindingPage:
+      type: object
+      additionalProperties: false
+      required: [findings]
+      properties:
+        findings:
+          type: array
+          items: { $ref: "#/components/schemas/Finding" }
+        next_before: { type: integer, format: int64 }
+    FindingTransition:
+      type: object
+      additionalProperties: false
+      required: [to]
+      properties:
+        to: { $ref: "#/components/schemas/FindingState" }
+        note: { type: string, maxLength: 2000 }
+
+    ExceptionScope:
+      type: string
+      enum: [hash, hash_rule, rule_prefix, rule_global]
+    Exception:
+      type: object
+      additionalProperties: false
+      required: [id, scope, sha256, signature, path_prefix, reason, created_by, created_at, revoked_by, active]
+      properties:
+        id: { type: integer, format: int64 }
+        scope: { $ref: "#/components/schemas/ExceptionScope" }
+        sha256: { type: string }
+        signature: { type: string }
+        path_prefix: { type: string }
+        reason: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+        revoked_by: { type: string }
+        active: { type: boolean }
+    ExceptionCreate:
+      type: object
+      additionalProperties: false
+      required: [scope, reason]
+      properties:
+        scope: { $ref: "#/components/schemas/ExceptionScope" }
+        finding_id: { type: integer, format: int64, description: Preenche hash e assinatura a partir do achado }
+        sha256: { type: string, maxLength: 64 }
+        signature: { type: string, maxLength: 256 }
+        path_prefix: { type: string, maxLength: 4096 }
+        reason: { type: string, minLength: 3, maxLength: 2000 }
+        expires_at: { type: string, format: date-time }
+
+    MissedPolicy:
+      type: string
+      enum: [skip, run_once]
+    Schedule:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, cron, timezone, paths, exclude, incremental, profile, missed_policy, enabled, created_by, created_at, updated_at, upcoming]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        cron: { type: string }
+        timezone: { type: string }
+        paths: { type: array, items: { type: string } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
+        exclude: { type: array, items: { type: string } }
+        incremental: { type: boolean }
+        profile: { type: string }
+        missed_policy: { $ref: "#/components/schemas/MissedPolicy" }
+        enabled: { type: boolean }
+        next_run_at: { type: string, format: date-time }
+        last_run_at: { type: string, format: date-time }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        upcoming:
+          type: array
+          items: { type: string, format: date-time }
+    ScheduleInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, cron]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 128 }
+        kind: { $ref: "#/components/schemas/RunKind" }
+        cron: { type: string, maxLength: 128, description: "5 campos (min hora dia mês dia-da-semana) ou @daily, @weekly, @hourly" }
+        timezone: { type: string, default: UTC, description: Fuso IANA (ex. America/Sao_Paulo) }
+        paths: { type: array, maxItems: 64, items: { type: string, maxLength: 4096 } }
+        accounts: { $ref: "#/components/schemas/AccountSelection" }
+        exclude: { type: array, maxItems: 256, items: { type: string, maxLength: 4096 } }
+        incremental: { type: boolean, default: true }
+        profile: { type: string, default: padrao }
+        missed_policy: { $ref: "#/components/schemas/MissedPolicy" }
+        enabled: { type: boolean, default: true }
+    CronPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [cron]
+      properties:
+        cron: { type: string, maxLength: 128 }
+        timezone: { type: string }
+    CronPreview:
+      type: object
+      additionalProperties: false
+      required: [next]
+      properties:
+        next:
+          type: array
+          items: { type: string, format: date-time }
+
+    EngineState:
+      type: string
+      enum: [operational, degraded, unavailable, disabled, not_installed]
+      description: >
+        Saúde do motor (glossário) — não confundir com atualização das assinaturas. disabled: instalado e desligado
+        pelo administrador; not_installed: ferramenta opcional ausente (ou inutilizável) e desligada.
+    LastSelfTest:
+      type: object
+      additionalProperties: false
+      required: [run_id, passed, detail]
+      properties:
+        run_id: { type: string }
+        passed: { type: boolean }
+        detail: { type: string }
+        at: { type: string, format: date-time }
+    EngineHealth:
+      type: object
+      additionalProperties: false
+      required: [id, name, state]
+      properties:
+        id: { type: string, enum: [yara-x, clamav, lmd] }
+        name: { type: string }
+        state: { $ref: "#/components/schemas/EngineState" }
+        version: { type: string }
+        rules_version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        mode: { type: string, description: "clamd (FILDES) ou clamscan" }
+        detail: { type: string }
+        last_selftest: { $ref: "#/components/schemas/LastSelfTest" }
+    ToggleInput:
+      type: object
+      additionalProperties: false
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    RuleSourceState:
+      type: string
+      enum: [ok, error, refused, disabled, pending]
+      description: >
+        ok: compilada no conjunto; error: não compilou e ficou fora; refused: recusada antes de compilar (permissões,
+        include, limites); disabled: desativada; pending: alterada ou ativada depois da última compilação.
+    RuleSource:
+      type: object
+      additionalProperties: false
+      required: [name, origin, enabled, mandatory, files, rules, bytes, state]
+      properties:
+        name: { type: string }
+        origin: { type: string, enum: [builtin, local] }
+        enabled: { type: boolean }
+        mandatory: { type: boolean, description: O controle positivo não pode ser desativado }
+        path: { type: string }
+        description: { type: string }
+        license: { type: string }
+        author: { type: string }
+        url: { type: string }
+        version: { type: string }
+        files: { type: integer }
+        rules: { type: integer }
+        bytes: { type: integer, format: int64 }
+        hash: { type: string, description: SHA-256 do conteúdo }
+        updated_at: { type: string, format: date-time }
+        state: { $ref: "#/components/schemas/RuleSourceState" }
+        problem: { type: string, description: Motivo da recusa ou erro de compilação }
+    RulesCompileResult:
+      type: object
+      additionalProperties: false
+      required: [at, trigger, ok]
+      properties:
+        at: { type: string, format: date-time }
+        trigger: { type: string, enum: [scan, inspect, manual] }
+        ok: { type: boolean }
+        error: { type: string }
+        set_version: { type: string }
+        yr_version: { type: string }
+        selftest: { type: boolean, description: Controle positivo detectado pelo conjunto (só na compilação manual) }
+        detail: { type: string }
+    YaraRules:
+      type: object
+      additionalProperties: false
+      required: [user_dir, compiling, sources]
+      properties:
+        yr_version: { type: string }
+        user_dir: { type: string, description: Diretório das fontes locais (só o root grava) }
+        compiling: { type: boolean }
+        last_compile: { $ref: "#/components/schemas/RulesCompileResult" }
+        sources:
+          type: array
+          items: { $ref: "#/components/schemas/RuleSource" }
+    ClamavSignatures:
+      type: object
+      additionalProperties: false
+      required: [state, lmd_signatures]
+      properties:
+        state: { $ref: "#/components/schemas/EngineState" }
+        version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        mode: { type: string }
+        detail: { type: string }
+        lmd_signatures:
+          type: array
+          description: Assinaturas do LMD (rfxn.*) nos diretórios do ClamAV, carregadas pelo clamd
+          items: { type: string }
+    LmdSignatureCounts:
+      type: object
+      additionalProperties: false
+      required: [md5, sha256, hex, csig, yara, user]
+      properties:
+        md5: { type: integer }
+        sha256: { type: integer }
+        hex: { type: integer }
+        csig: { type: integer }
+        yara: { type: integer }
+        user: { type: integer }
+    LmdStatus:
+      type: object
+      additionalProperties: false
+      required: [installed, usable, enabled, state, path]
+      properties:
+        installed: { type: boolean }
+        usable: { type: boolean, description: Versão 2.x com instalação só gravável pelo root }
+        enabled: { type: boolean }
+        state: { $ref: "#/components/schemas/EngineState" }
+        path: { type: string }
+        version: { type: string }
+        signatures_version: { type: string }
+        signatures_date: { type: string }
+        signatures: { $ref: "#/components/schemas/LmdSignatureCounts" }
+        detail: { type: string }
+        last_selftest: { $ref: "#/components/schemas/LastSelfTest" }
+    RulesOverview:
+      type: object
+      additionalProperties: false
+      required: [yara, clamav, lmd]
+      properties:
+        yara: { $ref: "#/components/schemas/YaraRules" }
+        clamav: { $ref: "#/components/schemas/ClamavSignatures" }
+        lmd: { $ref: "#/components/schemas/LmdStatus" }
+        executor_error: { type: string }
+    EngineStatus:
+      type: object
+      additionalProperties: false
+      required: [engines]
+      properties:
+        engines:
+          type: array
+          items: { $ref: "#/components/schemas/EngineHealth" }
+        executor_error: { type: string }
+
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, role, disabled, mfa_enabled, created_at]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        display_name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+        mfa_enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        last_login_at: { type: string, format: date-time }
+    UserCreate:
+      type: object
+      additionalProperties: false
+      required: [username, role, password]
+      properties:
+        username: { type: string, maxLength: 64 }
+        display_name: { type: string, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        password: { type: string, maxLength: 256 }
+    UserUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        display_name: { type: string, maxLength: 128 }
+        role: { $ref: "#/components/schemas/Role" }
+        disabled: { type: boolean }
+    ApiToken:
+      type: object
+      additionalProperties: false
+      required: [id, name, username, role, prefix, created_at, expires_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        prefix: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+        last_used: { type: string, format: date-time }
+        revoked_at: { type: string, format: date-time }
+    ApiTokenCreate:
+      type: object
+      additionalProperties: false
+      required: [name, role, expires_in_days]
+      properties:
+        name: { type: string, maxLength: 64 }
+        role: { $ref: "#/components/schemas/Role" }
+        expires_in_days: { type: integer, minimum: 1, maximum: 365 }
+    ApiTokenCreated:
+      type: object
+      additionalProperties: false
+      required: [token, info]
+      properties:
+        token: { type: string, description: Exibido uma vez; guardado só por hash }
+        info: { $ref: "#/components/schemas/ApiToken" }
+    BackupInfo:
+      type: object
+      additionalProperties: false
+      required: [name, created_at, size, sha256, schema_version, product, origin]
+      properties:
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        size: { type: integer, format: int64 }
+        sha256: { type: string }
+        schema_version: { type: integer, format: int64 }
+        product: { type: string, description: Versão do VigiaHost que fez a cópia }
+        origin:
+          type: string
+          enum: [automatic, manual, cli, pre-migration, pre-restore]
+    BackupList:
+      type: object
+      additionalProperties: false
+      required: [directory, keep_automatic, backups]
+      properties:
+        directory: { type: string }
+        keep_automatic: { type: integer, description: Quantas cópias automáticas diárias ficam guardadas }
+        backups:
+          type: array
+          items: { $ref: "#/components/schemas/BackupInfo" }
+    AccountSelection:
+      type: object
+      additionalProperties: false
+      description: Contas a verificar; "all" pega as contas humanas/de hospedagem com diretório pessoal, resolvidas no momento da execução.
+      properties:
+        all: { type: boolean }
+        uids: { type: array, maxItems: 10000, items: { type: integer, format: int64, minimum: 0 } }
+    AccountRun:
+      type: object
+      additionalProperties: false
+      required: [id, status, created_at, files_processed, files_eligible]
+      properties:
+        id: { type: string }
+        status: { $ref: "#/components/schemas/RunStatus" }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        files_processed: { type: integer, format: int64 }
+        files_eligible: { type: integer, format: int64 }
+    Account:
+      type: object
+      additionalProperties: false
+      required: [uid, name, home, shell, system, home_ok, open_findings, processes, persistence_items]
+      properties:
+        uid: { type: integer, format: int64 }
+        name: { type: string }
+        home: { type: string }
+        shell: { type: string }
+        system: { type: boolean, description: Conta de sistema (fora da faixa UID_MIN..UID_MAX) }
+        home_ok: { type: boolean, description: O diretório pessoal existe e é um diretório }
+        open_findings: { $ref: "#/components/schemas/SeverityCounts" }
+        last_run: { $ref: "#/components/schemas/AccountRun" }
+        processes: { type: integer, description: "Processos da conta na última inspeção (-1: nenhuma inspeção ainda)" }
+        persistence_items: { type: integer, description: "Itens de persistência da conta na última inspeção (-1: nenhuma inspeção ainda)" }
+    AccountList:
+      type: object
+      additionalProperties: false
+      required: [uid_min, uid_max, accounts]
+      properties:
+        uid_min: { type: integer, format: int64 }
+        uid_max: { type: integer, format: int64 }
+        inventory_at: { type: string, format: date-time, description: Horário da inspeção de processos usada nas contagens }
+        accounts:
+          type: array
+          items: { $ref: "#/components/schemas/Account" }
+    AuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, at, actor, action, target, detail, ip]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        actor: { type: string }
+        action: { type: string }
+        target: { type: string }
+        detail: { type: string }
+        ip: { type: string }
+    AuditPage:
+      type: object
+      additionalProperties: false
+      required: [entries, chain_ok]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/AuditEntry" }
+        chain_ok: { type: boolean }
+        broken_at: { type: integer, format: int64 }
+        next_before: { type: integer, format: int64 }
+    NotificationEvent:
+      type: string
+      description: >
+        finding_new: achado novo ou reaberto (filtrado pela severidade mínima); run_failed: execução com falha ou
+        interrompida; run_partial: execução parcial; engine_selftest_failed: motor indisponível ou autoteste com falha;
+        executor_unavailable: executor fora do ar (e o aviso de volta); backup_failed: cópia automática do banco falhou.
+      enum: [finding_new, run_failed, run_partial, engine_selftest_failed, executor_unavailable, backup_failed]
+    OutboxEvent:
+      type: string
+      description: Evento da mensagem (os das regras e test, do botão de teste)
+      enum: [finding_new, run_failed, run_partial, engine_selftest_failed, executor_unavailable, backup_failed, test]
+    NotificationChannelKind:
+      type: string
+      enum: [email, webhook]
+    SmtpSecurity:
+      type: string
+      description: "starttls: exige STARTTLS (sem queda para texto puro); tls: TLS desde a conexão (465); none: só relé local."
+      enum: [starttls, tls, none]
+    EmailSettings:
+      type: object
+      additionalProperties: false
+      required: [host, port, security, from, to]
+      properties:
+        host: { type: string, maxLength: 253, description: Nome ou IP do servidor SMTP, sem esquema nem porta }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        security: { $ref: "#/components/schemas/SmtpSecurity" }
+        username: { type: string, maxLength: 256, description: Vazio desliga a autenticação }
+        from: { type: string, maxLength: 320 }
+        to:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, maxLength: 320 }
+    WebhookSettings:
+      type: object
+      additionalProperties: false
+      required: [url, allow_private_network]
+      properties:
+        url: { type: string, maxLength: 2048, description: "Só http:// ou https://; redirecionamentos não são seguidos" }
+        allow_private_network:
+          type: boolean
+          description: >
+            Libera destino em rede privada ou local (RFC 1918, loopback, CGNAT, ULA). Link-local (169.254.0.0/16,
+            fe80::/10) e endereços de metadados de nuvem são sempre recusados.
+    OutboxState:
+      type: string
+      enum: [pending, sent, failed]
+      x-enum-varnames: [OutboxPending, OutboxSent, OutboxFailed]
+    NotificationChannel:
+      type: object
+      additionalProperties: false
+      required: [id, name, kind, enabled, include_details, secret_configured, secret_readable, created_by, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        enabled: { type: boolean }
+        include_details: { type: boolean, description: Inclui caminhos e hashes nas mensagens (privacidade) }
+        email: { $ref: "#/components/schemas/EmailSettings" }
+        webhook: { $ref: "#/components/schemas/WebhookSettings" }
+        secret_configured:
+          type: boolean
+          description: Há senha SMTP ou segredo do webhook guardado (cifrado). O valor nunca volta pela API.
+        secret_readable:
+          type: boolean
+          description: O segredo abre com a chave atual (falso depois de trocar a chave ou restaurar o banco em outro servidor)
+        last_state: { $ref: "#/components/schemas/OutboxState" }
+        last_at: { type: string, format: date-time }
+        last_error: { type: string }
+        created_by: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotificationChannelInput:
+      type: object
+      additionalProperties: false
+      required: [name, kind, enabled]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 64 }
+        kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        enabled: { type: boolean }
+        include_details: { type: boolean, description: Padrão true }
+        email: { $ref: "#/components/schemas/EmailSettings" }
+        webhook: { $ref: "#/components/schemas/WebhookSettings" }
+        secret:
+          type: string
+          maxLength: 512
+          writeOnly: true
+          description: >
+            Senha SMTP ou segredo de assinatura do webhook (24 a 256 bytes; aceita o formato whsec_<base64>). Ausente
+            mantém o atual; vazio apaga (só no e-mail sem usuário).
+    NotificationRule:
+      type: object
+      additionalProperties: false
+      required: [id, channel_id, event, min_severity, dedup_minutes, enabled, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        channel_id: { type: integer, format: int64 }
+        event: { $ref: "#/components/schemas/NotificationEvent" }
+        min_severity: { $ref: "#/components/schemas/Severity" }
+        dedup_minutes: { type: integer, description: O mesmo achado ou evento não notifica de novo neste canal dentro da janela }
+        enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotificationRuleInput:
+      type: object
+      additionalProperties: false
+      required: [channel_id, event]
+      properties:
+        channel_id: { type: integer, format: int64 }
+        event: { $ref: "#/components/schemas/NotificationEvent" }
+        min_severity: { $ref: "#/components/schemas/Severity" }
+        dedup_minutes: { type: integer, minimum: 0, maximum: 10080, description: Padrão conforme o evento (achados 1440) }
+        enabled: { type: boolean }
+    OutboxItem:
+      type: object
+      additionalProperties: false
+      required: [severity, title]
+      properties:
+        severity: { $ref: "#/components/schemas/Severity" }
+        title: { type: string }
+        finding_id: { type: integer, format: int64 }
+        run_id: { type: string }
+        at: { type: string, format: date-time }
+    OutboxEntry:
+      type: object
+      additionalProperties: false
+      required: [id, channel_name, channel_kind, event, summary, item_count, severity_counts, items, state, attempts, max_attempts, last_error, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        channel_id: { type: integer, format: int64, description: Ausente quando o canal foi removido }
+        channel_name: { type: string }
+        channel_kind: { $ref: "#/components/schemas/NotificationChannelKind" }
+        event: { $ref: "#/components/schemas/OutboxEvent" }
+        summary: { type: string }
+        item_count: { type: integer, description: Itens da mensagem (achados agrupados contam um a um) }
+        severity_counts:
+          type: object
+          additionalProperties: { type: integer }
+        items:
+          type: array
+          description: Amostra dos itens (até 25)
+          items: { $ref: "#/components/schemas/OutboxItem" }
+        state: { $ref: "#/components/schemas/OutboxState" }
+        attempts: { type: integer }
+        max_attempts: { type: integer }
+        next_attempt_at: { type: string, format: date-time }
+        last_error: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        sent_at: { type: string, format: date-time }
+    OutboxPage:
+      type: object
+      additionalProperties: false
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/OutboxEntry" }
+        next_before: { type: integer, format: int64 }
+    NotificationTestResult:
+      type: object
+      additionalProperties: false
+      required: [ok, entry]
+      properties:
+        ok: { type: boolean }
+        error: { type: string, description: Causa da falha, como o servidor respondeu }
+        entry: { $ref: "#/components/schemas/OutboxEntry" }

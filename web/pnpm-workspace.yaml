@@ -1,0 +1,5 @@
+# Configuração do pnpm para a interface (cadeia de suprimentos, escopo seção 19).
+# Versões publicadas há menos de 7 dias não são instaladas, a mesma espera do Dependabot.
+minimumReleaseAge: 10080
+# Nenhum pacote roda script de instalação; um pacote novo que tente falha a instalação até ser revisado.
+strictDepBuilds: true

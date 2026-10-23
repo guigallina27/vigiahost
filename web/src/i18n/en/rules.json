@@ -1,0 +1,104 @@
+{
+  "rules": {
+    "title": "Rules and sources",
+    "subtitle": "YARA rule sources, ClamAV and LMD signatures, with the result of the last compilation.",
+    "refresh": "Refresh status",
+    "compile": "Compile rules",
+    "compiling": "Compiling rules…",
+    "compileStarted": "Compilation started. The result shows up here when it finishes.",
+    "compileBusy": "A rule compilation is already running.",
+    "executorDown": "The executor did not respond: sources and signatures may be incomplete.",
+    "adminOnly": "Only the administrator compiles rules, enables or disables sources and turns LMD on.",
+    "lastCompile": {
+      "title": "Last compilation",
+      "none": "No compilation recorded. The first scan or the Compile rules button compiles the set.",
+      "when": "When",
+      "trigger": "Origin",
+      "triggers": {
+        "scan": "File scan",
+        "inspect": "Process inspection",
+        "manual": "Administrator request"
+      },
+      "result": "Result",
+      "ok": "Set compiled",
+      "failed": "Failed",
+      "setVersion": "Set version",
+      "yrVersion": "YARA-X",
+      "selftest": "Positive control",
+      "selftestPassed": "Detected",
+      "selftestFailed": "Not detected",
+      "selftestNotRun": "Only tested in compilations requested by the administrator"
+    },
+    "sources": {
+      "title": "YARA sources",
+      "caption": "YARA rule sources",
+      "colSource": "Source",
+      "colLicense": "License",
+      "colRules": "Rules",
+      "colUpdated": "Updated",
+      "colHash": "Hash",
+      "colState": "State",
+      "colActions": "Actions",
+      "origin": {
+        "builtin": "Built-in",
+        "local": "Local"
+      },
+      "mandatory": "Mandatory",
+      "rulesFiles_one": "{{rules}} rules in {{count}} file",
+      "rulesFiles_other": "{{rules}} rules in {{count}} files",
+      "version": "version {{version}}",
+      "noLicense": "Not stated",
+      "states": {
+        "ok": "Compiled",
+        "error": "With errors",
+        "refused": "Refused",
+        "disabled": "Disabled",
+        "pending": "Pending"
+      },
+      "enable": "Enable source",
+      "disable": "Disable source",
+      "enableTitle": "Enable the rule source",
+      "disableTitle": "Disable the rule source",
+      "enableImpact": "This source's rules apply again from the next compilation; compilation starts now, validating each source.",
+      "disableImpact": "This source's rules stop being used in the next scans. Findings already recorded stay as they are.",
+      "toggled": "Source {{name}} updated; compilation was requested.",
+      "userDir": "To add a source, create a subdirectory in {{dir}} with .yar files and, optionally, a source.json with description, license, author, address and version. Only root writes there; sources with open permissions, include or over the limits are refused.",
+      "empty": "The executor reported no sources.",
+      "emptyDescription": "Check that the executor is running and refresh the status."
+    },
+    "clamav": {
+      "title": "ClamAV signatures",
+      "mode": "Mode",
+      "lmdLinked": "LMD (rfxn) signatures are already in the ClamAV directories and loaded by clamd:",
+      "lmdLinkedNote": "Turning LMD on adds only the types ClamAV does not use (SHA-256 and compound signatures)."
+    },
+    "lmd": {
+      "title": "Linux Malware Detect (LMD)",
+      "role": "Additional signature source (MD5, SHA-256, HEX, compound and YARA from the rfxn project), applied to the same file list as the scan. LMD runs without quarantine and without the ClamAV stage: VigiaHost only reads.",
+      "installed": "Installation",
+      "path": "Directory",
+      "notInstalled": "Not found",
+      "signaturesVersion": "Signatures version",
+      "signaturesDate": "Signatures date",
+      "signatures": "Signatures",
+      "counts": "{{md5}} MD5 · {{sha256}} SHA-256 · {{hex}} HEX · {{csig}} compound · {{yara}} YARA · {{user}} user",
+      "enabled": "In scans",
+      "on": "On",
+      "off": "Off",
+      "enable": "Turn LMD on",
+      "disable": "Turn LMD off",
+      "enableTitle": "Turn LMD on for file scans",
+      "disableTitle": "Turn LMD off for file scans",
+      "enableImpact": "The next file scans also go through LMD, with quarantine off. Scans take longer.",
+      "disableImpact": "The next file scans stop using LMD. Findings already recorded stay as they are.",
+      "toggledOn": "LMD turned on for the next file scans.",
+      "toggledOff": "LMD turned off.",
+      "guidance": {
+        "missing": "LMD 2.x is not installed. To use it, install version 2.0 or newer from the official rfxn project package (github.com/rfxn/linux-malware-detect) and verify the file signature. VigiaHost does not install third-party tools.",
+        "unusable": "LMD was found but cannot be used: the detail above shows why (version older than 2.0 or files writable by other users).",
+        "unavailable": "LMD is on, but the installation cannot be used: scans record an engine failure until it is fixed or turned off.",
+        "selftestFailed": "The LMD self-test failed in the last scan. Open the run shown to see why."
+      }
+    }
+  }
+}

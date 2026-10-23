@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.2",
+  "scanner": {
+    "name": "Linux Malware Detect",
+    "version": "2.0.1",
+    "engine": "native",
+    "hash_type": "sha256",
+    "sig_version": "2026052490478"
+  },
+  "host": {
+    "hostname": "vigiahost-lab",
+    "host_id": "ff81bfcadb10607d4d7a8c9bb7a75750"
+  },
+  "reports": [
+    {
+      "scan_id": "261022-2001.201",
+      "type": "scan",
+      "path": "/var/tmp/e110/capture/lista",
+      "range_days": "/var/tmp/e110/capture/lista",
+      "started": "Oct 22 2026 20:01:43 -0300",
+      "started_epoch": 1792710103,
+      "completed": "Oct 22 2026 20:01:48 -0300",
+      "completed_epoch": 1792710108,
+      "elapsed_seconds": 5,
+      "filelist_seconds": 0,
+      "total_files": 5,
+      "total_hits": 3,
+      "total_cleaned": 0,
+      "total_quarantined": 0,
+      "quarantine_enabled": false,
+      "hits": [
+        {
+          "index": 1,
+          "signature": "{SHA256}test.test.eicar.29805",
+          "file": "/proc/131/fd/10",
+          "hit_type": "SHA256",
+          "hit_type_label": "SHA-256 Hash",
+          "quarantined": false,
+          "hash": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+          "size": 64,
+          "owner": "root",
+          "group": "root",
+          "mode": "500",
+          "mtime": 1792710103
+        },
+        {
+          "index": 2,
+          "signature": "{HEX}test.test.eicar",
+          "file": "/proc/131/fd/11",
+          "hit_type": "HEX",
+          "hit_type_label": "HEX Pattern",
+          "quarantined": false,
+          "hash": "692e3d3d05c8c669ea915e7a8ed4f23f",
+          "size": 64,
+          "owner": "root",
+          "group": "root",
+          "mode": "500",
+          "mtime": 1792710103
+        },
+        {
+          "index": 3,
+          "signature": "{HEX}php.inject.generic.564",
+          "file": "/proc/131/fd/12",
+          "hit_type": "HEX",
+          "hit_type_label": "HEX Pattern",
+          "quarantined": false,
+          "hash": "4ad3b466a91f33c89ce903406a288a07",
+          "size": 64,
+          "owner": "root",
+          "group": "root",
+          "mode": "500",
+          "mtime": 1792710103
+        }
+      ],
+      "summary": {
+        "total_hits": 3,
+        "total_quarantined": 0,
+        "total_cleaned": 0,
+        "quarantine_status": "None quarantined",
+        "by_type": {"SHA256": 1, "HEX": 2}
+      }
+    }
+  ]
+}
