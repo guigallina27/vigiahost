@@ -4,6 +4,9 @@
 # de memfd (sleep inofensivo com o marcador do controle positivo) e roda o programa e2e, que percorre a API como a
 # interface: primeiro acesso, segundo fator, varreduras, inspeção de processos, achados, verificação por conta (cria a
 # conta de teste vh-e2e-conta), exceção, agendamento, cópia do banco, token de API e auditoria. O processo de teste é encerrado ao fim, com ou sem falha.
+# Fase 1B: notificações (webhook assinado para um receptor local do próprio programa e2e, em 127.0.0.1), regras YARA
+# e LMD (exige o LMD 2.x em /usr/local/maldetect; ligado só durante a etapa e devolvido ao estado original) e ajuste
+# de CPU de uma varredura grande em andamento, conferido no cpu.max do cgroup, com as métricas e o comparativo.
 #
 # Repetível sem reinstalar: a primeira execução grava as credenciais do administrador e2e-admin em
 # /root/.vigiahost-e2e.json (0600); as seguintes as reusam.

@@ -3,6 +3,8 @@
 // primeiro acesso com o token do terminal e a caixa "não sou um robô" (ALTCHA), segundo fator TOTP, varreduras de
 // arquivos (completa e incremental) sobre os corpus, inspeção de processos com um processo sem arquivo (memfd),
 // ciclo de vida do achado, verificação por conta, exceção com reautenticação, agendamento, cópia do banco, token de API e auditoria.
+// Da Fase 1B (fase1b.go): notificações por webhook assinado com receptor local, regras YARA e LMD ligado numa
+// varredura, e ajuste de CPU de uma varredura em andamento conferido no cgroup, com as métricas de desempenho.
 //
 // Repetível: na primeira execução cria o administrador e2e-admin e grava usuário, senha, segredo TOTP e códigos de
 // recuperação em /root/.vigiahost-e2e.json (0600); nas seguintes, com o banco já tendo usuários, reusa esse arquivo.
@@ -97,6 +99,7 @@ type tester struct {
 	reauthUntil time.Time
 	reauths     int
 	auditStart  int64
+	auditExtra  []string // ações de auditoria que as etapas da Fase 1B passam a exigir
 }
 
 type reqOpts struct {
@@ -178,6 +181,13 @@ func main() {
 	t.stepIncremental(sr)
 	t.stepProcesses()
 	t.stepFindingLifecycle(sr)
+	t.stepNotifications(sr)
+	t.stepRules(pos)
+	big := []string{ben}
+	if st, err := os.Stat(path.Join(cfg.corpus, "sintetico")); err == nil && st.IsDir() {
+		big = append(big, path.Join(cfg.corpus, "sintetico"))
+	}
+	t.stepResources(big)
 	t.stepAccount()
 	if cfg.scaleCount > 0 {
 		t.stepAccountScale()
@@ -193,8 +203,30 @@ func main() {
 // ---------------------------------------------------------------------------------------------------------------
 // Saída
 
+// onFail guarda o que desfazer se o teste falhar no meio de uma etapa (estado do LMD, canal e regra de notificação,
+// execução em andamento); roda em ordem inversa, uma vez só (falha dentro da limpeza encerra direto).
+var (
+	onFail  []func()
+	failing bool
+)
+
+// onFailure registra a limpeza e devolve a função que a retira quando a etapa desfaz tudo por conta própria.
+func onFailure(f func()) func() {
+	i := len(onFail)
+	onFail = append(onFail, f)
+	return func() { onFail[i] = nil }
+}
+
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "FALHA: "+format+"\n", a...)
+	if !failing {
+		failing = true
+		for i := len(onFail) - 1; i >= 0; i-- {
+			if onFail[i] != nil {
+				onFail[i]()
+			}
+		}
+	}
 	os.Exit(1)
 }
 
@@ -733,6 +765,7 @@ func (t *tester) cleanupLeftovers() {
 			n++
 		}
 	}
+	n += t.cleanupFase1B()
 	if n > 0 {
 		ok("restos de execução anterior do teste removidos: %d item(ns)", n)
 	}
@@ -1638,6 +1671,7 @@ func (t *tester) stepAPIToken() {
 func (t *tester) stepAudit() {
 	want := []string{"run_created", "finding_transition", "exception_created", "exception_revoked", "schedule_created",
 		"schedule_deleted", "backup_created", "api_token_created", "api_token_revoked"}
+	want = append(want, t.auditExtra...)
 	if t.reauths > 0 {
 		want = append(want, "reauth")
 	}

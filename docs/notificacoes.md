@@ -43,7 +43,7 @@ cabeçalhos no padrão [Standard Webhooks](https://www.standardwebhooks.com/):
 
 | Cabeçalho | Conteúdo |
 |---|---|
-| `webhook-id` | Identificador da mensagem (`msg_<número>`). O mesmo em todas as tentativas da mesma mensagem |
+| `webhook-id` | Identificador da mensagem (`msg_<número>`; no envio de teste, `msg_test_<aleatório>`). O mesmo em todas as tentativas da mesma mensagem |
 | `webhook-timestamp` | Momento do envio desta tentativa, em segundos Unix |
 | `webhook-signature` | `v1,<base64 do HMAC-SHA256>`; pode haver várias separadas por espaço |
 
